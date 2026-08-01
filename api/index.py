@@ -29,18 +29,17 @@ def webhook():
             chat_id = update["message"]["chat"]["id"]
             user_text = update["message"]["text"]
             
-            # 1. INSTANT REPLY FOR /START (No AI needed)
+            # 1. INSTANT REPLY FOR /START
             if user_text == "/start":
-                welcome_msg = "Welcome! Please send your birth details in this format: Date Time City (e.g., 26-03-1982 05:00 Chandigarh)"
+                welcome_msg = "Welcome! Please send your birth details in this format: DD-MM-YYYY Time City (e.g., 26-03-1982 05:00 Chandigarh)"
                 send_message(chat_id, welcome_msg)
             
             # 2. HEAVY AI PROCESSING FOR CHARTS
             else:
-                # Send a quick holding message so the user knows it is working
                 send_message(chat_id, "Consulting the stars and calculating your chart. Please wait a moment...")
 
                 try:
-                    # We only load the AI engine here, keeping the rest of the bot fast
+                    # Lazy-load the AI client to keep /start lightning fast
                     from google import genai
                     gemini_client = genai.Client()
                     
@@ -56,11 +55,12 @@ def webhook():
                     Speak directly to the user in a mystical but clear tone. Keep the entire response under 250 words so it is easy to read on Telegram.
                     """
                     
-                    # Ask Gemini to generate the prediction
+                    # Ask Gemini to generate the prediction using the stable 2.0 model
                     response = gemini_client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model="gemini-2.0-flash",
                         contents=prompt
                     )
+                    
                     # Send Gemini's prediction back to Telegram
                     send_message(chat_id, response.text)
                     
