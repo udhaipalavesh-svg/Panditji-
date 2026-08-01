@@ -33,7 +33,6 @@ CATEGORIES = {
 }
 
 def send_message(chat_id, text, reply_markup=None):
-    """Sends a text message with optional interactive buttons"""
     url = f"{TELEGRAM_API_URL}/sendMessage"
     payload = {"chat_id": chat_id, "text": text}
     if reply_markup:
@@ -41,18 +40,15 @@ def send_message(chat_id, text, reply_markup=None):
     requests.post(url, json=payload)
 
 def send_document(chat_id, file_path):
-    """Sends the generated SVG chart to Telegram"""
     with open(file_path, 'rb') as f:
         files = {'document': f}
         data = {'chat_id': chat_id}
         requests.post(f"{TELEGRAM_API_URL}/sendDocument", data=data, files=files)
 
 def answer_callback(callback_id, text=""):
-    """Acknowledges button click to remove Telegram's loading spinner"""
     requests.post(f"{TELEGRAM_API_URL}/answerCallbackQuery", json={"callback_query_id": callback_id, "text": text})
 
 def get_coordinates(city_name):
-    """Fetches latitude and longitude for a city name using OpenStreetMap"""
     try:
         url = f"https://nominatim.openstreetmap.org/search?q={city_name}&format=json&limit=1"
         headers = {'User-Agent': 'PanditjiVedicBot/1.0'}
@@ -64,7 +60,6 @@ def get_coordinates(city_name):
     return 28.6139, 77.2090, city_name
 
 def calculate_positions(day, month, year, hour, minute, lat, lon):
-    """Calculates Sun, Moon, and exact Ascendant (Lagna) degrees using pysweph"""
     swe.set_ephe_path(None)
     dt_ist = datetime(year, month, day, hour, minute)
     dt_utc = dt_ist - timedelta(hours=5, minutes=30)
@@ -83,43 +78,39 @@ def calculate_positions(day, month, year, hour, minute, lat, lon):
     except Exception:
         asc_lon = 0.0
         
-    asc_sign_index = int(asc_lon / 30) % 12
-    asc_sign_name = ZODIAC_SIGNS[asc_sign_index]
-    
-    return sun_lon, moon_lon, asc_lon, asc_sign_name
+    return sun_lon, moon_lon, asc_lon
 
-def build_menu_keyboard(day, month, year, hour, minute, city_clean):
-    """Builds inline menu buttons with encoded birth data"""
-    date_str = f"{day:02d}{month:02d}{year}"
-    time_str = f"{hour:02d}{minute:02d}"
+def build_menu_keyboard(asc_idx, sun_idx, moon_idx):
+    """Embeds the calculated sign indices directly into the buttons to save processing time"""
+    data_str = f"{asc_idx}|{sun_idx}|{moon_idx}"
     
     keyboard = [
         [
-            {"text": "🎓 Education", "callback_data": f"cat:edu|{date_str}|{time_str}|{city_clean}"},
-            {"text": "💼 Career", "callback_data": f"cat:car|{date_str}|{time_str}|{city_clean}"}
+            {"text": "🎓 Education", "callback_data": f"cat:edu|{data_str}"},
+            {"text": "💼 Career", "callback_data": f"cat:car|{data_str}"}
         ],
         [
-            {"text": "💰 Finances", "callback_data": f"cat:fin|{date_str}|{time_str}|{city_clean}"},
-            {"text": "🏥 Health", "callback_data": f"cat:hea|{date_str}|{time_str}|{city_clean}"}
+            {"text": "💰 Finances", "callback_data": f"cat:fin|{data_str}"},
+            {"text": "🏥 Health", "callback_data": f"cat:hea|{data_str}"}
         ],
         [
-            {"text": "❤️ Relationships", "callback_data": f"cat:rel|{date_str}|{time_str}|{city_clean}"},
-            {"text": "💍 Marriage", "callback_data": f"cat:mar|{date_str}|{time_str}|{city_clean}"}
+            {"text": "❤️ Relationships", "callback_data": f"cat:rel|{data_str}"},
+            {"text": "💍 Marriage", "callback_data": f"cat:mar|{data_str}"}
         ],
         [
-            {"text": "🏡 Family", "callback_data": f"cat:fam|{date_str}|{time_str}|{city_clean}"},
-            {"text": "✈️ Travel", "callback_data": f"cat:tra|{date_str}|{time_str}|{city_clean}"}
+            {"text": "🏡 Family", "callback_data": f"cat:fam|{data_str}"},
+            {"text": "✈️ Travel", "callback_data": f"cat:tra|{data_str}"}
         ],
         [
-            {"text": "🏠 Property", "callback_data": f"cat:pro|{date_str}|{time_str}|{city_clean}"},
-            {"text": "🧘 Spiritual", "callback_data": f"cat:spi|{date_str}|{time_str}|{city_clean}"}
+            {"text": "🏠 Property", "callback_data": f"cat:pro|{data_str}"},
+            {"text": "🧘 Spiritual", "callback_data": f"cat:spi|{data_str}"}
         ],
         [
-            {"text": "⚖️ Obstacles", "callback_data": f"cat:obs|{date_str}|{time_str}|{city_clean}"},
-            {"text": "👶 Children", "callback_data": f"cat:chi|{date_str}|{time_str}|{city_clean}"}
+            {"text": "⚖️ Obstacles", "callback_data": f"cat:obs|{data_str}"},
+            {"text": "👶 Children", "callback_data": f"cat:chi|{data_str}"}
         ],
         [
-            {"text": "🧠 Mental Peace", "callback_data": f"cat:men|{date_str}|{time_str}|{city_clean}"}
+            {"text": "🧠 Mental Peace", "callback_data": f"cat:men|{data_str}"}
         ]
     ]
     return {"inline_keyboard": keyboard}
@@ -134,7 +125,7 @@ def webhook():
         gemini_key = os.environ.get("GEMINI_API_KEY")
         today_date = datetime.now().strftime("%B %d, %Y")
 
-        # --- HANDLE INLINE BUTTON CLICKS ---
+        # --- HANDLE INLINE BUTTON CLICKS (OPTIMIZED FOR SPEED) ---
         if "callback_query" in update:
             cb = update["callback_query"]
             chat_id = cb["message"]["chat"]["id"]
@@ -142,39 +133,30 @@ def webhook():
             answer_callback(cb["id"], "Consulting the stars...")
 
             try:
-                cat_code, date_part, time_part, city_input = data.replace("cat:", "").split("|")
-                day, month, year = int(date_part[:2]), int(date_part[2:4]), int(date_part[4:])
-                hour, minute = int(time_part[:2]), int(time_part[2:])
+                # Instantly extract the pre-calculated signs from the button data
+                parts = data.replace("cat:", "").split("|")
+                cat_code = parts[0]
+                asc_sign_name = ZODIAC_SIGNS[int(parts[1])]
+                sun_sign_name = ZODIAC_SIGNS[int(parts[2])]
+                moon_sign_name = ZODIAC_SIGNS[int(parts[3])]
                 
                 cat_name, cat_focus = CATEGORIES.get(cat_code, ("🔮 General", "General life guidance"))
-                lat, lon, city_clean = get_coordinates(city_input)
-                sun_lon, moon_lon, asc_lon, asc_sign_name = calculate_positions(day, month, year, hour, minute, lat, lon)
-                
-                sun_sign_name = ZODIAC_SIGNS[int(sun_lon / 30) % 12]
-                moon_sign_name = ZODIAC_SIGNS[int(moon_lon / 30) % 12]
 
-                # UPDATED PROMPT FOR STRICT 5-PART STRUCTURE
                 prompt = f"""
                 You are Panditji, an expert Vedic Astrologer. Today's date is {today_date}.
                 User requested a deep-dive reading for: **{cat_name}**.
                 
-                Birth Details: {day:02d}-{month:02d}-{year} {hour:02d}:{minute:02d}, {city_clean}.
-                Calculated Core Placements:
-                - Ascendant (Lagna): {asc_sign_name}
-                - Sun Sign: {sun_sign_name}
-                - Moon Sign: {moon_sign_name}
-                
+                Core Placements: Ascendant ({asc_sign_name}), Sun ({sun_sign_name}), Moon ({moon_sign_name}).
                 Astrological Focus: {cat_focus}
                 
-                Structure your response strictly into these 5 clear sections using bold headings:
+                Provide a structured response using these exactly 5 bold headings:
+                1. **Planetary Influences**: Analyze their foundation.
+                2. **Current Situation**: Intuitive insight into their life right now based on transits.
+                3. **Short-Term Forecast**: Predictions for the next 3 to 6 months.
+                4. **Long-Term Trajectory**: Outlook for the next 1 to 3 years.
+                5. **Vedic Remedies (Upayas)**: 2 highly practical, safe, non-gemstone remedies.
                 
-                1. **Planetary Influences**: Analyze how their specific {asc_sign_name} Ascendant, {sun_sign_name} Sun, and {moon_sign_name} Moon shape their foundational potential in this specific domain.
-                2. **Current Situation**: Provide intuitive insight into their life right now based on their chart and major current planetary transits.
-                3. **Short-Term Forecast**: Grounded, specific predictions for the next 3 to 6 months.
-                4. **Long-Term Trajectory**: Broader outlook and major themes to expect over the next 1 to 3 years.
-                5. **Vedic Remedies (Upayas)**: Provide 2 safe, practical, non-gemstone remedies (e.g., Karma adjustments, simple Mantras, Daan/Charity, or Fasting/Color therapy) to clear obstacles in this area.
-                
-                Tone: Empathetic, highly structured, mystical yet clear. Format nicely for a chat interface.
+                CRITICAL: Keep your response punchy, direct, and STRICTLY under 200 words total so the server does not timeout.
                 """
 
                 gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
@@ -182,7 +164,8 @@ def webhook():
                 
                 if res.status_code == 200:
                     ai_text = res.json()['candidates'][0]['content']['parts'][0]['text']
-                    menu = build_menu_keyboard(day, month, year, hour, minute, city_clean)
+                    # Pass the indices back to keep the menu active
+                    menu = build_menu_keyboard(int(parts[1]), int(parts[2]), int(parts[3]))
                     send_message(chat_id, ai_text, reply_markup=menu)
                 else:
                     send_message(chat_id, "The stars are cloudy right now. Please try again.")
@@ -192,7 +175,7 @@ def webhook():
 
             return jsonify(status="success"), 200
 
-        # --- HANDLE DIRECT TEXT MESSAGES ---
+        # --- HANDLE DIRECT TEXT MESSAGES (INITIAL CALCULATION) ---
         if "message" in update and "text" in update["message"]:
             chat_id = update["message"]["chat"]["id"]
             user_text = update["message"]["text"]
@@ -214,31 +197,29 @@ def webhook():
                     city_input = city_input.strip()
 
                     lat, lon, city_clean = get_coordinates(city_input)
-                    sun_lon, moon_lon, asc_lon, asc_sign_name = calculate_positions(day, month, year, hour, minute, lat, lon)
+                    sun_lon, moon_lon, asc_lon = calculate_positions(day, month, year, hour, minute, lat, lon)
                     
-                    sun_sign = int(sun_lon / 30) + 1
-                    moon_sign = int(moon_lon / 30) + 1
+                    asc_sign_index = int(asc_lon / 30) % 12
+                    sun_sign_index = int(sun_lon / 30) % 12
+                    moon_sign_index = int(moon_lon / 30) % 12
+                    
+                    asc_sign_name = ZODIAC_SIGNS[asc_sign_index]
+                    sun_sign_name = ZODIAC_SIGNS[sun_sign_index]
+                    moon_sign_name = ZODIAC_SIGNS[moon_sign_index]
                     
                     north = chart.NorthChart("Natal Chart", f"{day:02d}-{month:02d}-{year} ({city_clean})", IsFullChart=False)
                     north.set_ascendantsign(asc_sign_name)
-                    north.add_planet(chart.SUN, "Su", sun_sign)
-                    north.add_planet(chart.MOON, "Mo", moon_sign)
+                    north.add_planet(chart.SUN, "Su", sun_sign_index + 1)
+                    north.add_planet(chart.MOON, "Mo", moon_sign_index + 1)
                     
                     os.makedirs("/tmp", exist_ok=True)
                     svg_path = "/tmp/natal_chart.svg"
                     north.draw("/tmp/", "natal_chart")
                     send_document(chat_id, svg_path)
 
-                    sun_sign_name = ZODIAC_SIGNS[int(sun_lon / 30) % 12]
-                    moon_sign_name = ZODIAC_SIGNS[int(moon_lon / 30) % 12]
-
                     prompt = f"""
                     You are Panditji. Today's date is {today_date}.
-                    Birth Details: {day:02d}-{month:02d}-{year} {hour:02d}:{minute:02d}, {city_clean}.
-                    Calculated Placements:
-                    - Ascendant (Lagna): {asc_sign_name}
-                    - Sun Sign: {sun_sign_name} 
-                    - Moon Sign: {moon_sign_name}
+                    Calculated Placements: Ascendant ({asc_sign_name}), Sun ({sun_sign_name}), Moon ({moon_sign_name}).
                     
                     Provide a concise general overview highlighting their {asc_sign_name} Lagna, Sun/Moon dynamic, and current major transits. 
                     Keep under 150 words. Invite them to pick a domain option below for a detailed 5-part analysis.
@@ -247,7 +228,8 @@ def webhook():
                     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
                     res = requests.post(gemini_url, headers={"Content-Type": "application/json"}, json={"contents": [{"parts": [{"text": prompt}]}]})
                     
-                    menu = build_menu_keyboard(day, month, year, hour, minute, city_clean)
+                    # Pass the indices into the keyboard builder
+                    menu = build_menu_keyboard(asc_sign_index, sun_sign_index, moon_sign_index)
                     
                     if res.status_code == 200:
                         ai_text = res.json()['candidates'][0]['content']['parts'][0]['text']
@@ -259,4 +241,3 @@ def webhook():
                     send_message(chat_id, f"Technical Error: {str(e)}")
                 
         return jsonify(status="success"), 200
-        
