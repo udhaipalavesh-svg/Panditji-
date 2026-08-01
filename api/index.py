@@ -16,25 +16,34 @@ ZODIAC_SIGNS = [
     "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
 ]
 
+# Astrologically verified mappings with Hindi names included
 CATEGORIES = {
-    "edu": ("🎓 Education", "4th & 5th houses, Mercury and Jupiter. Focus on studies, learning, exams, and skill development."),
-    "car": ("💼 Career", "10th, 6th & 11th houses, Saturn and Sun. Focus on job growth, status, workplace dynamics, and promotions."),
-    "fin": ("💰 Finances", "2nd & 11th houses, Jupiter and Venus. Focus on accumulated wealth, cash flow, and financial gains."),
-    "hea": ("🏥 Health", "1st & 6th houses, Sun and Moon. Focus on physical vitality, immunity, lifestyle wellness, and mental energy."),
-    "rel": ("❤️ Relationships", "5th & 7th houses, Venus. Focus on romance, emotional bonding, and attraction."),
-    "mar": ("💍 Marriage", "7th & 9th houses, Venus and Jupiter. Focus on marital harmony, spouse dynamics, and long-term partnership."),
-    "fam": ("🏡 Family", "2nd & 4th houses, Moon and Jupiter. Focus on domestic peace, family bond, and domestic life."),
-    "tra": ("✈️ Foreign Travel", "9th & 12th houses, Rahu and Moon. Focus on foreign movement, long journeys, visa prospects, and settlement."),
-    "pro": ("🏠 Property & Vehicles", "4th house, Mars and Venus. Focus on land, home purchase, real estate, and vehicle comfort."),
-    "spi": ("🧘 Spiritual Growth", "8th, 9th & 12th houses, Ketu and Jupiter. Focus on inner peace, meditation, and karmic clearing."),
-    "obs": ("⚖️ Obstacles & Debts", "6th & 8th houses, Saturn and Mars. Focus on clearing legal issues, debts, competition, and hidden blocks."),
-    "chi": ("👶 Children & Progeny", "5th house, Jupiter. Focus on children's well-being, growth, and creative progeny."),
-    "men": ("🧠 Mental Peace", "4th & 12th houses, Moon and Mercury. Focus on emotional stability, anxiety relief, and inner tranquility.")
+    "edu": ("🎓 Education", "4th & 5th houses, Mercury (Budh) and Jupiter (Guru). Focus on studies, learning, exams, and skill development."),
+    "car": ("💼 Career", "10th, 6th & 11th houses, Saturn (Shani) and Sun (Surya). Focus on job growth, status, workplace dynamics, and promotions."),
+    "fin": ("💰 Finances", "2nd & 11th houses, Jupiter (Guru) and Venus (Shukra). Focus on accumulated wealth, cash flow, and financial gains."),
+    "hea": ("🏥 Health", "1st & 6th houses, Sun (Surya) and Moon (Chandra). Focus on physical vitality, immunity, lifestyle wellness, and mental energy."),
+    "rel": ("❤️ Relationships", "5th & 7th houses, Venus (Shukra). Focus on romance, emotional bonding, and attraction."),
+    "mar": ("💍 Marriage", "7th & 9th houses, Venus (Shukra) and Jupiter (Guru). Focus on marital harmony, spouse dynamics, and long-term partnership."),
+    "fam": ("🏡 Family", "2nd & 4th houses, Moon (Chandra) and Jupiter (Guru). Focus on domestic peace, family bond, and domestic life."),
+    "tra": ("✈️ Foreign Travel", "9th & 12th houses, Rahu and Moon (Chandra). Focus on foreign movement, long journeys, visa prospects, and settlement."),
+    "pro": ("🏠 Property & Vehicles", "4th house, Mars (Mangal) and Venus (Shukra). Focus on land, home purchase, real estate, and vehicle comfort."),
+    "spi": ("🧘 Spiritual Growth", "8th, 9th & 12th houses, Ketu and Jupiter (Guru). Focus on inner peace, meditation, and karmic clearing."),
+    "obs": ("⚖️ Obstacles & Debts", "6th & 8th houses, Saturn (Shani) and Mars (Mangal). Focus on clearing legal issues, debts, competition, and hidden blocks."),
+    "chi": ("👶 Children & Progeny", "5th house, Jupiter (Guru). Focus on children's well-being, growth, and creative progeny."),
+    "men": ("🧠 Mental Peace", "4th & 12th houses, Moon (Chandra) and Mercury (Budh). Focus on emotional stability, anxiety relief, and inner tranquility.")
 }
 
 def send_message(chat_id, text, reply_markup=None):
     url = f"{TELEGRAM_API_URL}/sendMessage"
     payload = {"chat_id": chat_id, "text": text}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    requests.post(url, json=payload)
+
+def edit_message(chat_id, message_id, text, reply_markup=None):
+    """Instantly edits a message to prevent double-clicking buttons"""
+    url = f"{TELEGRAM_API_URL}/editMessageText"
+    payload = {"chat_id": chat_id, "message_id": message_id, "text": text}
     if reply_markup:
         payload["reply_markup"] = reply_markup
     requests.post(url, json=payload)
@@ -81,9 +90,7 @@ def calculate_positions(day, month, year, hour, minute, lat, lon):
     return sun_lon, moon_lon, asc_lon
 
 def build_menu_keyboard(asc_idx, sun_idx, moon_idx):
-    """Embeds the calculated sign indices directly into the buttons to save processing time"""
     data_str = f"{asc_idx}|{sun_idx}|{moon_idx}"
-    
     keyboard = [
         [
             {"text": "🎓 Education", "callback_data": f"cat:edu|{data_str}"},
@@ -125,15 +132,18 @@ def webhook():
         gemini_key = os.environ.get("GEMINI_API_KEY")
         today_date = datetime.now().strftime("%B %d, %Y")
 
-        # --- HANDLE INLINE BUTTON CLICKS (OPTIMIZED FOR SPEED) ---
+        # --- HANDLE INLINE BUTTON CLICKS ---
         if "callback_query" in update:
             cb = update["callback_query"]
             chat_id = cb["message"]["chat"]["id"]
+            message_id = cb["message"]["message_id"]
             data = cb["data"]
-            answer_callback(cb["id"], "Consulting the stars...")
+            
+            # Instantly acknowledge and lock the menu to prevent double-clicks
+            answer_callback(cb["id"])
+            edit_message(chat_id, message_id, "Consulting the stars... ⏳ (Please wait)")
 
             try:
-                # Instantly extract the pre-calculated signs from the button data
                 parts = data.replace("cat:", "").split("|")
                 cat_code = parts[0]
                 asc_sign_name = ZODIAC_SIGNS[int(parts[1])]
@@ -146,17 +156,19 @@ def webhook():
                 You are Panditji, an expert Vedic Astrologer. Today's date is {today_date}.
                 User requested a deep-dive reading for: **{cat_name}**.
                 
-                Core Placements: Ascendant ({asc_sign_name}), Sun ({sun_sign_name}), Moon ({moon_sign_name}).
+                Core Placements: Ascendant ({asc_sign_name}), Sun (Surya in {sun_sign_name}), Moon (Chandra in {moon_sign_name}).
                 Astrological Focus: {cat_focus}
                 
+                RULE: Whenever you mention ANY planet, you MUST include its Hindi name in brackets. Example: Saturn (Shani), Jupiter (Guru), Mercury (Budh).
+                
                 Provide a structured response using these exactly 5 bold headings:
-                1. **Planetary Influences**: Analyze their foundation.
+                1. **Planetary Influences**: Analyze their foundation for this domain.
                 2. **Current Situation**: Intuitive insight into their life right now based on transits.
                 3. **Short-Term Forecast**: Predictions for the next 3 to 6 months.
                 4. **Long-Term Trajectory**: Outlook for the next 1 to 3 years.
                 5. **Vedic Remedies (Upayas)**: 2 highly practical, safe, non-gemstone remedies.
                 
-                CRITICAL: Keep your response punchy, direct, and STRICTLY under 200 words total so the server does not timeout.
+                CRITICAL: Keep your response punchy, direct, and strictly under 200 words total.
                 """
 
                 gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
@@ -164,8 +176,8 @@ def webhook():
                 
                 if res.status_code == 200:
                     ai_text = res.json()['candidates'][0]['content']['parts'][0]['text']
-                    # Pass the indices back to keep the menu active
                     menu = build_menu_keyboard(int(parts[1]), int(parts[2]), int(parts[3]))
+                    # Send the new reading and attach the menu to it
                     send_message(chat_id, ai_text, reply_markup=menu)
                 else:
                     send_message(chat_id, "The stars are cloudy right now. Please try again.")
@@ -175,13 +187,13 @@ def webhook():
 
             return jsonify(status="success"), 200
 
-        # --- HANDLE DIRECT TEXT MESSAGES (INITIAL CALCULATION) ---
+        # --- HANDLE DIRECT TEXT MESSAGES ---
         if "message" in update and "text" in update["message"]:
             chat_id = update["message"]["chat"]["id"]
             user_text = update["message"]["text"]
             
             if user_text.startswith("/start"):
-                welcome_msg = "Welcome! Please send your birth details in this format:\nDD-MM-YYYY HH:MM City\n(e.g., 05-09-1981 12:16 Amritsar)"
+                welcome_msg = "Welcome! Please send your birth details in this format:\nDD-MM-YYYY HH:MM City\n(e.g., 01-01-1900 12:00 Amritsar)"
                 send_message(chat_id, welcome_msg)
             else:
                 send_message(chat_id, "Locating coordinates, calculating Lagna, and drawing your natal chart...")
@@ -189,7 +201,7 @@ def webhook():
                 try:
                     match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
                     if not match:
-                        send_message(chat_id, "Please use format: DD-MM-YYYY HH:MM City\n(e.g., 05-09-1981 12:16 Amritsar)")
+                        send_message(chat_id, "Please use format: DD-MM-YYYY HH:MM City\n(e.g., 01-01-1900 12:00 Amritsar)")
                         return jsonify(status="success"), 200
                         
                     day, month, year, hour, minute, city_input = match.groups()
@@ -219,7 +231,9 @@ def webhook():
 
                     prompt = f"""
                     You are Panditji. Today's date is {today_date}.
-                    Calculated Placements: Ascendant ({asc_sign_name}), Sun ({sun_sign_name}), Moon ({moon_sign_name}).
+                    Calculated Placements: Ascendant ({asc_sign_name}), Sun (Surya) in {sun_sign_name}, Moon (Chandra) in {moon_sign_name}.
+                    
+                    RULE: Whenever you mention a planet, include its Hindi name in brackets. Example: Saturn (Shani), Jupiter (Guru).
                     
                     Provide a concise general overview highlighting their {asc_sign_name} Lagna, Sun/Moon dynamic, and current major transits. 
                     Keep under 150 words. Invite them to pick a domain option below for a detailed 5-part analysis.
@@ -228,7 +242,6 @@ def webhook():
                     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
                     res = requests.post(gemini_url, headers={"Content-Type": "application/json"}, json={"contents": [{"parts": [{"text": prompt}]}]})
                     
-                    # Pass the indices into the keyboard builder
                     menu = build_menu_keyboard(asc_sign_index, sun_sign_index, moon_sign_index)
                     
                     if res.status_code == 200:
@@ -241,3 +254,4 @@ def webhook():
                     send_message(chat_id, f"Technical Error: {str(e)}")
                 
         return jsonify(status="success"), 200
+        
