@@ -34,7 +34,6 @@ def webhook():
                 send_message(chat_id, "Consulting the stars and calculating your chart. Please wait a moment...")
 
                 try:
-                    # Use the highly stable standard library
                     import google.generativeai as genai
                     
                     gemini_key = os.environ.get("GEMINI_API_KEY")
@@ -42,7 +41,6 @@ def webhook():
                         send_message(chat_id, "Error: Vercel cannot find your GEMINI_API_KEY. Please check your Vercel Environment Variables.")
                         return jsonify(status="success"), 200
                         
-                    # Configure the key
                     genai.configure(api_key=gemini_key)
                     
                     prompt = f"""
@@ -57,8 +55,8 @@ def webhook():
                     Speak directly to the user in a mystical but clear tone. Keep the entire response under 250 words so it is easy to read on Telegram.
                     """
                     
-                    # Generate the response
-                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    # Switch to the universally supported 'gemini-pro' model
+                    model = genai.GenerativeModel('gemini-pro')
                     response = model.generate_content(prompt)
                     
                     send_message(chat_id, response.text)
