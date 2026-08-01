@@ -2,6 +2,4 @@ Flask
 requests
 datetime
 pysweph
-jyotichart
-
-
+jyotichart==5.0.0
