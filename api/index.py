@@ -2,7 +2,7 @@ import os
 import requests
 import re
 from flask import Flask, request, jsonify
-from datetime import datetime
+from datetime import datetime, timedelta
 import swisseph as swe
 import jyotichart as chart
 
@@ -40,7 +40,7 @@ def webhook():
                 send_message(chat_id, "Calculating exact planetary degrees and drawing your chart...")
 
                 try:
-                    # 1. Parse Date and Time (Basic Regex extraction)
+                    # 1. Parse Date and Time
                     match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})', user_text)
                     if not match:
                         send_message(chat_id, "Please use the exact format: DD-MM-YYYY HH:MM")
@@ -49,34 +49,36 @@ def webhook():
                     day, month, year, hour, minute = map(int, match.groups())
                     
                     # 2. Astronomical Calculations with Pysweph
-                    swe.set_ephe_path(None) # Use built-in Moshier ephemeris
+                    swe.set_ephe_path(None)
                     
-                    # Convert to UTC (Assuming IST for this prototype: subtract 5.5 hours)
-                    utc_time = swe.utc_time_zone(year, month, day, hour, minute, 0, 5.5)
-                    jdet, jdut = swe.utc_to_jd(*utc_time)
+                    # Use Python's built-in datetime for safe UTC conversion (assuming IST input)
+                    dt_ist = datetime(year, month, day, hour, minute)
+                    dt_utc = dt_ist - timedelta(hours=5, minutes=30)
+                    utc_decimal_hour = dt_utc.hour + (dt_utc.minute / 60.0)
                     
-                    # Calculate Sun and Moon degrees as an example
-                    sun_pos, _ = swe.calc_ut(jdut, swe.SUN, swe.FLG_SWIEPH)
-                    moon_pos, _ = swe.calc_ut(jdut, swe.MOON, swe.FLG_SWIEPH)
+                    # Calculate Julian Date safely
+                    jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, utc_decimal_hour)
+                    
+                    # Safely calculate planetary positions by capturing the entire output
+                    sun_calc = swe.calc_ut(jdut, swe.SUN)
+                    moon_calc = swe.calc_ut(jdut, swe.MOON)
+                    
+                    # Dynamically extract longitude depending on how the specific library fork formats it
+                    sun_lon = sun_calc[0] if isinstance(sun_calc[0], float) else sun_calc[0][0]
+                    moon_lon = moon_calc[0] if isinstance(moon_calc[0], float) else moon_calc[0][0]
                     
                     # 3. Draw Chart with Jyotichart
-                    # Initialize North Indian Chart (Diamond style)
                     north = chart.NorthChart("D1 Natal", "User Chart")
                     north.set_birth_details(f"{day}-{month}-{year}", f"{hour}:{minute}", "IST")
                     
-                    # Add planets (Simplified mapping for example)
-                    # jyotichart uses zodiac signs 1-12, so we roughly estimate based on degree
-                    sun_sign = int(sun_pos[0] / 30) + 1
-                    moon_sign = int(moon_pos[0] / 30) + 1
-                    north.set_ascendantsign("Aries") # Hardcoded for prototype; requires precise geocoding to calculate dynamically
+                    sun_sign = int(sun_lon / 30) + 1
+                    moon_sign = int(moon_lon / 30) + 1
+                    north.set_ascendantsign("Aries") # Placeholder until geocoding is added
                     north.add_planet(chart.SUN, "Su", sun_sign)
                     north.add_planet(chart.MOON, "Mo", moon_sign)
                     
-                    # Save to Vercel's temporary directory
                     svg_path = "/tmp/natal_chart.svg"
                     north.draw("/tmp/", "natal_chart", "svg")
-                    
-                    # Send chart to user
                     send_document(chat_id, svg_path)
 
                     # 4. Deep Analysis via Gemini
@@ -88,8 +90,8 @@ def webhook():
                     A user provided birth details: {user_text}.
                     
                     My Python backend calculated their exact positions:
-                    - Sun is at {sun_pos[0]:.2f} degrees of the zodiac.
-                    - Moon is at {moon_pos[0]:.2f} degrees of the zodiac.
+                    - Sun is at {sun_lon:.2f} degrees of the zodiac.
+                    - Moon is at {moon_lon:.2f} degrees of the zodiac.
                     
                     Provide a concise Vedic reading focusing on their Sun/Moon dynamic, and apply the current transit of Jupiter to their life right now. Keep it under 200 words.
                     """
