@@ -14,7 +14,7 @@ def send_message(chat_id, text):
     payload = {"chat_id": chat_id, "text": text}
     requests.post(url, json=payload)
 
-@app.route('/', methods=['POST', 'GET'])
+@app.route('/api', methods=['POST', 'GET'])
 def webhook():
     # If Vercel checks the endpoint, return OK
     if request.method == 'GET':
