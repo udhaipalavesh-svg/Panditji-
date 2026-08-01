@@ -1,4 +1,7 @@
 Flask
 requests
-google-generativeai
+datetime
+pysweph
+jyotichart
+
 
