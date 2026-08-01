@@ -1,19 +1,25 @@
 import os
 import requests
+import re
 from flask import Flask, request, jsonify
-from datetime import datetime  # Added this to grab the exact current date
+from datetime import datetime
+import swisseph as swe
+import jyotichart as chart
 
 app = Flask(__name__)
 
-# Fetch secrets from Vercel
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
 def send_message(chat_id, text):
-    """Helper function to send a message back to the user"""
-    url = f"{TELEGRAM_API_URL}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text}
-    requests.post(url, json=payload)
+    requests.post(f"{TELEGRAM_API_URL}/sendMessage", json={"chat_id": chat_id, "text": text})
+
+def send_document(chat_id, file_path):
+    """Sends the generated SVG chart to Telegram"""
+    with open(file_path, 'rb') as f:
+        files = {'document': f}
+        data = {'chat_id': chat_id}
+        requests.post(f"{TELEGRAM_API_URL}/sendDocument", data=data, files=files)
 
 @app.route('/api', methods=['POST', 'GET'])
 def webhook():
@@ -27,57 +33,77 @@ def webhook():
             chat_id = update["message"]["chat"]["id"]
             user_text = update["message"]["text"]
             
-            if user_text == "/start":
-                welcome_msg = "Welcome! Please send your birth details in this format: DD-MM-YYYY Time City (e.g., 01-01-1980 05:00 Chandigarh)"
+            if user_text.startswith("/start"):
+                welcome_msg = "Welcome! Please send your birth details in this format: DD-MM-YYYY Time (e.g., 26-03-1982 05:00)"
                 send_message(chat_id, welcome_msg)
-            
             else:
-                send_message(chat_id, "Consulting the stars and calculating your chart. Please wait a moment...")
+                send_message(chat_id, "Calculating exact planetary degrees and drawing your chart...")
 
                 try:
-                    gemini_key = os.environ.get("GEMINI_API_KEY")
-                    if not gemini_key:
-                        send_message(chat_id, "Error: Vercel cannot find your GEMINI_API_KEY.")
+                    # 1. Parse Date and Time (Basic Regex extraction)
+                    match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})', user_text)
+                    if not match:
+                        send_message(chat_id, "Please use the exact format: DD-MM-YYYY HH:MM")
                         return jsonify(status="success"), 200
                         
-                    # 1. Grab today's exact date so the AI knows the present timeline
+                    day, month, year, hour, minute = map(int, match.groups())
+                    
+                    # 2. Astronomical Calculations with Pysweph
+                    swe.set_ephe_path(None) # Use built-in Moshier ephemeris
+                    
+                    # Convert to UTC (Assuming IST for this prototype: subtract 5.5 hours)
+                    utc_time = swe.utc_time_zone(year, month, day, hour, minute, 0, 5.5)
+                    jdet, jdut = swe.utc_to_jd(*utc_time)
+                    
+                    # Calculate Sun and Moon degrees as an example
+                    sun_pos, _ = swe.calc_ut(jdut, swe.SUN, swe.FLG_SWIEPH)
+                    moon_pos, _ = swe.calc_ut(jdut, swe.MOON, swe.FLG_SWIEPH)
+                    
+                    # 3. Draw Chart with Jyotichart
+                    # Initialize North Indian Chart (Diamond style)
+                    north = chart.NorthChart("D1 Natal", "User Chart")
+                    north.set_birth_details(f"{day}-{month}-{year}", f"{hour}:{minute}", "IST")
+                    
+                    # Add planets (Simplified mapping for example)
+                    # jyotichart uses zodiac signs 1-12, so we roughly estimate based on degree
+                    sun_sign = int(sun_pos[0] / 30) + 1
+                    moon_sign = int(moon_pos[0] / 30) + 1
+                    north.set_ascendantsign("Aries") # Hardcoded for prototype; requires precise geocoding to calculate dynamically
+                    north.add_planet(chart.SUN, "Su", sun_sign)
+                    north.add_planet(chart.MOON, "Mo", moon_sign)
+                    
+                    # Save to Vercel's temporary directory
+                    svg_path = "/tmp/natal_chart.svg"
+                    north.draw("/tmp/", "natal_chart", "svg")
+                    
+                    # Send chart to user
+                    send_document(chat_id, svg_path)
+
+                    # 4. Deep Analysis via Gemini
+                    gemini_key = os.environ.get("GEMINI_API_KEY")
                     today_date = datetime.now().strftime("%B %d, %Y")
                     
-                    # 2. Upgraded prompt for strict timelines and better astrological refinement
                     prompt = f"""
-                    You are Panditji, an expert Vedic Astrologer. 
-                    Today's exact date is {today_date}. You must base all current transit calculations and future predictions from this date forward. Do not reference past years as the present.
+                    You are Panditji. Today is {today_date}.
+                    A user provided birth details: {user_text}.
                     
-                    A user has provided the following birth details: {user_text}.
+                    My Python backend calculated their exact positions:
+                    - Sun is at {sun_pos[0]:.2f} degrees of the zodiac.
+                    - Moon is at {moon_pos[0]:.2f} degrees of the zodiac.
                     
-                    Based on these details, please provide a highly refined, accurate astrological reading:
-                    1. Core Placements: Reveal their Lagna (Ascendant), Moon Sign, and one key strength in their birth chart.
-                    2. Current Transits: Provide an intuitive reading of their life right now based on major planetary transits (like Saturn or Jupiter) relative to {today_date}.
-                    3. Future Guidance: Provide a grounded, insightful prediction for the next 6 to 12 months.
-                    
-                    Speak directly to the user in a mystical, empathetic, but clear tone. Use emojis tastefully. Keep the entire response nicely formatted and strictly under 250 words so it is easy to read on Telegram.
+                    Provide a concise Vedic reading focusing on their Sun/Moon dynamic, and apply the current transit of Jupiter to their life right now. Keep it under 200 words.
                     """
                     
-                    # Target the newest, active gemini-3.6-flash model endpoint
                     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
-                    headers = {"Content-Type": "application/json"}
-                    payload = {
-                        "contents": [{"parts": [{"text": prompt}]}]
-                    }
-                    
-                    # Send the request directly to Google
-                    response = requests.post(gemini_url, headers=headers, json=payload)
-                    response_data = response.json()
+                    response = requests.post(gemini_url, headers={"Content-Type": "application/json"}, json={"contents": [{"parts": [{"text": prompt}]}]})
                     
                     if response.status_code == 200:
-                        ai_text = response_data['candidates'][0]['content']['parts'][0]['text']
-                        send_message(chat_id, ai_text)
+                        send_message(chat_id, response.json()['candidates'][0]['content']['parts'][0]['text'])
                     else:
-                        error_msg = response_data.get('error', {}).get('message', 'Unknown API Error')
-                        send_message(chat_id, f"Google API Error: {error_msg}")
-                    
+                        send_message(chat_id, "API Error during analysis.")
+                        
                 except Exception as e:
-                    send_message(chat_id, f"The stars are cloudy. Technical Error: {str(e)}")
+                    send_message(chat_id, f"Technical Error: {str(e)}")
                 
         return jsonify(status="success"), 200
         
