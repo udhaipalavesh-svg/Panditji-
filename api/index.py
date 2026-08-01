@@ -61,25 +61,22 @@ def get_coordinates(city_name):
             return float(res[0]['lat']), float(res[0]['lon']), res[0].get('display_name', city_name).split(',')[0]
     except Exception:
         pass
-    # Fallback to Delhi coordinates if geocoding lookup fails
     return 28.6139, 77.2090, city_name
 
 def calculate_positions(day, month, year, hour, minute, lat, lon):
     """Calculates Sun, Moon, and exact Ascendant (Lagna) degrees using pysweph"""
     swe.set_ephe_path(None)
     dt_ist = datetime(year, month, day, hour, minute)
-    dt_utc = dt_ist - timedelta(hours=5, minutes=30)  # Assuming IST input
+    dt_utc = dt_ist - timedelta(hours=5, minutes=30)
     utc_decimal = dt_utc.hour + (dt_utc.minute / 60.0)
     jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, utc_decimal)
     
-    # Calculate Sun & Moon
     sun_calc = swe.calc_ut(jdut, swe.SUN)
     moon_calc = swe.calc_ut(jdut, swe.MOON)
     
     sun_lon = sun_calc[0] if isinstance(sun_calc[0], float) else sun_calc[0][0]
     moon_lon = moon_calc[0] if isinstance(moon_calc[0], float) else moon_calc[0][0]
     
-    # Calculate Houses & Ascendant (Lagna)
     try:
         _, ascmc = swe.houses(jdut, lat, lon, b'W')
         asc_lon = ascmc[0]
@@ -145,7 +142,6 @@ def webhook():
             answer_callback(cb["id"], "Consulting the stars...")
 
             try:
-                # Parse: cat:code|DDMMYYYY|HHMM|city
                 cat_code, date_part, time_part, city_input = data.replace("cat:", "").split("|")
                 day, month, year = int(date_part[:2]), int(date_part[2:4]), int(date_part[4:])
                 hour, minute = int(time_part[:2]), int(time_part[2:])
@@ -157,24 +153,28 @@ def webhook():
                 sun_sign_name = ZODIAC_SIGNS[int(sun_lon / 30) % 12]
                 moon_sign_name = ZODIAC_SIGNS[int(moon_lon / 30) % 12]
 
+                # UPDATED PROMPT FOR STRICT 5-PART STRUCTURE
                 prompt = f"""
                 You are Panditji, an expert Vedic Astrologer. Today's date is {today_date}.
-                User requested a domain reading for: **{cat_name}**.
+                User requested a deep-dive reading for: **{cat_name}**.
                 
                 Birth Details: {day:02d}-{month:02d}-{year} {hour:02d}:{minute:02d}, {city_clean}.
-                Calculated Astrological Placements:
+                Calculated Core Placements:
                 - Ascendant (Lagna): {asc_sign_name}
-                - Sun Sign: {sun_sign_name} ({sun_lon:.2f}°)
-                - Moon Sign: {moon_sign_name} ({moon_lon:.2f}°)
+                - Sun Sign: {sun_sign_name}
+                - Moon Sign: {moon_sign_name}
                 
                 Astrological Focus: {cat_focus}
                 
-                Structure your response into 3 distinct sections:
-                1. **Current Analysis**: Insight into their current state based on their {asc_sign_name} Lagna and major transits (like Jupiter and Saturn).
-                2. **Forecast**: Clear, grounded predictions for the next 3 to 6 months.
-                3. **Vedic Remedies (Upayas)**: 2 practical, non-gemstone remedies (Karma adjustment, simple Mantra, Daan/Charity, or Fasting/Color therapy).
+                Structure your response strictly into these 5 clear sections using bold headings:
                 
-                Keep response empathetic, clear, and under 250 words.
+                1. **Planetary Influences**: Analyze how their specific {asc_sign_name} Ascendant, {sun_sign_name} Sun, and {moon_sign_name} Moon shape their foundational potential in this specific domain.
+                2. **Current Situation**: Provide intuitive insight into their life right now based on their chart and major current planetary transits.
+                3. **Short-Term Forecast**: Grounded, specific predictions for the next 3 to 6 months.
+                4. **Long-Term Trajectory**: Broader outlook and major themes to expect over the next 1 to 3 years.
+                5. **Vedic Remedies (Upayas)**: Provide 2 safe, practical, non-gemstone remedies (e.g., Karma adjustments, simple Mantras, Daan/Charity, or Fasting/Color therapy) to clear obstacles in this area.
+                
+                Tone: Empathetic, highly structured, mystical yet clear. Format nicely for a chat interface.
                 """
 
                 gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
@@ -204,7 +204,6 @@ def webhook():
                 send_message(chat_id, "Locating coordinates, calculating Lagna, and drawing your natal chart...")
 
                 try:
-                    # Matches: DD-MM-YYYY HH:MM City
                     match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
                     if not match:
                         send_message(chat_id, "Please use format: DD-MM-YYYY HH:MM City\n(e.g., 05-09-1981 12:16 Amritsar)")
@@ -214,14 +213,12 @@ def webhook():
                     day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
                     city_input = city_input.strip()
 
-                    # Geocoding & Calculations
                     lat, lon, city_clean = get_coordinates(city_input)
                     sun_lon, moon_lon, asc_lon, asc_sign_name = calculate_positions(day, month, year, hour, minute, lat, lon)
                     
                     sun_sign = int(sun_lon / 30) + 1
                     moon_sign = int(moon_lon / 30) + 1
                     
-                    # Generate SVG Chart with True Ascendant Sign
                     north = chart.NorthChart("Natal Chart", f"{day:02d}-{month:02d}-{year} ({city_clean})", IsFullChart=False)
                     north.set_ascendantsign(asc_sign_name)
                     north.add_planet(chart.SUN, "Su", sun_sign)
@@ -232,7 +229,6 @@ def webhook():
                     north.draw("/tmp/", "natal_chart")
                     send_document(chat_id, svg_path)
 
-                    # Initial General Reading Prompt
                     sun_sign_name = ZODIAC_SIGNS[int(sun_lon / 30) % 12]
                     moon_sign_name = ZODIAC_SIGNS[int(moon_lon / 30) % 12]
 
@@ -241,11 +237,11 @@ def webhook():
                     Birth Details: {day:02d}-{month:02d}-{year} {hour:02d}:{minute:02d}, {city_clean}.
                     Calculated Placements:
                     - Ascendant (Lagna): {asc_sign_name}
-                    - Sun Sign: {sun_sign_name} ({sun_lon:.2f}°)
-                    - Moon Sign: {moon_sign_name} ({moon_lon:.2f}°)
+                    - Sun Sign: {sun_sign_name} 
+                    - Moon Sign: {moon_sign_name}
                     
                     Provide a concise general overview highlighting their {asc_sign_name} Lagna, Sun/Moon dynamic, and current major transits. 
-                    Keep under 150 words. Invite them to pick a domain option below.
+                    Keep under 150 words. Invite them to pick a domain option below for a detailed 5-part analysis.
                     """
 
                     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
