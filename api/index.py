@@ -51,23 +51,21 @@ def webhook():
                     Speak directly to the user in a mystical but clear tone. Keep the entire response under 250 words so it is easy to read on Telegram.
                     """
                     
-                    # Bypass the Google library and talk directly to the server
-                    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+                    # CHANGED TO THE UNIVERSAL 'gemini-pro' MODEL
+                    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={gemini_key}"
                     headers = {"Content-Type": "application/json"}
                     payload = {
                         "contents": [{"parts": [{"text": prompt}]}]
                     }
                     
-                    # Send the request
+                    # Send the request directly to Google
                     response = requests.post(gemini_url, headers=headers, json=payload)
                     response_data = response.json()
                     
-                    # Read the response directly
                     if response.status_code == 200:
                         ai_text = response_data['candidates'][0]['content']['parts'][0]['text']
                         send_message(chat_id, ai_text)
                     else:
-                        # If Google rejects it, get the raw error message
                         error_msg = response_data.get('error', {}).get('message', 'Unknown API Error')
                         send_message(chat_id, f"Google API Error: {error_msg}")
                     
