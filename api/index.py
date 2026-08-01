@@ -68,8 +68,9 @@ def webhook():
                     moon_lon = moon_calc[0] if isinstance(moon_calc[0], float) else moon_calc[0][0]
                     
                     # 3. Draw Chart with Jyotichart
-                    north = chart.NorthChart("D1 Natal", "User Chart")
-                    north.set_birth_details(f"{day}-{month}-{year}", f"{hour}:{minute}", "IST")
+                    # The correct initialization format according to the documentation:
+                    # chart.NorthChart("Chart Title", "User Name")
+                    north = chart.NorthChart("Natal Chart", f"{day}-{month}-{year} {hour}:{minute} IST", IsFullChart=False) 
                     
                     sun_sign = int(sun_lon / 30) + 1
                     moon_sign = int(moon_lon / 30) + 1
@@ -78,7 +79,13 @@ def webhook():
                     north.add_planet(chart.MOON, "Mo", moon_sign)
                     
                     svg_path = "/tmp/natal_chart.svg"
-                    north.draw("/tmp/", "natal_chart", "svg")
+                    
+                    # Ensure the output directory exists
+                    os.makedirs("/tmp", exist_ok=True)
+                    
+                    # The draw method takes the output directory, file name (without extension), and optionally the format.
+                    north.draw("/tmp/", "natal_chart") 
+                    
                     send_document(chat_id, svg_path)
 
                     # 4. Deep Analysis via Gemini
