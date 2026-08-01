@@ -34,15 +34,11 @@ def webhook():
                 send_message(chat_id, "Consulting the stars and calculating your chart. Please wait a moment...")
 
                 try:
-                    import google.generativeai as genai
-                    
                     gemini_key = os.environ.get("GEMINI_API_KEY")
                     if not gemini_key:
-                        send_message(chat_id, "Error: Vercel cannot find your GEMINI_API_KEY. Please check your Vercel Environment Variables.")
+                        send_message(chat_id, "Error: Vercel cannot find your GEMINI_API_KEY.")
                         return jsonify(status="success"), 200
                         
-                    genai.configure(api_key=gemini_key)
-                    
                     prompt = f"""
                     You are Panditji, an expert Vedic Astrologer. 
                     A user has provided the following birth details: {user_text}.
@@ -55,11 +51,25 @@ def webhook():
                     Speak directly to the user in a mystical but clear tone. Keep the entire response under 250 words so it is easy to read on Telegram.
                     """
                     
-                    # Switch to the universally supported 'gemini-pro' model
-                    model = genai.GenerativeModel('gemini-pro')
-                    response = model.generate_content(prompt)
+                    # Bypass the Google library and talk directly to the server
+                    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+                    headers = {"Content-Type": "application/json"}
+                    payload = {
+                        "contents": [{"parts": [{"text": prompt}]}]
+                    }
                     
-                    send_message(chat_id, response.text)
+                    # Send the request
+                    response = requests.post(gemini_url, headers=headers, json=payload)
+                    response_data = response.json()
+                    
+                    # Read the response directly
+                    if response.status_code == 200:
+                        ai_text = response_data['candidates'][0]['content']['parts'][0]['text']
+                        send_message(chat_id, ai_text)
+                    else:
+                        # If Google rejects it, get the raw error message
+                        error_msg = response_data.get('error', {}).get('message', 'Unknown API Error')
+                        send_message(chat_id, f"Google API Error: {error_msg}")
                     
                 except Exception as e:
                     send_message(chat_id, f"The stars are cloudy. Technical Error: {str(e)}")
