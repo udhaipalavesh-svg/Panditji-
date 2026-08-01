@@ -1,6 +1,7 @@
 import os
 import requests
 from flask import Flask, request, jsonify
+from datetime import datetime  # Added this to grab the exact current date
 
 app = Flask(__name__)
 
@@ -39,16 +40,22 @@ def webhook():
                         send_message(chat_id, "Error: Vercel cannot find your GEMINI_API_KEY.")
                         return jsonify(status="success"), 200
                         
+                    # 1. Grab today's exact date so the AI knows the present timeline
+                    today_date = datetime.now().strftime("%B %d, %Y")
+                    
+                    # 2. Upgraded prompt for strict timelines and better astrological refinement
                     prompt = f"""
                     You are Panditji, an expert Vedic Astrologer. 
+                    Today's exact date is {today_date}. You must base all current transit calculations and future predictions from this date forward. Do not reference past years as the present.
+                    
                     A user has provided the following birth details: {user_text}.
                     
-                    Based on these details:
-                    1. Briefly mention their key astrological placements.
-                    2. Deduce an intuitive reading of their current life situation based on standard astrological transit knowledge.
-                    3. Provide an insightful and grounded prediction for their near future.
+                    Based on these details, please provide a highly refined, accurate astrological reading:
+                    1. Core Placements: Reveal their Lagna (Ascendant), Moon Sign, and one key strength in their birth chart.
+                    2. Current Transits: Provide an intuitive reading of their life right now based on major planetary transits (like Saturn or Jupiter) relative to {today_date}.
+                    3. Future Guidance: Provide a grounded, insightful prediction for the next 6 to 12 months.
                     
-                    Speak directly to the user in a mystical but clear tone. Keep the entire response under 250 words so it is easy to read on Telegram.
+                    Speak directly to the user in a mystical, empathetic, but clear tone. Use emojis tastefully. Keep the entire response nicely formatted and strictly under 250 words so it is easy to read on Telegram.
                     """
                     
                     # Target the newest, active gemini-3.6-flash model endpoint
