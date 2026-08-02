@@ -179,7 +179,6 @@ def webhook():
                 lat, lon, city_clean = get_coordinates(city_input)
                 asc_sign, asc_nak, asc_pada, planets, active_dasha = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
                 
-                # Generate Unique Chart SVG filename to prevent zero-byte caching/locking bugs
                 os.makedirs("/tmp", exist_ok=True)
                 file_tag = str(int(time.time()))
                 svg_filename = f"natal_chart_{file_tag}"
@@ -205,10 +204,9 @@ def webhook():
 
                 planet_summary = "\n".join([f"- {p}: {info[0]} | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
                 
-                gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
-
-                # --- PART 1: Sections 1 to 4 ---
-                prompt_part1 = f"""
+                gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+                
+                prompt = f"""
                 You are Panditji, an uncompromising master Vedic Astrologer. Today's date is {today_date}.
                 Active Timing Engine (Vimshottari Dasha): {active_dasha}
                 
@@ -216,48 +214,42 @@ def webhook():
                 - Ascendant (Lagna): {asc_sign} in {asc_nak} Pada {asc_pada}
                 {planet_summary}
                 
-                Deliver ONLY sections 1 through 4 with high analytical depth:
-                1. Star and Nakshatra Position in Brief
-                2. Star and Nakshatra Positions in Detail
-                3. Conflicts Amongst Stars and Nakshatras
-                4. General Prediction
-                
-                Rule: Mention Hindi names in brackets for every planet.
+                MANDATORY INSTRUCTIONS:
+                - Deliver an exhaustive, highly rigorous analytical report structured into these exact 8 headings:
+                  1. Star and Nakshatra Position in Brief
+                  2. Star and Nakshatra Positions in Detail
+                  3. Conflicts Amongst Stars and Nakshatras
+                  4. General Prediction
+                  5. Prediction in Detail
+                  6. Potential Issues, Psychological Impact, and Legal/Confinement Deductions (explicitly analyze Bandhana Yoga, 6th/8th/12th house weights, and prison/litigation reality if present)
+                  7. Remedies (Exhaustive Lal Kitab & Vedic Corrective Actions)
+                  8. Extraordinary Cosmic Anomalies & Rare Yogas
+                - Rule: Mention Hindi names in brackets for every planet (e.g., Saturn (Shani), Moon (Chandra)). Keep the tone sharp, professional, and uncompromising.
                 """
-                
-                res1 = requests.post(gemini_url, headers={"Content-Type": "application/json"}, json={"contents": [{"parts": [{"text": prompt_part1}]}]})
-                if res1.status_code == 200:
-                    text_part1 = res1.json()['candidates'][0]['content']['parts'][0]['text']
-                    send_message(chat_id, text_part1)
 
-                # --- PART 2: Sections 5 to 8 ---
-                prompt_part2 = f"""
-                You are Panditji, an uncompromising master Vedic Astrologer. Today's date is {today_date}.
-                Active Timing Engine (Vimshottari Dasha): {active_dasha}
-                
-                Sidereal Lahiri Chart Data:
-                - Ascendant (Lagna): {asc_sign} in {asc_nak} Pada {asc_pada}
-                {planet_summary}
-                
-                Deliver ONLY sections 5 through 8 with high analytical depth, explicitly covering Bandhana Yoga, litigation weights, psychological impacts, and Lal Kitab remedies:
-                5. Prediction in Detail
-                6. Potential Issues, Psychological Impact, and Legal/Confinement Deductions
-                7. Remedies (Exhaustive Lal Kitab & Vedic Corrective Actions)
-                8. Extraordinary Cosmic Anomalies & Rare Yogas
-                
-                Rule: Mention Hindi names in brackets for every planet.
-                """
-                
-                res2 = requests.post(gemini_url, headers={"Content-Type": "application/json"}, json={"contents": [{"parts": [{"text": prompt_part2}]}]})
-                if res2.status_code == 200:
-                    text_part2 = res2.json()['candidates'][0]['content']['parts'][0]['text']
-                    send_message(chat_id, text_part2)
+                try:
+                    res = requests.post(
+                        gemini_url, 
+                        headers={"Content-Type": "application/json", "x-goog-api-key": gemini_key}, 
+                        json={"contents": [{"parts": [{"text": prompt}]}]}
+                    )
+                    
+                    if res.status_code == 200:
+                        data = res.json()
+                        if 'candidates' in data and data['candidates']:
+                            final_text = data['candidates'][0]['content']['parts'][0]['text']
+                            send_message(chat_id, final_text)
+                        else:
+                            send_message(chat_id, "The celestial analysis returned an empty payload.")
+                    else:
+                        send_message(chat_id, f"Gemini API error code {res.status_code}: {res.text[:150]}")
+                except Exception as api_err:
+                    send_message(chat_id, f"AI generation exception: {str(api_err)}")
 
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Webhook Error: {str(e)}")
         
     return jsonify(status="success"), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-  
