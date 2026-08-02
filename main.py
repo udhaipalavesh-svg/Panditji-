@@ -12,6 +12,9 @@ app = Flask(__name__)
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
+# Keep track of processed update IDs temporarily to prevent duplicate webhook triggers
+processed_updates = set()
+
 ZODIAC_SIGNS = [
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
     "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
@@ -154,24 +157,32 @@ def webhook():
         if not update:
             return jsonify(status="ignored"), 200
             
+        update_id = update.get("update_id")
+        if update_id in processed_updates:
+            return jsonify(status="duplicate_ignored"), 200
+        processed_updates.add(update_id)
+        
+        if len(processed_updates) > 100:
+            processed_updates.pop()
+
         groq_key = os.environ.get("GROQ_API_KEY")
         today_date = datetime.now().strftime("%B %d, %Y")
 
         if "message" in update and "text" in update["message"]:
             chat_id = update["message"]["chat"]["id"]
-            user_text = update["message"]["text"]
+            user_text = update["message"]["text"].strip()
             
             if user_text.startswith("/start"):
                 welcome_msg = "Welcome! Send your birth details to receive the comprehensive 8-part astrological report:\nDD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)"
                 send_message(chat_id, welcome_msg)
             else:
-                send_message(chat_id, "Executing high-precision Sidereal scan, computing Dasha timeline and generating 8-part master report...")
-
                 match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
                 if not match:
                     send_message(chat_id, "Please use format: DD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)")
                     return jsonify(status="success"), 200
                     
+                send_message(chat_id, "Executing high-precision Sidereal scan, computing Dasha timeline and generating 8-part master report...")
+                
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
                 city_input = city_input.strip()
@@ -205,7 +216,6 @@ def webhook():
                 planet_summary = "\n".join([f"- {p}: {info[0]} | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
                 
                 groq_url = "https://api.groq.com/openai/v1/chat/completions"
-                
                 prompt = f"""
 [SYSTEM ROLE]
 You are Panditji, an uncompromising master Vedic Astrologer. Today's date is {today_date}.
@@ -242,7 +252,7 @@ Structure the report strictly into these 8 sections:
                 success = False
                 final_text = ""
                 
-                for attempt in range(3):
+                for attempt in range(2):
                     try:
                         res = requests.post(groq_url, headers=headers, json=payload, timeout=30)
                         if res.status_code == 200:
@@ -252,19 +262,18 @@ Structure the report strictly into these 8 sections:
                                 success = True
                                 break
                         elif res.status_code in [429, 503]:
-                            time.sleep(5 * (attempt + 1))
+                            time.sleep(4)
                             continue
                         else:
-                            send_message(chat_id, f"Groq API error code {res.status_code}: {res.text[:150]}")
                             break
-                    except Exception as api_err:
-                        time.sleep(3)
+                    except Exception:
+                        time.sleep(2)
                         continue
 
                 if success:
                     send_message(chat_id, final_text)
                 else:
-                    send_message(chat_id, "The celestial servers are temporarily busy. Please wait a moment and try sending your details again.")
+                    send_message(chat_id, "The celestial servers are temporarily busy. Please try sending your details again shortly.")
 
     except Exception as e:
         print(f"Webhook Error: {str(e)}")
@@ -273,4 +282,4 @@ Structure the report strictly into these 8 sections:
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    
+            
