@@ -230,24 +230,35 @@ Structure the report strictly into these 8 sections:
 8. **Rare Yogas & Anomalies**: Unique structural configurations present in the chart.
 """
 
-                try:
-                    res = requests.post(
-                        gemini_url, 
-                        headers={"Content-Type": "application/json"}, 
-                        json={"contents": [{"parts": [{"text": prompt}]}]}
-                    )
-                    
-                    if res.status_code == 200:
-                        data = res.json()
-                        if 'candidates' in data and data['candidates']:
-                            final_text = data['candidates'][0]['content']['parts'][0]['text']
-                            send_message(chat_id, final_text)
+                payload = {"contents": [{"parts": [{"text": prompt}]}]}
+                headers = {"Content-Type": "application/json"}
+
+                success = False
+                final_text = ""
+                
+                for attempt in range(3):
+                    try:
+                        res = requests.post(gemini_url, headers=headers, json=payload, timeout=30)
+                        if res.status_code == 200:
+                            data = res.json()
+                            if 'candidates' in data and data['candidates']:
+                                final_text = data['candidates'][0]['content']['parts'][0]['text']
+                                success = True
+                                break
+                        elif res.status_code == 429:
+                            time.sleep(5 * (attempt + 1))
+                            continue
                         else:
-                            send_message(chat_id, "The celestial analysis returned an empty payload.")
-                    else:
-                        send_message(chat_id, f"Gemini API error code {res.status_code}: {res.text[:150]}")
-                except Exception as api_err:
-                    send_message(chat_id, f"AI generation exception: {str(api_err)}")
+                            send_message(chat_id, f"Gemini API error code {res.status_code}: {res.text[:150]}")
+                            break
+                    except Exception as api_err:
+                        time.sleep(3)
+                        continue
+
+                if success:
+                    send_message(chat_id, final_text)
+                else:
+                    send_message(chat_id, "The celestial servers are temporarily congested due to free-tier rate limits (Error 429). Please wait a moment and try sending your details again.")
 
     except Exception as e:
         print(f"Webhook Error: {str(e)}")
@@ -256,4 +267,4 @@ Structure the report strictly into these 8 sections:
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-                                 
+    
