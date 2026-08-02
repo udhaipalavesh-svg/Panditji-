@@ -207,25 +207,28 @@ def webhook():
                 gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
                 
                 prompt = f"""
-                You are Panditji, an uncompromising master Vedic Astrologer. Today's date is {today_date}.
-                Active Timing Engine (Vimshottari Dasha): {active_dasha}
-                
-                Sidereal Lahiri Chart Data:
-                - Ascendant (Lagna): {asc_sign} in {asc_nak} Pada {asc_pada}
-                {planet_summary}
-                
-                MANDATORY INSTRUCTIONS:
-                - Deliver an exhaustive, highly rigorous analytical report structured into these exact 8 headings:
-                  1. Star and Nakshatra Position in Brief
-                  2. Star and Nakshatra Positions in Detail
-                  3. Conflicts Amongst Stars and Nakshatras
-                  4. General Prediction
-                  5. Prediction in Detail
-                  6. Potential Issues, Psychological Impact, and Legal/Confinement Deductions (explicitly analyze Bandhana Yoga, 6th/8th/12th house weights, and prison/litigation reality if present)
-                  7. Remedies (Exhaustive Lal Kitab & Vedic Corrective Actions)
-                  8. Extraordinary Cosmic Anomalies & Rare Yogas
-                - Rule: Mention Hindi names in brackets for every planet (e.g., Saturn (Shani), Moon (Chandra)). Keep the tone sharp, professional, and uncompromising.
-                """
+[SYSTEM ROLE]
+You are Panditji, an uncompromising master Vedic Astrologer. Today's date is {today_date}.
+
+[INPUT DATA]
+- Timing Engine (Vimshottari Dasha): {active_dasha}
+- Ascendant (Lagna): {asc_sign} in {asc_nak} Pada {asc_pada}
+- Planetary Array:
+{planet_summary}
+
+[OUTPUT DIRECTIVE]
+Generate a high-precision, unyielding Vedic analysis. Use concise bullet points under each heading to eliminate fluff and maximize analytical density. Always include Hindi names in brackets for every planet (e.g., Saturn (Shani), Moon (Chandra)).
+
+Structure the report strictly into these 8 sections:
+1. **Star & Nakshatra Brief**: Core celestial alignment overview.
+2. **Detailed Star Positions**: House-by-house breakdown of planetary strengths.
+3. **Cosmic Conflicts**: Active planetary oppositions, conjunctions, or afflictions.
+4. **General Life Prediction**: Broad trajectory across career, wealth, and life path.
+5. **Detailed Manifestations**: Granular temporal predictions.
+6. **Karmic Liabilities & Confinement (Bandhana Yoga)**: Rigorous evaluation of 6th/8th/12th houses, litigation weights, and restriction indicators.
+7. **Corrective Remedies**: Exhaustive Lal Kitab & Vedic remedial measures.
+8. **Rare Yogas & Anomalies**: Unique structural configurations present in the chart.
+"""
 
                 try:
                     res = requests.post(
@@ -253,3 +256,4 @@ def webhook():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    
