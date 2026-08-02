@@ -1,3 +1,160 @@
+import os
+import requests
+import re
+from flask import Flask, request, jsonify
+from datetime import datetime, timedelta
+import swisseph as swe
+import jyotichart as chart
+import time
+
+app = Flask(__name__)
+
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
+
+processed_updates = set()
+
+ZODIAC_SIGNS = [
+    "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+    "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+]
+
+NAKSHATRAS = [
+    "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra",
+    "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni",
+    "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha",
+    "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta",
+    "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"
+]
+
+DASHA_LORDS = [
+    ("Ketu", 7), ("Venus (Shukra)", 20), ("Sun (Surya)", 6),
+    ("Moon (Chandra)", 10), ("Mars (Mangal)", 7), ("Rahu", 18),
+    ("Jupiter (Guru)", 16), ("Saturn (Shani)", 19), ("Mercury (Budh)", 17)
+]
+
+def send_message(chat_id, text):
+    url = f"{TELEGRAM_API_URL}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
+    try:
+        res = requests.post(url, json=payload, timeout=10)
+        print(f"SendMessage status: {res.status_code}", flush=True)
+    except Exception as e:
+        print(f"Exception in send_message: {e}", flush=True)
+
+def send_document(chat_id, file_path):
+    url = f"{TELEGRAM_API_URL}/sendDocument"
+    try:
+        with open(file_path, 'rb') as f:
+            files = {'document': f}
+            data = {'chat_id': chat_id}
+            res = requests.post(url, data=data, files=files, timeout=15)
+            print(f"SendDocument status: {res.status_code}", flush=True)
+    except Exception as e:
+        print(f"Exception in send_document: {e}", flush=True)
+
+def get_coordinates(city_name):
+    try:
+        url = f"https://nominatim.openstreetmap.org/search?q={city_name}&format=json&limit=1"
+        headers = {'User-Agent': 'PanditjiVedicBot/1.0'}
+        res = requests.get(url, headers=headers, timeout=5).json()
+        if res and len(res) > 0:
+            return float(res[0]['lat']), float(res[0]['lon']), res[0].get('display_name', city_name).split(',')[0]
+    except Exception as e:
+        print(f"Geocoding exception: {e}", flush=True)
+    return 30.7333, 76.7794, city_name
+
+def get_nakshatra_info(lon):
+    nak_span = 360.0 / 27.0
+    nak_idx = int(lon / nak_span) % 27
+    rem = lon % nak_span
+    pada = int(rem / (nak_span / 4.0)) + 1
+    return nak_idx, NAKSHATRAS[nak_idx], pada, rem
+
+def calculate_vimshottari_dasha(moon_lon, birth_dt, target_dt):
+    nak_span = 360.0 / 27.0
+    nak_idx, _, _, rem = get_nakshatra_info(moon_lon)
+    lord_idx = (nak_idx // 3) % 9
+    dasha_lord, total_years = DASHA_LORDS[lord_idx]
+    
+    fraction_elapsed = rem / nak_span
+    fraction_remaining = 1.0 - fraction_elapsed
+    years_remaining = fraction_remaining * total_years
+    
+    current_jd = swe.julday(target_dt.year, target_dt.month, target_dt.day)
+    birth_jd = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day)
+    years_passed = (current_jd - birth_jd) / 365.25
+    
+    current_lord_idx = lord_idx
+    if years_passed <= years_remaining:
+        return f"{dasha_lord} Mahadasha (Balance remaining: {years_remaining - years_passed:.1f} years)"
+    
+    years_passed_after_balance = years_passed - years_remaining
+    current_lord_idx = (current_lord_idx + 1) % 9
+    
+    while years_passed_after_balance > 0:
+        lord, span = DASHA_LORDS[current_lord_idx]
+        if years_passed_after_balance <= span:
+            return f"{lord} Mahadasha (Active running period)"
+        years_passed_after_balance -= span
+        current_lord_idx = (current_lord_idx + 1) % 9
+        
+    return f"{DASHA_LORDS[current_lord_idx][0]} Mahadasha"
+
+def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
+    swe.set_ephe_path(None)
+    swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
+    
+    dt_ist = datetime(year, month, day, hour, minute)
+    dt_utc = dt_ist - timedelta(hours=5, minutes=30)
+    utc_decimal = dt_utc.hour + (dt_utc.minute / 60.0)
+    jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, utc_decimal)
+    
+    flags = swe.FLG_SWIEPH + swe.FLG_SPEED + swe.FLG_SIDEREAL
+    
+    planets = {
+        "Sun (Surya)": swe.SUN,
+        "Moon (Chandra)": swe.MOON,
+        "Mars (Mangal)": swe.MARS,
+        "Mercury (Budh)": swe.MERCURY,
+        "Jupiter (Guru)": swe.JUPITER,
+        "Venus (Shukra)": swe.VENUS,
+        "Saturn (Shani)": swe.SATURN,
+        "Rahu": swe.MEAN_NODE,
+        "Ketu": 10
+    }
+    
+    positions = {}
+    rahu_lon = 0.0
+    moon_lon = 0.0
+    for name, p_id in planets.items():
+        if name == "Ketu":
+            lon_val = (rahu_lon + 180.0) % 360.0
+        else:
+            calc = swe.calc_ut(jdut, p_id, flags)
+            lon_val = calc[0] if isinstance(calc[0], float) else calc[0][0]
+            if name == "Rahu":
+                rahu_lon = lon_val
+            if name == "Moon (Chandra)":
+                moon_lon = lon_val
+                
+        sign_idx = int(lon_val / 30) % 12
+        sign_name = ZODIAC_SIGNS[sign_idx]
+        _, nak_name, pada, _ = get_nakshatra_info(lon_val)
+        positions[name] = (sign_name, lon_val, nak_name, pada)
+        
+    try:
+        _, ascmc = swe.houses_ex(jdut, lat, lon, b'W', flags)
+        asc_lon = ascmc[0]
+    except Exception:
+        asc_lon = 0.0
+        
+    asc_sign = ZODIAC_SIGNS[int(asc_lon / 30) % 12]
+    _, asc_nak, asc_pada, _ = get_nakshatra_info(asc_lon)
+    
+    active_dasha = calculate_vimshottari_dasha(moon_lon, dt_ist, datetime.now())
+    return asc_sign, asc_nak, asc_pada, positions, active_dasha
+
 @app.route('/', methods=['POST', 'GET'])
 @app.route(f'/{TELEGRAM_BOT_TOKEN}', methods=['POST', 'GET'])
 def webhook():
@@ -108,4 +265,7 @@ Structure the report strictly into these 8 sections:
         print(f"CRITICAL Webhook Error: {str(e)}", flush=True)
         
     return jsonify(status="success"), 200
-    
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+                    
