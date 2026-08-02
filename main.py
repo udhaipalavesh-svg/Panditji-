@@ -204,7 +204,7 @@ def webhook():
 
                 planet_summary = "\n".join([f"- {p}: {info[0]} | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
                 
-                gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+                gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
                 
                 prompt = f"""
 [SYSTEM ROLE]
@@ -233,7 +233,7 @@ Structure the report strictly into these 8 sections:
                 try:
                     res = requests.post(
                         gemini_url, 
-                        headers={"Content-Type": "application/json", "x-goog-api-key": gemini_key}, 
+                        headers={"Content-Type": "application/json"}, 
                         json={"contents": [{"parts": [{"text": prompt}]}]}
                     )
                     
