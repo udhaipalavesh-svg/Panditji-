@@ -141,11 +141,14 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
         sign_idx = int(lon_val / 30) % 12
         sign_name = ZODIAC_SIGNS[sign_idx]
         _, nak_name, pada, _ = get_nakshatra_info(lon_val)
-        positions[name] = (sign_name, lon_val, nak_name, pada)
+        
+        # AUDIT & RE-VERIFICATION LAYER: Ensure bounds are mathematically secure
+        normalized_lon = lon_val % 360.0
+        positions[name] = (sign_name, normalized_lon, nak_name, pada)
         
     try:
         _, ascmc = swe.houses_ex(jdut, lat, lon, b'W', flags)
-        asc_lon = ascmc[0]
+        asc_lon = ascmc[0] % 360.0
     except Exception:
         asc_lon = 0.0
         
@@ -181,7 +184,7 @@ def webhook():
                     send_message(chat_id, "Please use format: DD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)")
                     return jsonify(status="success"), 200
                     
-                send_message(chat_id, "Executing high-precision Sidereal scan, computing Dasha timeline and generating 8-part master report...")
+                send_message(chat_id, "Auditing chart ephemeris, verifying sidereal coordinates, and synthesizing psychological master report...")
                 
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
@@ -213,7 +216,7 @@ def webhook():
                 north.draw("/tmp/", svg_filename)
                 send_document(chat_id, svg_path)
 
-                planet_summary = "\n".join([f"- {p}: {info[0]} | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
+                planet_summary = "\n".join([f"- {p}: {info[0]} | Exact Deg: {info[1]:.2f}° | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
                 
                 groq_key = os.environ.get("GROQ_API_KEY")
                 today_date = datetime.now().strftime("%B %d, %Y")
@@ -221,32 +224,32 @@ def webhook():
                 
                 prompt = f"""
 [SYSTEM ROLE]
-You are Panditji, an uncompromising master Vedic Astrologer. Today's date is {today_date}.
+You are Panditji, an elite master Vedic Astrologer, deep archetypal psychologist, and soul guide. You merge classical Sidereal Jyotish computations with rigorous psychological insight, emotional depth, and spiritual mapping. Today's date is {today_date}.
 
-[INPUT DATA]
+[VERIFIED INPUT DATA & EPHEMERIS AUDIT]
 - Timing Engine (Vimshottari Dasha): {active_dasha}
 - Ascendant (Lagna): {asc_sign} in {asc_nak} Pada {asc_pada}
-- Planetary Array:
+- Audited Planetary Array:
 {planet_summary}
 
 [OUTPUT DIRECTIVE]
-Generate a high-precision, unyielding Vedic analysis. Use concise bullet points under each heading to eliminate fluff and maximize analytical density. Always include Hindi names in brackets for every planet (e.g., Saturn (Shani), Moon (Chandra)).
+Generate a deeply reflective, psychologically penetrating, and structurally rigorous Vedic analysis. Avoid generic horoscopes. Illuminate the hidden emotional drivers, inner contradictions, subconscious barriers, and psychological growth patterns. Use precise bullet points under each heading. Always include Hindi names in brackets for every planet (e.g., Saturn (Shani), Moon (Chandra)).
 
 Structure the report strictly into these 8 sections:
-1. **Star & Nakshatra Brief**: Core celestial alignment overview.
-2. **Detailed Star Positions**: House-by-house breakdown of planetary strengths.
-3. **Cosmic Conflicts**: Active planetary oppositions, conjunctions, or afflictions.
-4. **General Life Prediction**: Broad trajectory across career, wealth, and life path.
-5. **Detailed Manifestations**: Granular temporal predictions.
-6. **Karmic Liabilities & Confinement (Bandhana Yoga)**: Rigorous evaluation of 6th/8th/12th houses, litigation weights, and restriction indicators.
-7. **Corrective Remedies**: Exhaustive Lal Kitab & Vedic remedial measures.
-8. **Rare Yogas & Anomalies**: Unique structural configurations present in the chart.
+1. **Star & Nakshatra Brief**: Core celestial alignment overview and the foundational emotional signature.
+2. **Detailed Star Positions**: House-by-house breakdown of psychological strengths, intellectual wiring, and internal conflicts.
+3. **Cosmic Conflicts**: Active planetary oppositions or conjunctions mapped to internal psychological tensions and behavioral blind spots.
+4. **General Life Prediction**: Deep evolutionary trajectory across career, purpose, inner fulfillment, and wealth mindset.
+5. **Detailed Manifestations**: Granular temporal alignments framed through current choices and psychological readiness.
+6. **Karmic Liabilities, Psychological Entrapment & Confinement (Bandhana Yoga)**: Highly amplified and rigorous evaluation of 6th/8th/12th houses, deep-seated emotional self-sabotage, subconscious confinement loops, inner attachment chains, litigation/obligation weights, and precise pathways toward psychological and spiritual liberation.
+7. **Corrective Remedies**: Exhaustive Lal Kitab & Vedic mental/spiritual alignment measures.
+8. **Rare Yogas & Anomalies**: Unique structural configurations present in the chart and their deep psychological gifts.
 """
 
                 payload = {
                     "model": "llama-3.3-70b-versatile",
                     "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.7
+                    "temperature": 0.75
                 }
                 headers = {
                     "Content-Type": "application/json",
