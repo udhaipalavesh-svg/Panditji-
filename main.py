@@ -37,9 +37,10 @@ def send_message(chat_id, text):
     url = f"{TELEGRAM_API_URL}/sendMessage"
     payload = {"chat_id": chat_id, "text": text}
     try:
-        requests.post(url, json=payload, timeout=10)
+        res = requests.post(url, json=payload, timeout=10)
+        print(f"SendMessage status: {res.status_code}, response: {res.text}")
     except Exception as e:
-        print(f"Send message error: {e}")
+        print(f"Exception in send_message: {e}")
 
 def send_document(chat_id, file_path):
     url = f"{TELEGRAM_API_URL}/sendDocument"
@@ -47,9 +48,10 @@ def send_document(chat_id, file_path):
         with open(file_path, 'rb') as f:
             files = {'document': f}
             data = {'chat_id': chat_id}
-            requests.post(url, data=data, files=files, timeout=15)
+            res = requests.post(url, data=data, files=files, timeout=15)
+            print(f"SendDocument status: {res.status_code}")
     except Exception as e:
-        print(f"Send document error: {e}")
+        print(f"Exception in send_document: {e}")
 
 def get_coordinates(city_name):
     try:
@@ -58,8 +60,8 @@ def get_coordinates(city_name):
         res = requests.get(url, headers=headers, timeout=5).json()
         if res and len(res) > 0:
             return float(res[0]['lat']), float(res[0]['lon']), res[0].get('display_name', city_name).split(',')[0]
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Geocoding exception: {e}")
     return 30.7333, 76.7794, city_name
 
 def get_nakshatra_info(lon):
@@ -163,21 +165,7 @@ def webhook():
         if not update:
             return jsonify(status="ignored"), 200
             
-        update_id = update.get("update_id")
-        if update_id in processed_updates:
-            return jsonify(status="duplicate_ignored"), 200
-        processed_updates.add(update_id)
-        
-        if len(processed_updates) > 100:
-            processed_updates.pop()
-
-        groq_key = os.environ.get("GROQ_API_KEY")
-        if not groq_key:
-            if "message" in update and "text" in update["message"]:
-                send_message(update["message"]["chat"]["id"], "Configuration Error: GROQ_API_KEY environment variable is missing on Render.")
-            return jsonify(status="missing_key"), 200
-
-        today_date = datetime.now().strftime("%B %d, %Y")
+        print(f"Received update: {update}")
 
         if "message" in update and "text" in update["message"]:
             chat_id = update["message"]["chat"]["id"]
@@ -226,7 +214,10 @@ def webhook():
 
                 planet_summary = "\n".join([f"- {p}: {info[0]} | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
                 
+                groq_key = os.environ.get("GROQ_API_KEY")
+                today_date = datetime.now().strftime("%B %d, %Y")
                 groq_url = "https://api.groq.com/openai/v1/chat/completions"
+                
                 prompt = f"""
 [SYSTEM ROLE]
 You are Panditji, an uncompromising master Vedic Astrologer. Today's date is {today_date}.
@@ -261,35 +252,19 @@ Structure the report strictly into these 8 sections:
                     "Authorization": f"Bearer {groq_key}"
                 }
 
-                success = False
-                final_text = ""
-                error_details = ""
-                
-                for attempt in range(2):
-                    try:
-                        res = requests.post(groq_url, headers=headers, json=payload, timeout=50)
-                        if res.status_code == 200:
-                            data = res.json()
-                            if 'choices' in data and data['choices']:
-                                final_text = data['choices'][0]['message']['content']
-                                success = True
-                                break
-                        else:
-                            error_details = f"HTTP {res.status_code}: {res.text[:200]}"
-                    except Exception as e:
-                        error_details = str(e)
-                    time.sleep(2)
-
-                if success:
+                res = requests.post(groq_url, headers=headers, json=payload, timeout=50)
+                if res.status_code == 200:
+                    data = res.json()
+                    final_text = data['choices'][0]['message']['content']
                     send_message(chat_id, final_text)
                 else:
-                    send_message(chat_id, f"Groq API Error: {error_details}")
+                    send_message(chat_id, f"Groq API Error HTTP {res.status_code}: {res.text[:150]}y")
 
     except Exception as e:
-        print(f"Webhook Error: {str(e)}")
+        print(f"CRITICAL Webhook Error: {str(e)}")
         
     return jsonify(status="success"), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    
+                
