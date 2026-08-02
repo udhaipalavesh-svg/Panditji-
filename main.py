@@ -12,8 +12,6 @@ app = Flask(__name__)
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
-# In-memory session store to remember user chart data for follow-up questions
-# Format: { chat_id: { "planet_summary": "...", "asc_sign": "...", "active_dasha": "...", "city": "..." } }
 USER_SESSIONS = {}
 
 ZODIAC_SIGNS = [
@@ -194,7 +192,6 @@ def webhook():
             groq_url = "https://api.groq.com/openai/v1/chat/completions"
             
             if user_text.startswith("/start"):
-                # Clear previous session when starting fresh
                 if chat_id in USER_SESSIONS:
                     del USER_SESSIONS[chat_id]
                     
@@ -202,11 +199,10 @@ def webhook():
                 send_message(chat_id, welcome_msg)
                 return jsonify(status="success"), 200
                 
-            # Check if user is sending birth details format
             match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
             
             if match:
-                send_message(chat_id, "Running astrological audit and compiling master report...")
+                send_message(chat_id, "Executing high-precision tactical audit with strict Hindi nomenclature and high-potency remedial protocols...")
                 
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
@@ -217,7 +213,6 @@ def webhook():
                 
                 planet_summary = "\n".join([f"- {p}: {info[0]} | Exact Deg: {info[1]:.2f}° | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
                 
-                # Save session data for follow-up questions
                 USER_SESSIONS[chat_id] = {
                     "asc_sign": asc_sign,
                     "asc_nak": asc_nak,
@@ -251,7 +246,12 @@ def webhook():
 
                 prompt = f"""
 [SYSTEM ROLE]
-You are Panditji, an uncompromising master Vedic Astrologer and tactical life strategist. Today's baseline anchor date is {t_ctx['current_date']}.
+You are Panditji, an uncompromising, elite master Vedic Astrologer and tactical life strategist. Today's strict baseline anchor date is {t_ctx['current_date']}.
+
+[STRICT ENFORCEMENT RULES]
+1. **HINDI NOMENCLATURE MANDATE**: You MUST include Hindi names in brackets for EVERY single planetary reference without exception (e.g., Sun (Surya), Moon (Chandra), Mars (Mangal), Mercury (Budh), Jupiter (Guru), Venus (Shukra), Saturn (Shani), Rahu, Ketu). Missing a Hindi name is a system failure.
+2. **HIGH-POTENCY REMEDIES**: Section 7 must contain exact, procedural Lal Kitab and Vedic Upaayas (e.g., specific donation items, exact weekdays, feeding rituals, or material item rules). Absolutely no generic spiritual advice like "meditate or pray."
+3. **DEFINITIVE PREDICTION**: Avoid passive hedging words like "might" or "suggests a potential for." Deliver direct, tactical astrological forecasts.
 
 [INPUT DATA]
 - Baseline Anchor Date (Today): {t_ctx['current_date']}
@@ -261,15 +261,15 @@ You are Panditji, an uncompromising master Vedic Astrologer and tactical life st
 {planet_summary}
 
 [OUTPUT DIRECTIVE]
-Generate a high-impact, razor-sharp predictive blueprint structured strictly into these 8 sections:
-1. Star & Nakshatra Brief
-2. Detailed Star Positions
-3. Cosmic Conflicts
-4. General Life Prediction
-5. Detailed Manifestations & High-Impact Time-Bracketed Roadmap
-6. Karmic Liabilities & Confinement (Bandhana Yoga)
-7. Corrective Remedies
-8. Rare Yogas & Anomalies
+Generate a master-level tactical blueprint structured strictly into these 8 sections:
+1. **Star & Nakshatra Brief**
+2. **Detailed Star Positions**
+3. **Cosmic Conflicts**
+4. **General Life Prediction**
+5. **Detailed Manifestations & High-Impact Time-Bracketed Roadmap**
+6. **Karmic Liabilities, Psychological Entrapment & Confinement (Bandhana Yoga)**
+7. **Corrective Remedies (Upaayas)**
+8. **Rare Yogas & Anomalies**
 """
 
                 payload = {
@@ -287,19 +287,21 @@ Generate a high-impact, razor-sharp predictive blueprint structured strictly int
                         send_message(chat_id, final_text[i:i + max_length])
                         time.sleep(0.5)
                     
-                    # Prompt the user for follow-up questions
-                    send_message(chat_id, "💡 **Master Report Complete.** You can now ask me any specific question about your chart, career, wealth, or timing (e.g., *'Should I switch jobs in the next 3 months?'* or *'What do my financial prospects look like?'*).")
+                    send_message(chat_id, "💡 **Master Report Complete.** You can now ask me any specific question about your chart, career, wealth, health, or relationships.")
                 else:
-                    send_message(chat_id, f"Groq API Error: {res.text[:150]}",)
+                    send_message(chat_id, f"Groq API Error: {res.text[:150]}")
                     
             elif chat_id in USER_SESSIONS:
-                # Handle specific follow-up questions using saved session data
                 session = USER_SESSIONS[chat_id]
-                send_message(chat_id, "Consulting your chart for your specific question...")
+                send_message(chat_id, "Consulting your chart for your specific tactical question...")
                 
                 q_prompt = f"""
 [SYSTEM ROLE]
-You are Panditji, an elite master Vedic Astrologer. The user has already received their master chart report and is now asking a specific follow-up question. Today's date is {session['t_ctx']['current_date']}.
+You are Panditji, an elite master Vedic Astrologer. Today's date is {session['t_ctx']['current_date']}.
+
+[MANDATORY RULES]
+- Always include Hindi names in brackets for every planet referenced (e.g., Saturn (Shani), Moon (Chandra), Mars (Mangal)).
+- Give direct, unvarnished, tactically sound answers with clear timelines and explicit Upaayas where applicable.
 
 [USER CHART CONTEXT]
 - Ascendant: {session['asc_sign']} in {session['asc_nak']} Pada {session['asc_pada']}
@@ -311,7 +313,7 @@ You are Panditji, an elite master Vedic Astrologer. The user has already receive
 "{user_text}"
 
 [OUTPUT DIRECTIVE]
-Provide a direct, tactical, and astrologically grounded answer to the user's specific question using their chart configuration. Avoid generic fluff. Give concrete guidance and clear operational timelines.
+Provide an uncompromising, astrologically grounded response addressing the core problem directly with clear solutions.
 """
 
                 payload = {
