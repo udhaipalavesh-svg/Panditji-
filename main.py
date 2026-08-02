@@ -13,6 +13,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_JUSTIFY
+from xml.sax.saxutils import escape
 
 app = Flask(__name__)
 
@@ -25,6 +26,14 @@ ZODIAC_SIGNS = [
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
     "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
 ]
+
+# Hindi mapping for Zodiac Signs
+HINDI_SIGNS = {
+    "Aries": "Aries (Mesha)", "Taurus": "Taurus (Vrishabha)", "Gemini": "Gemini (Mithuna)",
+    "Cancer": "Cancer (Karka)", "Leo": "Leo (Simha)", "Virgo": "Virgo (Kanya)",
+    "Libra": "Libra (Tula)", "Scorpio": "Scorpio (Vrishchika)", "Sagittarius": "Sagittarius (Dhanu)",
+    "Capricorn": "Capricorn (Makara)", "Aquarius": "Aquarius (Kumbha)", "Pisces": "Pisces (Meena)"
+}
 
 NAKSHATRAS = [
     "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra",
@@ -40,7 +49,6 @@ DASHA_LORDS = [
     ("Jupiter (Guru)", 16), ("Saturn (Shani)", 19), ("Mercury (Budh)", 17)
 ]
 
-# --- ASTROLOGICAL MATH DICTIONARIES ---
 EXALTATION = {
     "Sun (Surya)": "Aries", "Moon (Chandra)": "Taurus", "Mars (Mangal)": "Capricorn",
     "Mercury (Budh)": "Virgo", "Jupiter (Guru)": "Cancer", "Venus (Shukra)": "Pisces",
@@ -56,11 +64,12 @@ OWN_SIGNS = {
     "Mercury (Budh)": ["Gemini", "Virgo"], "Jupiter (Guru)": ["Sagittarius", "Pisces"],
     "Venus (Shukra)": ["Taurus", "Libra"], "Saturn (Shani)": ["Capricorn", "Aquarius"]
 }
-# Combustion degrees (approximate orb)
 COMBUSTION_ORB = {
     "Moon (Chandra)": 12, "Mars (Mangal)": 17, "Mercury (Budh)": 14,
     "Jupiter (Guru)": 11, "Venus (Shukra)": 10, "Saturn (Shani)": 15
 }
+MALEFICS = ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]
+BENEFICS = ["Jupiter (Guru)", "Venus (Shukra)", "Mercury (Budh)", "Moon (Chandra)"]
 
 def send_message(chat_id, text):
     url = f"{TELEGRAM_API_URL}/sendMessage"
@@ -88,30 +97,40 @@ def send_document(chat_id, file_path):
         print(f"Exception in send_document: {e}", flush=True)
 
 def generate_pdf_report(report_text, pdf_path, birth_details_str):
-    doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
-    styles = getSampleStyleSheet()
-    
-    title_style = ParagraphStyle('ReportTitle', parent=styles['Heading1'], fontSize=16, spaceAfter=8, textColor=colors.HexColor('#4A154B'), alignment=1)
-    heading_style = ParagraphStyle('SectionHeading', parent=styles['Heading2'], fontSize=12, spaceBefore=12, spaceAfter=6, textColor=colors.HexColor('#1D1C1D'))
-    body_style = ParagraphStyle('ReportBody', parent=styles['Normal'], fontSize=9.5, leading=14, spaceAfter=6, alignment=TA_JUSTIFY)
+    try:
+        doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle('ReportTitle', parent=styles['Heading1'], fontSize=16, spaceAfter=8, textColor=colors.HexColor('#4A154B'), alignment=1)
+        heading_style = ParagraphStyle('SectionHeading', parent=styles['Heading2'], fontSize=12, spaceBefore=12, spaceAfter=6, textColor=colors.HexColor('#1D1C1D'))
+        body_style = ParagraphStyle('ReportBody', parent=styles['Normal'], fontSize=9.5, leading=14, spaceAfter=6, alignment=TA_JUSTIFY)
 
-    story = []
-    story.append(Paragraph("<b>Panditji - Forensic Astrological & Catastrophic Risk Audit</b>", title_style))
-    story.append(Paragraph(f"<b>Client Profile:</b> {birth_details_str}", body_style))
-    story.append(Spacer(1, 12))
+        story = []
+        story.append(Paragraph("<b>Panditji - Forensic Astrological & Catastrophic Risk Audit</b>", title_style))
+        story.append(Paragraph(f"<b>Client Profile:</b> {escape(birth_details_str)}", body_style))
+        story.append(Spacer(1, 12))
 
-    report_text_html = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', report_text)
+        # Sanitize and format text for ReportLab
+        for line in report_text.split('\n'):
+            line = line.strip()
+            if not line: continue
+            
+            # Escape XML characters first to prevent parsing errors
+            safe_line = escape(line)
+            # Convert Markdown **bold** to ReportLab <b>bold</b>
+            safe_line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', safe_line)
+            # Convert Markdown bullet points
+            safe_line = re.sub(r'^-\s+', '• ', safe_line)
+            
+            if re.match(r'^\d+\.\s+<b>', safe_line) or safe_line.startswith("# "):
+                story.append(Spacer(1, 6))
+                story.append(Paragraph(safe_line, heading_style))
+            else:
+                story.append(Paragraph(safe_line, body_style))
 
-    for line in report_text_html.split('\n'):
-        line = line.strip()
-        if not line: continue
-        if re.match(r'^\d+\.\s+<b>', line) or line.startswith("# <b>"):
-            story.append(Spacer(1, 6))
-            story.append(Paragraph(line, heading_style))
-        else:
-            story.append(Paragraph(line, body_style))
-
-    doc.build(story)
+        doc.build(story)
+    except Exception as e:
+        print(f"PDF GENERATION ERROR: {e}", flush=True)
 
 def get_coordinates(city_name):
     try:
@@ -167,12 +186,18 @@ def get_planet_dignity(planet, sign):
     return "Neutral"
 
 def get_aspects(planet, house):
-    aspects = [7] # All planets aspect 7th
+    aspects = [7]
     if planet == "Mars (Mangal)": aspects.extend([4, 8])
     elif planet == "Jupiter (Guru)": aspects.extend([5, 9])
     elif planet == "Saturn (Shani)": aspects.extend([3, 10])
-    elif planet in ["Rahu", "Ketu"]: aspects.extend([5, 9]) # Standard Rahu/Ketu aspects
+    elif planet in ["Rahu", "Ketu"]: aspects.extend([5, 9])
     return [((house - 1 + a) % 12) + 1 for a in aspects]
+
+def get_house_of_planet(houses, planet_name):
+    for h_num, h_data in houses.items():
+        if planet_name in h_data["occupants"]:
+            return h_num
+    return None
 
 def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     now = datetime.now()
@@ -201,45 +226,74 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     for i in range(12):
         house_num = i + 1
         sign = ZODIAC_SIGNS[(asc_idx + i) % 12]
-        houses[house_num] = {"sign": sign, "ruler": sign_lords.get(sign, ""), "occupants": [], "aspected_by": []}
+        houses[house_num] = {"sign": sign, "hindi_sign": HINDI_SIGNS[sign], "ruler": sign_lords.get(sign, ""), "occupants": [], "aspected_by": []}
         
-    # Map occupants
     for p_name, p_data in planets_full.items():
         for h_num, h_data in houses.items():
             if h_data["sign"] == p_data["sign"]:
                 h_data["occupants"].append(p_name)
                 break
                 
-    # Map Aspects
     for p_name, p_data in planets_full.items():
-        occ_house = None
-        for h_num, h_data in houses.items():
-            if p_name in h_data["occupants"]:
-                occ_house = h_num
-                break
+        occ_house = get_house_of_planet(houses, p_name)
         if occ_house:
-            aspected_houses = get_aspects(p_name, occ_house)
-            for ah in aspected_houses:
+            for ah in get_aspects(p_name, occ_house):
                 houses[ah]["aspected_by"].append(p_name)
 
-    # Detect Key Yogas
-    yogas = []
-    for p_name, p_data in planets_full.items():
-        if p_name in ["Mars (Mangal)", "Mercury (Budh)", "Jupiter (Guru)", "Venus (Shukra)", "Saturn (Shani)"]:
-            occ_house = None
-            for h_num, h_data in houses.items():
-                if p_name in h_data["occupants"]: occ_house = h_num
-            if occ_house in [1, 4, 7, 10] and p_data["dignity"] == "Exalted (Uchcha)":
-                yogas.append(f"{p_name.split(' ')[0]} causes Pancha Mahapurusha Yoga (Exalted in Kendra)")
-            if occ_house in [1, 4, 7, 10] and p_data["dignity"] == "Own Sign (Swavritti)":
-                yogas.append(f"{p_name.split(' ')[0]} causes Pancha Mahapurusha Yoga (Own Sign in Kendra)")
+    # Track House Lord Placements
+    for h_num, h_data in houses.items():
+        ruler = h_data["ruler"]
+        if ruler:
+            h_data["ruler_placed_in"] = get_house_of_planet(houses, ruler)
+        else:
+            h_data["ruler_placed_in"] = "N/A"
 
+    # --- DERIVED FORENSIC LOGIC ---
     logic_summary = f"[LIFE STAGE FILTER - MANDATORY]: {life_stage}\n[PROGRAMMATIC HOUSE MAP]:\n"
     for h, data in houses.items():
-        logic_summary += f"  House {h} ({data['sign']}, Ruled by {data['ruler']}): Occupied by {data['occupants'] if data['occupants'] else 'Empty'}. Aspected by {data['aspected_by'] if data['aspected_by'] else 'None'}.\n"
+        logic_summary += f"  House {h} ({data['hindi_sign']}, Ruled by {data['ruler']} placed in House {data['ruler_placed_in']}): Occupied by {data['occupants'] if data['occupants'] else 'Empty'}. Aspected by {data['aspected_by'] if data['aspected_by'] else 'None'}.\n"
     
-    if yogas:
-        logic_summary += f"\n[DETECTED YOGAS]: {', '.join(yogas)}\n"
+    # 1. Psychological Triggers
+    psych_triggers = []
+    moon_house = get_house_of_planet(houses, "Moon (Chandra)")
+    mercury_house = get_house_of_planet(houses, "Mercury (Budh)")
+    if moon_house in [6, 8, 12]: psych_triggers.append(f"Moon (Chandra) in Dusthana (House {moon_house}) indicates severe emotional volatility and suppressed anxiety.")
+    if planets_full["Moon (Chandra)"]["dignity"] == "Debilitated (Neecha)": psych_triggers.append("Debilitated Moon indicates chronic emotional hypersensitivity and depressive loops.")
+    if mercury_house in [8, 12]: psych_triggers.append(f"Mercury (Budh) in House {mercury_house} creates a hyper-analytical mind prone to paranoia and nervous system burnout.")
+
+    # 2. Major Outliers (Good & Bad)
+    anomalies = []
+    
+    h2_occ = houses[2]["occupants"] + houses[2]["aspected_by"]
+    h6_occ = houses[6]["occupants"] + houses[6]["aspected_by"]
+    h7_occ = houses[7]["occupants"] + houses[7]["aspected_by"]
+    h8_occ = houses[8]["occupants"] + houses[8]["aspected_by"]
+    h10_occ = houses[10]["occupants"] + houses[10]["aspected_by"]
+    h11_occ = houses[11]["occupants"] + houses[11]["aspected_by"]
+    h12_occ = houses[12]["occupants"] + houses[12]["aspected_by"]
+
+    # Negative Outliers
+    if any(m in h8_occ for m in MALEFICS) or any(m in h12_occ for m in MALEFICS):
+        anomalies.append("HOSPITALIZATION/TRAUMA: Malefic affliction to 8th/12th house. High risk of sudden hospitalization or chronic illness.")
+    if houses[10]["ruler_placed_in"] in [8, 12] or ("Rahu" in h10_occ and "Saturn (Shani)" in h10_occ):
+        anomalies.append("JOB LOSS/BUSINESS SHUTDOWN: 10th Lord in 8th/12th or Rahu+Saturn in 10th. High risk of sudden career termination or business collapse.")
+    if any(m in h7_occ for m in ["Mars (Mangal)", "Rahu", "Sun (Surya)"]) or houses[7]["ruler_placed_in"] in [6, 12]:
+        anomalies.append("DIVORCE/MARITAL ALIENATION: 7th house afflicted or 7th Lord in 6th/12th. High probability of high-conflict divorce.")
+    if "Rahu" in h6_occ or "Rahu" in h8_occ:
+        anomalies.append("LEGAL/IMPRISONMENT: Rahu in 6th/8th axis creates entrapment in protracted litigation or false allegations.")
+    if "Rahu" in get_house_of_planet(houses, "Venus (Shukra)") or "Mars (Mangal)" in get_house_of_planet(houses, "Venus (Shukra)"):
+        anomalies.append("EXTRA-MARITAL AFFAIR: Venus (Shukra) afflicted by Rahu/Mars. High propensity for secretive relationships or infidelity.")
+
+    # Positive Outliers
+    if "Jupiter (Guru)" in h10_occ or "Jupiter (Guru)" in h11_occ or houses[10]["ruler_placed_in"] == 11:
+        anomalies.append("PROMOTION/CAREER GROWTH: Jupiter aspecting 10th/11th or 10th Lord in 11th. Strong window for sudden promotion or leadership elevation.")
+    if houses[2]["ruler_placed_in"] == 11 or houses[11]["ruler_placed_in"] == 2:
+        anomalies.append("NEW BUSINESS/WEALTH GAIN: 2nd/11th Lord exchange. Highly favorable for successful new business launches or wealth multiplication.")
+    if "Jupiter (Guru)" in h8_occ or houses[8]["ruler_placed_in"] in [1, 5, 9, 11]:
+        anomalies.append("LOTTERY/UNEXPECTED WEALTH: 8th house/lord positively linked. Potential for sudden inheritance, lottery, or unearned wealth.")
+
+    logic_summary += f"\n[PSYCHOLOGICAL TRIGGER ANALYSIS]: {' '.join(psych_triggers) if psych_triggers else 'No severe psychological anomalies detected.'}\n"
+    logic_summary += f"[MAJOR OUTLIER SCANNER (Good & Bad)]:\n - " + "\n - ".join(anomalies) if anomalies else "\n[MAJOR OUTLIER SCANNER]: No major outliers detected."
         
     return logic_summary, age
 
@@ -288,12 +342,11 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
         if name in COMBUSTION_ORB:
             dist_to_sun = abs(lon_val - sun_lon)
             if dist_to_sun > 180: dist_to_sun = 360 - dist_to_sun
-            if dist_to_sun < COMBUSTION_ORB[name]:
-                is_combust = True
+            if dist_to_sun < COMBUSTION_ORB[name]: is_combust = True
                 
         positions[name] = {
-            "sign": sign_name, "lon": lon_val % 360.0, "nak": nak_name, "pada": pada,
-            "dignity": dignity, "retro": is_retro, "combust": is_combust
+            "sign": sign_name, "hindi_sign": HINDI_SIGNS[sign_name], "lon": lon_val % 360.0, 
+            "nak": nak_name, "pada": pada, "dignity": dignity, "retro": is_retro, "combust": is_combust
         }
         
     try:
@@ -343,7 +396,7 @@ def webhook():
             match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
             
             if match:
-                send_message(chat_id, "Calculating exact astronomical degrees, planetary dignities, aspects, and compiling PDF dossier...")
+                send_message(chat_id, "Scanning for psychological triggers, catastrophic anomalies, and compiling PDF dossier...")
                 
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
@@ -352,81 +405,4 @@ def webhook():
                 lat, lon, city_clean = get_coordinates(city_input)
                 asc_sign, asc_nak, asc_pada, planets, t_ctx, logic_breakdown, age = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
                 
-                planet_summary = "\n".join([f"- {p}: {d['sign']} | Deg: {d['lon']:.2f}° | Nak: {d['nak']} (P{d['pada']}) | Dignity: {d['dignity']} {'[Retrograde]' if d['retro'] else ''} {'[Combust]' if d['combust'] else ''}" for p, d in planets.items()])
-                
-                USER_SESSIONS[chat_id] = {
-                    "asc_sign": asc_sign, "planet_summary": planet_summary, "t_ctx": t_ctx, 
-                    "logic_breakdown": logic_breakdown, "age": age
-                }
-                
-                os.makedirs("/tmp", exist_ok=True)
-                file_tag = str(int(time.time()))
-                
-                # 1. SVG Chart
-                svg_filename = f"natal_chart_{file_tag}"
-                svg_path = f"/tmp/{svg_filename}.svg"
-                north = chart.NorthChart("Natal Chart (Lahiri)", f"{day:02d}-{month:02d}-{year} ({city_clean})", IsFullChart=True)
-                north.set_ascendantsign(asc_sign)
-                
-                p_map = {"Sun (Surya)": chart.SUN, "Moon (Chandra)": chart.MOON, "Mars (Mangal)": chart.MARS, "Mercury (Budh)": chart.MERCURY, "Jupiter (Guru)": chart.JUPITER, "Venus (Shukra)": chart.VENUS, "Saturn (Shani)": chart.SATURN, "Rahu": chart.RAHU, "Ketu": chart.KETU}
-                for p_name, p_code in p_map.items():
-                    if p_name in planets:
-                        north.add_planet(p_code, p_name[:2], ZODIAC_SIGNS.index(planets[p_name]["sign"]) + 1)
-                north.draw("/tmp/", svg_filename)
-                send_document(chat_id, svg_path)
-
-                # 2. Forensic Audit Prompt
-                prompt = f"""
-[SYSTEM ROLE]
-You are Panditji, an uncompromising, elite forensic Vedic Astrologer. Today's date is {t_ctx['current_date']}.
-
-[STRICT RULES - ZERO TOLERANCE FOR VIOLATIONS]
-1. **USE PROVIDED FACTS ONLY**: Do NOT invent planetary positions, aspects, or yogas. Synthesize ONLY the math provided in the [CALCULATED LOGIC] block.
-2. **NO VAGUE GENERALITIES**: State *precisely* what restrictions or risks apply based on the exact dignity (Exalted/Debilitated) and aspects provided.
-3. **HINDI NOMENCLATURE MANDATE**: Include Hindi names in brackets for EVERY planetary reference (e.g., Saturn (Shani)).
-4. **STRICT AGE COMPLIANCE**: ONLY discuss topics relevant to the [LIFE STAGE FILTER]. 
-5. **ACTIONABLE UPAYAS**: Remedies must be highly specific (e.g., "Donate black sesame oil on Saturday evening").
-
-[CALCULATED ASTROLOGICAL FACTS]
-- Baseline Date: {t_ctx['current_date']}
-- Current Dasha: {t_ctx['dasha_now']}
-- 5-Year Dasha: {t_ctx['dasha_5y']}
-{logic_breakdown}
-
-[PLANETARY ARRAY]
-- Ascendant (Lagna): {asc_sign} in {asc_nak} Pada {asc_pada}
-{planet_summary}
-
-[OUTPUT DIRECTIVE]
-Generate a master-level forensic audit structured strictly into these 6 sections. Use Markdown (** for bold):
-
-1. **Executive Summary & Age-Contextual Baseline**
-   - Synthesize the core theme based on Ascendant and Moon dignity.
-   - Explicitly state what life areas are in focus based on the user's age.
-
-2. **Forensic Planetary Synthesis**
-   - Analyze the impact of planets that are Exalted, Debilitated, Retrograde, or Combust.
-   - Explain how the planetary aspects (Drishti) modify the houses they touch.
-
-3. **Cosmic Conflicts & Karmic Entrapments**
-   - Identify exact conflicts based on house occupants and rulers.
-   - Explain the psychological or physical confinement they cause.
-
-4. **Age-Calibrated Time-Bracketed Roadmap (Next 5 Years)**
-   - Map the current Dasha and 5-Year Dasha to specific life events.
-
-5. **Catastrophic Risk Scanner**
-   - *Health Vulnerabilities*: Based on 6th/8th/12th house occupants/aspects.
-   - *Financial & Legal Threats*: Fraud, bankruptcy, or confinement triggers.
-   - *Relationship Threats*: Alienation or divorce (ONLY if age appropriate).
-
-6. **Tactical Remediation Protocol (Upaayas)**
-   - Step-by-step actions to mitigate risks identified in Section 5.
-"""
-
-                payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "temperature": 0.3}
-                headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
-
-                res = requests.post(groq_url, headers=headers, json=payload, timeout=90)
-                if res.status_code == 200:
-                    final_text = res.json()['ch
+                planet_summary = "\n".join([f"- {p}: {d['hindi_sign']} | Deg: {d['lon']:.2f}° | Nak: {d['nak']} (P{d['pada']}) | Dignity: {d['dignity']} {'[Retrograde]' if d['retro'] else ''} {'[Comb
