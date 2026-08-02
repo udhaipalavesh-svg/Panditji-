@@ -11,6 +11,7 @@ import time
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
 app = Flask(__name__)
 
@@ -59,43 +60,45 @@ def send_document(chat_id, file_path):
         print(f"Exception in send_document: {e}", flush=True)
 
 def generate_pdf_report(report_text, pdf_path, birth_details_str):
+    """Compiles the forensic audit text into a professional, downloadable PDF."""
     doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
     styles = getSampleStyleSheet()
     
     title_style = ParagraphStyle(
         'ReportTitle',
         parent=styles['Heading1'],
-        fontSize=18,
-        spaceAfter=12,
-        textColor=styles['colors'].HexColor('#4A154B') if hasattr(styles, 'colors') else None
+        fontSize=16,
+        spaceAfter=8,
+        textColor=colors.HexColor('#4A154B')
     )
     heading_style = ParagraphStyle(
         'SectionHeading',
         parent=styles['Heading2'],
-        fontSize=12,
+        fontSize=11,
         spaceBefore=10,
         spaceAfter=4,
-        textColor=styles['colors'].HexColor('#1D1C1D') if hasattr(styles, 'colors') else None
+        textColor=colors.HexColor('#1D1C1D')
     )
     body_style = ParagraphStyle(
         'ReportBody',
         parent=styles['Normal'],
-        fontSize=10,
-        leading=14,
-        spaceAfter=6
+        fontSize=9.5,
+        leading=13.5,
+        spaceAfter=4
     )
 
     story = []
-    story.append(Paragraph("<b>Panditji - Master Vedic Blueprint & Catastrophic Risk Dossier</b>", title_style))
+    story.append(Paragraph("<b>Panditji - Forensic Astrological & Catastrophic Risk Audit Dossier</b>", title_style))
     story.append(Paragraph(f"<b>Client Profile / Details:</b> {birth_details_str}", body_style))
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 8))
 
     for line in report_text.split('\n'):
         line = line.strip()
         if not line:
             continue
+        # Check if it's a section header
         if line.startswith("**") and "**" in line[2:]:
-            story.append(Spacer(1, 6))
+            story.append(Spacer(1, 4))
             story.append(Paragraph(line, heading_style))
         else:
             story.append(Paragraph(line, body_style))
@@ -157,7 +160,7 @@ def calculate_chart_logic(asc_sign, planets, birth_dt):
     if age < 18:
         life_stage = f"MINOR / STUDENT (Age {age}): Focus strictly on House 5 (Education, Learning Aptitude), House 4 (Home), and House 9 (Mentorship). Do NOT discuss adult career, divorce, or financial litigation."
     else:
-        life_stage = f"ADULT / PROFESSIONAL (Age {age}): Full adult life vector analysis required across career, marriage, health, and serious risk scanning."
+        life_stage = f"ADULT / PROFESSIONAL (Age {age}): Full forensic audit required across career, marriage, health vulnerabilities, legal entrapment, and financial exposure."
 
     sign_lords = {
         "Aries": "Mars (Mangal)", "Taurus": "Venus (Shukra)", "Gemini": "Mercury (Budh)",
@@ -270,14 +273,14 @@ def webhook():
                 if chat_id in USER_SESSIONS:
                     del USER_SESSIONS[chat_id]
                     
-                welcome_msg = "Welcome! Send your birth details to receive your master astrological report and **Catastrophic Risk Scan Dossier**:\nDD-MM-YYYY HH:MM City\n(e.g., 05-09-1981 12:16 Amritsar)"
+                welcome_msg = "Welcome! Send your birth details to receive your **Forensic Astrological Report & Catastrophic Risk PDF Dossier**:\nDD-MM-YYYY HH:MM City\n(e.g., 05-09-1981 12:16 Amritsar)"
                 send_message(chat_id, welcome_msg)
                 return jsonify(status="success"), 200
                 
             match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
             
             if match:
-                send_message(chat_id, "Running psychological synthesis, time-bracketed projections, and **Dedicated Catastrophic Risk Scanner**...")
+                send_message(chat_id, "Executing forensic audit, generating SVG chart, and compiling PDF dossier...")
                 
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
@@ -301,7 +304,7 @@ def webhook():
                 os.makedirs("/tmp", exist_ok=True)
                 file_tag = str(int(time.time()))
                 
-                # SVG Chart
+                # 1. SVG Chart
                 svg_filename = f"natal_chart_{file_tag}"
                 svg_path = f"/tmp/{svg_filename}.svg"
                 north = chart.NorthChart("Natal Chart (Lahiri)", f"{day:02d}-{month:02d}-{year} ({city_clean})", IsFullChart=True)
@@ -320,15 +323,16 @@ def webhook():
                 north.draw("/tmp/", svg_filename)
                 send_document(chat_id, svg_path)
 
+                # 2. Groq AI Forensic Audit
                 prompt = f"""
 [SYSTEM ROLE]
-You are Panditji, an elite master Vedic Astrologer and tactical life strategist. Today's strict baseline anchor date is {t_ctx['current_date']}.
+You are Panditji, an uncompromising, elite forensic Vedic Astrologer and tactical life strategist. Today's strict baseline anchor date is {t_ctx['current_date']}.
 
-[MANDATORY SYSTEM RULES]
-1. **PSYCHOLOGICAL & CATASTROPHIC RISK SYNTHESIS**: Synthesize inner psychological triggers with outer vulnerabilities.
+[MANDATORY FORENSIC DIRECTIVES - ZERO TOLERANCE FOR FLUFF]
+1. **NO VAGUE GENERALITIES**: Never use hand-waving phrases. State *precisely* what restrictions, confinements, or risks apply based on actual house interactions.
 2. **HINDI NOMENCLATURE MANDATE**: Include Hindi names in brackets for EVERY planetary reference without exception (e.g., Saturn (Shani), Moon (Chandra)).
-3. **PROGRAMMATIC HOUSE LOGIC**: Base interpretations strictly on the pre-calculated House Map provided below.
-4. **DEDICATED CATASTROPHIC RISK SCANNER**: Section 9 must be an independent, rigorous audit scanning the major risk vectors separately, detailing the likely window/date of impact and granular tactical Upaayas for each.
+3. **PROGRAMMATIC HOUSE LOGIC**: Base all evaluations strictly on the pre-calculated House Map provided below.
+4. **RIGOROUS SECTION 9 (CATASTROPHIC RISK SCANNER)**: Audit the 6 high-stakes threat vectors separately. For every vector, provide: (a) Exact astrological trigger mechanics, (b) Likely window/date of impact, and (c) Granular tactical Upaayas.
 
 [CALCULATED ASTROLOGICAL, TEMPORAL & AGE LOGIC]
 - Baseline Anchor Date (Today): {t_ctx['current_date']}
@@ -345,19 +349,18 @@ You are Panditji, an elite master Vedic Astrologer and tactical life strategist.
 {planet_summary}
 
 [OUTPUT DIRECTIVE]
-Generate a master-level tactical blueprint structured strictly into these 9 sections:
+Generate a master-level forensic audit structured strictly into these 9 sections:
 1. **Star, Nakshatra & Psychological Baseline**
 2. **Detailed Star Positions & House Synthesis**
 3. **Cosmic Conflicts & Stress Vectors**
 4. **Holistic Life Prediction**
-5. **Detailed Manifestations & High-Impact Time-Bracketed Roadmap** (Immediate, 6m, 1y, 5y, 10y)
-6. **Karmic Liabilities & Confinement (Bandhana Yoga)**
+5. **Detailed Manifestations & High-Impact Time-Bracketed Roadmap**
+6. **Karmic Liabilities, Psychological Entrapment & Confinement (Bandhana Yoga)**
 7. **Corrective Remedies (Upaayas)**
 8. **Rare Yogas & Anomalies**
-9. **DEDICATED CATASTROPHIC RISK SCANNER (Separate Independent Audit)**:
-   Scan each issue separately with: (a) Threat Analysis, (b) Likely Window/Date of Impact, and (c) Granular Tactical Solution (Immediate Action vs. Long-term Prevention) for:
-   - Major Health Problems / Hospitalization
-   - Legal Issues / Prison / Confinement
+9. **DEDICATED CATASTROPHIC RISK SCANNER (Forensic Independent Audit)**:
+   - Major Health Problems / Sudden Hospitalization
+   - Legal Issues / Imprisonment / Confinement
    - Career Termination / Business Shutdown
    - High-Conflict Divorce / Marital Alienation
    - Financial Bankruptcy / Asset Seizure
@@ -367,30 +370,33 @@ Generate a master-level tactical blueprint structured strictly into these 9 sect
                 payload = {
                     "model": "llama-3.3-70b-versatile",
                     "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.7
+                    "temperature": 0.5
                 }
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
 
                 res = requests.post(groq_url, headers=headers, json=payload, timeout=90)
                 if res.status_code == 200:
                     final_text = res.json()['choices'][0]['message']['content']
-                    pdf_path = f"/tmp/Astrological_Report_{file_tag}.pdf"
+                    
+                    # 3. Generate and Send PDF Document
+                    pdf_path = f"/tmp/Forensic_Dossier_{file_tag}.pdf"
                     generate_pdf_report(final_text, pdf_path, f"{day:02d}-{month:02d}-{year} at {hour:02d}:{minute:02d} in {city_clean} (Age: {age})")
                     send_document(chat_id, pdf_path)
-                    send_message(chat_id, "📄 **Master PDF Report, Chart, & Catastrophic Risk Dossier Delivered!** You can now ask specific tactical questions.")
+                    
+                    send_message(chat_id, "📄 **Master Forensic PDF Dossier & Chart Delivered!** You can now ask specific tactical questions.")
                 else:
                     send_message(chat_id, f"Groq API Error: {res.text[:150]}")
                     
             elif chat_id in USER_SESSIONS:
                 session = USER_SESSIONS[chat_id]
-                send_message(chat_id, "Consulting your chart via Catastrophic Risk Scanner...")
+                send_message(chat_id, "Running forensic follow-up audit...")
                 
                 q_prompt = f"""
 [SYSTEM ROLE]
-You are Panditji, an elite master Vedic Astrologer. Today's date is {session['t_ctx']['current_date']}.
+You are Panditji, an elite forensic Vedic Astrologer. Today's date is {session['t_ctx']['current_date']}.
 
 [MANDATORY RULES]
-- Address any specific high-stakes risk or question with absolute clarity, identifying exact windows of impact and actionable Upaayas.
+- Give an uncompromising, direct, fact-based response with zero vague fluff. State exact triggers, timelines, and operational remedies.
 - Always include Hindi names in brackets for every planet referenced.
 
 [CALCULATED LOGIC & CONTEXT]
@@ -404,13 +410,13 @@ You are Panditji, an elite master Vedic Astrologer. Today's date is {session['t_
 "{user_text}"
 
 [OUTPUT DIRECTIVE]
-Provide an uncompromising, astrologically grounded response addressing the threat vector, exact timeline, and precise preventative remedies.
+Provide a forensic, unvarnished response addressing the core threat vector, exact timeline of impact, and precise preventative measures.
 """
 
                 payload = {
                     "model": "llama-3.3-70b-versatile",
                     "messages": [{"role": "user", "content": q_prompt}],
-                    "temperature": 0.7
+                    "temperature": 0.5
                 }
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
 
@@ -432,4 +438,3 @@ Provide an uncompromising, astrologically grounded response addressing the threa
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    
