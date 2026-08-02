@@ -257,7 +257,12 @@ Structure the report strictly into these 8 sections:
                 if res.status_code == 200:
                     data = res.json()
                     final_text = data['choices'][0]['message']['content']
-                    send_message(chat_id, final_text)
+                    
+                    max_length = 4000
+                    for i in range(0, len(final_text), max_length):
+                        chunk = final_text[i:i + max_length]
+                        send_message(chat_id, chunk)
+                        time.sleep(0.5)
                 else:
                     send_message(chat_id, f"Groq API Error HTTP {res.status_code}: {res.text[:150]}")
 
@@ -268,4 +273,4 @@ Structure the report strictly into these 8 sections:
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-                    
+    
