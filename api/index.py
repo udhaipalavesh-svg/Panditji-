@@ -24,13 +24,11 @@ NAKSHATRAS = [
     "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"
 ]
 
-# Vimshottari Dasha Lords and their span in years
 DASHA_LORDS = [
     ("Ketu", 7), ("Venus (Shukra)", 20), ("Sun (Surya)", 6),
     ("Moon (Chandra)", 10), ("Mars (Mangal)", 7), ("Rahu", 18),
     ("Jupiter (Guru)", 16), ("Saturn (Shani)", 19), ("Mercury (Budh)", 17)
 ]
-TOTAL_DASHA_YEARS = 120
 
 def send_message(chat_id, text):
     url = f"{TELEGRAM_API_URL}/sendMessage"
@@ -62,29 +60,20 @@ def get_nakshatra_info(lon):
     return nak_idx, NAKSHATRAS[nak_idx], pada, rem
 
 def calculate_vimshottari_dasha(moon_lon, birth_dt, target_dt):
-    """Calculates active Mahadasha based on Moon's Sidereal Nakshatra position"""
     nak_span = 360.0 / 27.0
-    nak_idx, nak_name, _, rem = get_nakshatra_info(moon_lon)
-    
-    # Each Nakshatra spans 13.3333 degrees (800 minutes). Ruler sequence maps every 3 nakshatras to a planet lord.
+    nak_idx, _, _, rem = get_nakshatra_info(moon_lon)
     lord_idx = (nak_idx // 3) % 9
     dasha_lord, total_years = DASHA_LORDS[lord_idx]
     
-    # Fraction of dasha elapsed based on how far into the nakshatra the moon is
     fraction_elapsed = rem / nak_span
     fraction_remaining = 1.0 - fraction_elapsed
     years_remaining = fraction_remaining * total_years
     
-    # Calculate birth JD to target JD progression
     current_jd = swe.julday(target_dt.year, target_dt.month, target_dt.day)
     birth_jd = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day)
-    days_passed = current_jd - birth_jd
-    years_passed = days_passed / 365.25
+    years_passed = (current_jd - birth_jd) / 365.25
     
-    # Traverse through subsequent dashas to find current active Mahadasha
-    accumulated_years = years_remaining
     current_lord_idx = lord_idx
-    
     if years_passed <= years_remaining:
         return f"{dasha_lord} Mahadasha (Balance remaining: {years_remaining - years_passed:.1f} years)"
     
@@ -169,10 +158,10 @@ def webhook():
             user_text = update["message"]["text"]
             
             if user_text.startswith("/start"):
-                welcome_msg = "Welcome! Send your birth details to receive the audited, deep 8-part astrological report:\nDD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)"
+                welcome_msg = "Welcome! Send your birth details to receive the split-phase master astrological report:\nDD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)"
                 send_message(chat_id, welcome_msg)
             else:
-                send_message(chat_id, "Executing dual-engine Sidereal scan, computing Dasha timelines and auditing planetary conflicts...")
+                send_message(chat_id, "Executing high-precision Sidereal scan and computing Phase 1 (Foundation & Conflicts)...")
 
                 try:
                     match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
@@ -210,8 +199,10 @@ def webhook():
 
                     planet_summary = "\n".join([f"- {p}: {info[0]} | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
                     
-                    # STEP 1: Generator Prompt
-                    gen_prompt = f"""
+                    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
+
+                    # --- PHASE 1: Sections 1 to 4 ---
+                    phase1_prompt = f"""
                     You are Panditji, a master Vedic Astrologer. Today's date is {today_date}.
                     Active Timing Engine (Vimshottari Dasha): {active_dasha}
                     
@@ -219,48 +210,40 @@ def webhook():
                     - Ascendant (Lagna): {asc_sign} in {asc_nak} Pada {asc_pada}
                     {planet_summary}
                     
-                    Write an exhaustive, uncompromising 8-part analytical report covering:
+                    Deliver ONLY the first 4 sections of the master format with uncompromising depth:
                     1. Star and Nakshatra Position in Brief
                     2. Star and Nakshatra Positions in Detail
                     3. Conflicts Amongst Stars and Nakshatras
                     4. General Prediction
+                    
+                    Rule: Mention Hindi names in brackets for every planet.
+                    """
+                    
+                    res1 = requests.post(gemini_url, headers={"Content-Type": "application/json"}, json={"contents": [{"parts": [{"text": phase1_prompt}]}]})
+                    if res1.status_code == 200:
+                        send_message(chat_id, res1.json()['candidates'][0]['content']['parts'][0]['text'])
+                    
+                    # --- PHASE 2: Sections 5 to 8 ---
+                    phase2_prompt = f"""
+                    You are Panditji, a master Vedic Astrologer. Today's date is {today_date}.
+                    Active Timing Engine (Vimshottari Dasha): {active_dasha}
+                    
+                    Sidereal Lahiri Chart Data:
+                    - Ascendant (Lagna): {asc_sign} in {asc_nak} Pada {asc_pada}
+                    {planet_summary}
+                    
+                    Deliver the remaining 4 sections of the master format with uncompromising, rigorous depth:
                     5. Prediction in Detail
-                    6. Potential Issues, Psychological Impact, and Legal/Confinement Deductions (explicitly analyze Bandhana Yoga, 6th/8th/12th house weights, and prison/litigation reality if present)
+                    6. Potential Issues, Psychological Impact, and Legal/Confinement Deductions (explicitly analyze Bandhana Yoga, 6th/8th/12th house weights, and prison/litigation reality)
                     7. Remedies (Exhaustive Lal Kitab & Vedic Corrective Actions)
                     8. Extraordinary Cosmic Anomalies & Rare Yogas
                     
-                    RULE: Mention Hindi names in brackets for every planet.
+                    Rule: Mention Hindi names in brackets for every planet.
                     """
-
-                    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
-                    res1 = requests.post(gemini_url, headers={"Content-Type": "application/json"}, json={"contents": [{"parts": [{"text": gen_prompt}]}]})
                     
-                    if res1.status_code == 200:
-                        initial_report = res1.json()['candidates'][0]['content']['parts'][0]['text']
-                        
-                        # STEP 2: Adversarial Reflection / Auditor Prompt
-                        audit_prompt = f"""
-                        You are a strict, skeptical Senior Master Jyotishi and Quality Control Auditor. Review the following astrological report generated for a chart with Ascendant {asc_sign} and Active Dasha {active_dasha}.
-                        
-                        Draft Report to Audit:
-                        {initial_report}
-                        
-                        Your Task:
-                        - Audit the report for absolute technical accuracy, correct house lord associations, Nakshatra consistency, and depth.
-                        - Ensure all 8 structured headings are fully fleshed out.
-                        - Correct any logical flaws or surface-level summaries, making the analysis intensely sharp, accurate, and psychological.
-                        - Return the final, polished, airtight 8-part report.
-                        """
-                        
-                        res2 = requests.post(gemini_url, headers={"Content-Type": "application/json"}, json={"contents": [{"parts": [{"text": audit_prompt}]}]})
-                        
-                        if res2.status_code == 200:
-                            final_text = res2.json()['candidates'][0]['content']['parts'][0]['text']
-                            send_message(chat_id, final_text)
-                        else:
-                            send_message(chat_id, initial_report)
-                    else:
-                        send_message(chat_id, "The celestial connection flickered. Please resend your birth details.")
+                    res2 = requests.post(gemini_url, headers={"Content-Type": "application/json"}, json={"contents": [{"parts": [{"text": phase2_prompt}]}]})
+                    if res2.status_code == 200:
+                        send_message(chat_id, res2.json()['candidates'][0]['content']['parts'][0]['text'])
 
                 except Exception as e:
                     send_message(chat_id, f"Technical Error: {str(e)}")
