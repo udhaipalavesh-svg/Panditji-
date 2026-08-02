@@ -142,7 +142,6 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
         sign_name = ZODIAC_SIGNS[sign_idx]
         _, nak_name, pada, _ = get_nakshatra_info(lon_val)
         
-        # AUDIT & RE-VERIFICATION LAYER: Ensure bounds are mathematically secure
         normalized_lon = lon_val % 360.0
         positions[name] = (sign_name, normalized_lon, nak_name, pada)
         
@@ -155,8 +154,30 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     asc_sign = ZODIAC_SIGNS[int(asc_lon / 30) % 12]
     _, asc_nak, asc_pada, _ = get_nakshatra_info(asc_lon)
     
-    active_dasha = calculate_vimshottari_dasha(moon_lon, dt_ist, datetime.now())
-    return asc_sign, asc_nak, asc_pada, positions, active_dasha
+    now_dt = datetime.now()
+    active_dasha = calculate_vimshottari_dasha(moon_lon, dt_ist, now_dt)
+    
+    # Calculate future temporal brackets anchored to current date
+    dt_6m = now_dt + timedelta(days=182)
+    dt_1y = now_dt + timedelta(days=365)
+    dt_5y = now_dt + timedelta(days=365 * 5)
+    dt_10y = now_dt + timedelta(days=365 * 10)
+    
+    dasha_6m = calculate_vimshottari_dasha(moon_lon, dt_ist, dt_6m)
+    dasha_1y = calculate_vimshottari_dasha(moon_lon, dt_ist, dt_1y)
+    dasha_5y = calculate_vimshottari_dasha(moon_lon, dt_ist, dt_5y)
+    dasha_10y = calculate_vimshottari_dasha(moon_lon, dt_ist, dt_10y)
+    
+    temporal_context = {
+        "current_date": now_dt.strftime("%B %d, %Y"),
+        "dasha_now": active_dasha,
+        "dasha_6m": dasha_6m,
+        "dasha_1y": dasha_1y,
+        "dasha_5y": dasha_5y,
+        "dasha_10y": dasha_10y
+    }
+    
+    return asc_sign, asc_nak, asc_pada, positions, temporal_context
 
 @app.route('/', methods=['POST', 'GET'])
 @app.route(f'/{TELEGRAM_BOT_TOKEN}', methods=['POST', 'GET'])
@@ -184,14 +205,14 @@ def webhook():
                     send_message(chat_id, "Please use format: DD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)")
                     return jsonify(status="success"), 200
                     
-                send_message(chat_id, "Auditing chart ephemeris, verifying sidereal coordinates, and synthesizing psychological master report...")
+                send_message(chat_id, "Validating current date anchor, computing time-bracketed temporal arrays, and generating psychological master report...")
                 
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
                 city_input = city_input.strip()
 
                 lat, lon, city_clean = get_coordinates(city_input)
-                asc_sign, asc_nak, asc_pada, planets, active_dasha = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
+                asc_sign, asc_nak, asc_pada, planets, t_ctx = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
                 
                 os.makedirs("/tmp", exist_ok=True)
                 file_tag = str(int(time.time()))
@@ -219,29 +240,37 @@ def webhook():
                 planet_summary = "\n".join([f"- {p}: {info[0]} | Exact Deg: {info[1]:.2f}° | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
                 
                 groq_key = os.environ.get("GROQ_API_KEY")
-                today_date = datetime.now().strftime("%B %d, %Y")
                 groq_url = "https://api.groq.com/openai/v1/chat/completions"
                 
                 prompt = f"""
 [SYSTEM ROLE]
-You are Panditji, an elite master Vedic Astrologer, deep archetypal psychologist, and soul guide. You merge classical Sidereal Jyotish computations with rigorous psychological insight, emotional depth, and spiritual mapping. Today's date is {today_date}.
+You are Panditji, an elite master Vedic Astrologer, deep archetypal psychologist, and master time-fractal analyst. Today's strict baseline anchor date is {t_ctx['current_date']}. All temporal tracking must start precisely from this current timeline anchor.
 
-[VERIFIED INPUT DATA & EPHEMERIS AUDIT]
-- Timing Engine (Vimshottari Dasha): {active_dasha}
+[VERIFIED INPUT DATA & TEMPORAL TIMELINE BRACKETS]
+- Baseline Anchor Date (Today): {t_ctx['current_date']}
+- Current Active Dasha (Now): {t_ctx['dasha_now']}
+- 6-Month Projection Window: {t_ctx['dasha_6m']}
+- 6-to-12 Month Projection Window: {t_ctx['dasha_1y']}
+- 5-Year Long-Term Bracket (Up to 5 years out): {t_ctx['dasha_5y']}
+- 10-Year Long-Term Bracket (Up to 10 years out): {t_ctx['dasha_10y']}
 - Ascendant (Lagna): {asc_sign} in {asc_nak} Pada {asc_pada}
 - Audited Planetary Array:
 {planet_summary}
 
 [OUTPUT DIRECTIVE]
-Generate a deeply reflective, psychologically penetrating, and structurally rigorous Vedic analysis. Avoid generic horoscopes. Illuminate the hidden emotional drivers, inner contradictions, subconscious barriers, and psychological growth patterns. Use precise bullet points under each heading. Always include Hindi names in brackets for every planet (e.g., Saturn (Shani), Moon (Chandra)).
+Generate a deeply reflective, psychologically penetrating, and rigorously structured Vedic analysis. Strictly anchor all temporal forecasts starting from today ({t_ctx['current_date']}). Use precise bullet points under each heading. Always include Hindi names in brackets for every planet (e.g., Saturn (Shani), Moon (Chandra)).
 
 Structure the report strictly into these 8 sections:
-1. **Star & Nakshatra Brief**: Core celestial alignment overview and the foundational emotional signature.
+1. **Star & Nakshatra Brief**: Core celestial alignment overview, foundational emotional signature, and psychological baseline as of {t_ctx['current_date']}.
 2. **Detailed Star Positions**: House-by-house breakdown of psychological strengths, intellectual wiring, and internal conflicts.
 3. **Cosmic Conflicts**: Active planetary oppositions or conjunctions mapped to internal psychological tensions and behavioral blind spots.
-4. **General Life Prediction**: Deep evolutionary trajectory across career, purpose, inner fulfillment, and wealth mindset.
-5. **Detailed Manifestations**: Granular temporal alignments framed through current choices and psychological readiness.
-6. **Karmic Liabilities, Psychological Entrapment & Confinement (Bandhana Yoga)**: Highly amplified and rigorous evaluation of 6th/8th/12th houses, deep-seated emotional self-sabotage, subconscious confinement loops, inner attachment chains, litigation/obligation weights, and precise pathways toward psychological and spiritual liberation.
+4. **General Life Prediction**: Deep evolutionary trajectory across career, purpose, inner fulfillment, and wealth mindset evaluated across time horizons.
+5. **Detailed Manifestations & Time-Bracketed Roadmap**: Granular predictive timeline structured explicitly into:
+   - *Immediate Present (Active Now)*: Current conditions under {t_ctx['dasha_now']}.
+   - *Next 6 Months*: Transition shifts and immediate focus areas.
+   - *6 Months to 1 Year*: Mid-term unfolding patterns under {t_ctx['dasha_1y']}.
+   - *Long-Term Brackets (5-Year & 10-Year Horizons)*: Structural macro cycles under {t_ctx['dasha_5y']} and {t_ctx['dasha_10y']}.
+6. **Karmic Liabilities, Psychological Entrapment & Confinement (Bandhana Yoga)**: Rigorous evaluation of 6th/8th/12th houses, deep-seated emotional self-sabotage, subconscious confinement loops, inner attachment chains, litigation/obligation weights, and precise pathways toward psychological and spiritual liberation.
 7. **Corrective Remedies**: Exhaustive Lal Kitab & Vedic mental/spiritual alignment measures.
 8. **Rare Yogas & Anomalies**: Unique structural configurations present in the chart and their deep psychological gifts.
 """
