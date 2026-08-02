@@ -37,9 +37,10 @@ def send_message(chat_id, text):
     url = f"{TELEGRAM_API_URL}/sendMessage"
     payload = {"chat_id": chat_id, "text": text}
     try:
-        requests.post(url, json=payload, timeout=10)
+        res = requests.post(url, json=payload, timeout=10)
+        print(f"SendMessage status: {res.status_code}", flush=True)
     except Exception as e:
-        print(f"Send message error: {e}")
+        print(f"Exception in send_message: {e}", flush=True)
 
 def send_document(chat_id, file_path):
     url = f"{TELEGRAM_API_URL}/sendDocument"
@@ -47,9 +48,10 @@ def send_document(chat_id, file_path):
         with open(file_path, 'rb') as f:
             files = {'document': f}
             data = {'chat_id': chat_id}
-            requests.post(url, data=data, files=files, timeout=15)
+            res = requests.post(url, data=data, files=files, timeout=15)
+            print(f"SendDocument status: {res.status_code}", flush=True)
     except Exception as e:
-        print(f"Send document error: {e}")
+        print(f"Exception in send_document: {e}", flush=True)
 
 def get_coordinates(city_name):
     try:
@@ -58,8 +60,8 @@ def get_coordinates(city_name):
         res = requests.get(url, headers=headers, timeout=5).json()
         if res and len(res) > 0:
             return float(res[0]['lat']), float(res[0]['lon']), res[0].get('display_name', city_name).split(',')[0]
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Geocoding exception: {e}", flush=True)
     return 30.7333, 76.7794, city_name
 
 def get_nakshatra_info(lon):
@@ -153,7 +155,7 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     active_dasha = calculate_vimshottari_dasha(moon_lon, dt_ist, datetime.now())
     return asc_sign, asc_nak, asc_pada, positions, active_dasha
 
-@app.route('/', methods=['POST', 'GET'])
+@app.route(f'/{TELEGRAM_BOT_TOKEN}', methods=['POST', 'GET'])
 def webhook():
     if request.method == 'GET':
         return "Render Persistent Bot Server is Active", 200
@@ -163,20 +165,7 @@ def webhook():
         if not update:
             return jsonify(status="ignored"), 200
             
-        update_id = update.get("update_id")
-        if update_id in processed_updates:
-            return jsonify(status="duplicate_ignored"), 200
-        processed_updates.add(update_id)
-        if len(processed_updates) > 100:
-            processed_updates.pop()
-
-        groq_key = os.environ.get("GROQ_API_KEY")
-        if not groq_key:
-            if "message" in update and "text" in update["message"]:
-                send_message(update["message"]["chat"]["id"], "Configuration Error: GROQ_API_KEY environment variable is missing on Render.")
-            return jsonify(status="missing_key"), 200
-
-        today_date = datetime.now().strftime("%B %d, %Y")
+        print(f"Received update: {update}", flush=True)
 
         if "message" in update and "text" in update["message"]:
             chat_id = update["message"]["chat"]["id"]
@@ -225,7 +214,10 @@ def webhook():
 
                 planet_summary = "\n".join([f"- {p}: {info[0]} | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
                 
+                groq_key = os.environ.get("GROQ_API_KEY")
+                today_date = datetime.now().strftime("%B %d, %Y")
                 groq_url = "https://api.groq.com/openai/v1/chat/completions"
+                
                 prompt = f"""
 [SYSTEM ROLE]
 You are Panditji, an uncompromising master Vedic Astrologer. Today's date is {today_date}.
@@ -260,7 +252,7 @@ Structure the report strictly into these 8 sections:
                     "Authorization": f"Bearer {groq_key}"
                 }
 
-                res = requests.post(groq_url, headers=headers, json=payload, timeout=60)
+                res = requests.post(groq_url, headers=headers, json=payload, timeout=90)
                 if res.status_code == 200:
                     data = res.json()
                     final_text = data['choices'][0]['message']['content']
@@ -269,7 +261,7 @@ Structure the report strictly into these 8 sections:
                     send_message(chat_id, f"Groq API Error HTTP {res.status_code}: {res.text[:150]}")
 
     except Exception as e:
-        print(f"CRITICAL Webhook Error: {str(e)}")
+        print(f"CRITICAL Webhook Error: {str(e)}", flush=True)
         
     return jsonify(status="success"), 200
 
