@@ -1,17 +1,18 @@
 import os
 import requests
 import re
+import time
 from flask import Flask, request, jsonify
 from datetime import datetime, timedelta
 import swisseph as swe
 import jyotichart as chart
-import time
 
 # ReportLab imports for PDF generation
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_JUSTIFY
 
 app = Flask(__name__)
 
@@ -41,7 +42,7 @@ DASHA_LORDS = [
 
 def send_message(chat_id, text):
     url = f"{TELEGRAM_API_URL}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text}
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
     try:
         res = requests.post(url, json=payload, timeout=10)
         print(f"SendMessage status: {res.status_code}", flush=True)
@@ -54,51 +55,36 @@ def send_document(chat_id, file_path):
         with open(file_path, 'rb') as f:
             files = {'document': f}
             data = {'chat_id': chat_id}
-            res = requests.post(url, data=data, files=files, timeout=20)
+            res = requests.post(url, data=data, files=files, timeout=30)
             print(f"SendDocument status: {res.status_code}", flush=True)
     except Exception as e:
         print(f"Exception in send_document: {e}", flush=True)
 
 def generate_pdf_report(report_text, pdf_path, birth_details_str):
     """Compiles the forensic audit text into a professional, downloadable PDF."""
-    doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+    doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     styles = getSampleStyleSheet()
     
-    title_style = ParagraphStyle(
-        'ReportTitle',
-        parent=styles['Heading1'],
-        fontSize=16,
-        spaceAfter=8,
-        textColor=colors.HexColor('#4A154B')
-    )
-    heading_style = ParagraphStyle(
-        'SectionHeading',
-        parent=styles['Heading2'],
-        fontSize=11,
-        spaceBefore=10,
-        spaceAfter=4,
-        textColor=colors.HexColor('#1D1C1D')
-    )
-    body_style = ParagraphStyle(
-        'ReportBody',
-        parent=styles['Normal'],
-        fontSize=9.5,
-        leading=13.5,
-        spaceAfter=4
-    )
+    title_style = ParagraphStyle('ReportTitle', parent=styles['Heading1'], fontSize=16, spaceAfter=8, textColor=colors.HexColor('#4A154B'), alignment=1)
+    heading_style = ParagraphStyle('SectionHeading', parent=styles['Heading2'], fontSize=12, spaceBefore=12, spaceAfter=6, textColor=colors.HexColor('#1D1C1D'))
+    body_style = ParagraphStyle('ReportBody', parent=styles['Normal'], fontSize=9.5, leading=14, spaceAfter=6, alignment=TA_JUSTIFY)
 
     story = []
-    story.append(Paragraph("<b>Panditji - Forensic Astrological & Catastrophic Risk Audit Dossier</b>", title_style))
-    story.append(Paragraph(f"<b>Client Profile / Details:</b> {birth_details_str}", body_style))
-    story.append(Spacer(1, 8))
+    story.append(Paragraph("<b>Panditji - Forensic Astrological & Catastrophic Risk Audit</b>", title_style))
+    story.append(Paragraph(f"<b>Client Profile:</b> {birth_details_str}", body_style))
+    story.append(Spacer(1, 12))
 
-    for line in report_text.split('\n'):
+    # Convert Markdown **bold** to ReportLab <b>bold</b> for proper rendering
+    report_text_html = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', report_text)
+
+    for line in report_text_html.split('\n'):
         line = line.strip()
         if not line:
             continue
-        # Check if it's a section header
-        if line.startswith("**") and "**" in line[2:]:
-            story.append(Spacer(1, 4))
+        
+        # Detect headers
+        if re.match(r'^\d+\.\s+<b>', line) or line.startswith("# <b>"):
+            story.append(Spacer(1, 6))
             story.append(Paragraph(line, heading_style))
         else:
             story.append(Paragraph(line, body_style))
@@ -114,7 +100,7 @@ def get_coordinates(city_name):
             return float(res[0]['lat']), float(res[0]['lon']), res[0].get('display_name', city_name).split(',')[0]
     except Exception as e:
         print(f"Geocoding exception: {e}", flush=True)
-    return 30.7333, 76.7794, city_name
+    return 30.7333, 76.7794, city_name  # Default to Chandigarh
 
 def get_nakshatra_info(lon):
     nak_span = 360.0 / 27.0
@@ -158,9 +144,15 @@ def calculate_chart_logic(asc_sign, planets, birth_dt):
     age = (now - birth_dt).days // 365
     
     if age < 18:
-        life_stage = f"MINOR / STUDENT (Age {age}): Focus strictly on House 5 (Education, Learning Aptitude), House 4 (Home), and House 9 (Mentorship). Do NOT discuss adult career, divorce, or financial litigation."
+        life_stage = f"CHILD/STUDENT (Age {age}): STRICTLY focus on House 4 (Home/Parents), House 5 (Education/Aptitude), and House 9 (Mentorship). ABSOLUTELY NO predictions about career, marriage, or legal entanglements. Focus on learning hurdles, focus, and parental support."
+    elif 18 <= age <= 25:
+        life_stage = f"YOUNG ADULT (Age {age}): Focus on House 9 (Higher Education), House 10 (Early Career), House 5 (Romance/Creativity), House 1 (Self-Identity). Address career exploration, mental health, and early independence. Do not discuss marriage timelines yet."
+    elif 26 <= age <= 40:
+        life_stage = f"ESTABLISHMENT PHASE (Age {age}): Deep dive into House 10 (Career/Status), House 7 (Marriage/Partnership), House 2 (Wealth/Family), House 6 (Debt/Disease). Address wealth building, marriage stability, and career growth."
+    elif 41 <= age <= 60:
+        life_stage = f"CONSOLIDATION PHASE (Age {age}): Focus on House 11 (Gains/Network), House 2 (Savings), House 8 (Longevity/Inheritance), House 10 (Authority). Address mid-life crises, peak career responsibilities, children's progress, and chronic health risks."
     else:
-        life_stage = f"ADULT / PROFESSIONAL (Age {age}): Full forensic audit required across career, marriage, health vulnerabilities, legal entrapment, and financial exposure."
+        life_stage = f"RETIREMENT/ELDER PHASE (Age {age}): STRICTLY focus on House 9 (Spirituality/Dharma), House 12 (Loss/Moksha/Isolation), House 8 (Pension/Longevity), House 4 (Peace at home). DO NOT discuss new business ventures or aggressive career growth. Focus on health management, legacy, and spiritual peace."
 
     sign_lords = {
         "Aries": "Mars (Mangal)", "Taurus": "Venus (Shukra)", "Gemini": "Mercury (Budh)",
@@ -169,16 +161,15 @@ def calculate_chart_logic(asc_sign, planets, birth_dt):
         "Capricorn": "Saturn (Shani)", "Aquarius": "Saturn (Shani)", "Pisces": "Jupiter (Guru)"
     }
     
-    zodiac_order = ZODIAC_SIGNS
     try:
-        asc_idx = zodiac_order.index(asc_sign)
+        asc_idx = ZODIAC_SIGNS.index(asc_sign)
     except ValueError:
         asc_idx = 0
         
     houses = {}
     for i in range(12):
         house_num = i + 1
-        sign = zodiac_order[(asc_idx + i) % 12]
+        sign = ZODIAC_SIGNS[(asc_idx + i) % 12]
         ruler = sign_lords.get(sign, "")
         houses[house_num] = {"sign": sign, "ruler": ruler, "occupants": []}
         
@@ -187,7 +178,7 @@ def calculate_chart_logic(asc_sign, planets, birth_dt):
             if h_data["sign"] == p_sign:
                 h_data["occupants"].append(p_name)
                 
-    logic_summary = f"[LIFE STAGE FILTER]: {life_stage}\n[PROGRAMMATIC HOUSE MAP]:\n"
+    logic_summary = f"[LIFE STAGE FILTER - MANDATORY COMPLIANCE]: {life_stage}\n[PROGRAMMATIC HOUSE MAP]:\n"
     for h, data in houses.items():
         logic_summary += f"  House {h} ({data['sign']}, Ruled by {data['ruler']}): Occupied by {data['occupants'] if data['occupants'] else 'Empty'}\n"
         
@@ -272,8 +263,7 @@ def webhook():
             if user_text.startswith("/start"):
                 if chat_id in USER_SESSIONS:
                     del USER_SESSIONS[chat_id]
-                    
-                welcome_msg = "Welcome! Send your birth details to receive your **Forensic Astrological Report & Catastrophic Risk PDF Dossier**:\nDD-MM-YYYY HH:MM City\n(e.g., 05-09-1981 12:16 Amritsar)"
+                welcome_msg = "Welcome! Send your birth details to receive your **Forensic Astrological Report & Catastrophic Risk PDF Dossier**:\n`DD-MM-YYYY HH:MM City`\n(e.g., `05-09-1981 12:16 Amritsar`)"
                 send_message(chat_id, welcome_msg)
                 return jsonify(status="success"), 200
                 
@@ -292,19 +282,15 @@ def webhook():
                 planet_summary = "\n".join([f"- {p}: {info[0]} | Exact Deg: {info[1]:.2f}° | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
                 
                 USER_SESSIONS[chat_id] = {
-                    "asc_sign": asc_sign,
-                    "asc_nak": asc_nak,
-                    "asc_pada": asc_pada,
-                    "planet_summary": planet_summary,
-                    "t_ctx": t_ctx,
-                    "logic_breakdown": logic_breakdown,
-                    "age": age
+                    "asc_sign": asc_sign, "asc_nak": asc_nak, "asc_pada": asc_pada,
+                    "planet_summary": planet_summary, "t_ctx": t_ctx, 
+                    "logic_breakdown": logic_breakdown, "age": age
                 }
                 
                 os.makedirs("/tmp", exist_ok=True)
                 file_tag = str(int(time.time()))
                 
-                # 1. SVG Chart
+                # 1. SVG Chart Generation
                 svg_filename = f"natal_chart_{file_tag}"
                 svg_path = f"/tmp/{svg_filename}.svg"
                 north = chart.NorthChart("Natal Chart (Lahiri)", f"{day:02d}-{month:02d}-{year} ({city_clean})", IsFullChart=True)
@@ -323,24 +309,22 @@ def webhook():
                 north.draw("/tmp/", svg_filename)
                 send_document(chat_id, svg_path)
 
-                # 2. Groq AI Forensic Audit
+                # 2. Enhanced Groq AI Forensic Audit Prompt
                 prompt = f"""
 [SYSTEM ROLE]
 You are Panditji, an uncompromising, elite forensic Vedic Astrologer and tactical life strategist. Today's strict baseline anchor date is {t_ctx['current_date']}.
 
 [MANDATORY FORENSIC DIRECTIVES - ZERO TOLERANCE FOR FLUFF]
-1. **NO VAGUE GENERALITIES**: Never use hand-waving phrases. State *precisely* what restrictions, confinements, or risks apply based on actual house interactions.
+1. **NO VAGUE GENERALITIES**: State *precisely* what restrictions, confinements, or risks apply based on actual house interactions, planetary degrees, and lordships.
 2. **HINDI NOMENCLATURE MANDATE**: Include Hindi names in brackets for EVERY planetary reference without exception (e.g., Saturn (Shani), Moon (Chandra)).
-3. **PROGRAMMATIC HOUSE LOGIC**: Base all evaluations strictly on the pre-calculated House Map provided below.
-4. **RIGOROUS SECTION 9 (CATASTROPHIC RISK SCANNER)**: Audit the 6 high-stakes threat vectors separately. For every vector, provide: (a) Exact astrological trigger mechanics, (b) Likely window/date of impact, and (c) Granular tactical Upaayas.
+3. **STRICT AGE COMPLIANCE**: You must ONLY discuss topics relevant to the user's [LIFE STAGE FILTER]. Do not advise a 90-year-old on career growth; do not advise a 10-year-old on marriage. 
+4. **ACTIONABLE UPAYAS**: Remedies must be specific (e.g., "Donate black sesame oil on Saturday evening," not "Worship Shani").
+5. **RIGOROUS CATASTROPHIC RISK SCANNER**: Audit high-stakes threat vectors separately. For every vector, provide: (a) Exact astrological trigger mechanics, (b) Likely window of impact, and (c) Preventative measures.
 
 [CALCULATED ASTROLOGICAL, TEMPORAL & AGE LOGIC]
 - Baseline Anchor Date (Today): {t_ctx['current_date']}
 - Current Active Dasha: {t_ctx['dasha_now']}
-- 6-Month Window Dasha: {t_ctx['dasha_6m']}
-- 1-Year Window Dasha: {t_ctx['dasha_1y']}
 - 5-Year Window Dasha: {t_ctx['dasha_5y']}
-- 10-Year Window Dasha: {t_ctx['dasha_10y']}
 {logic_breakdown}
 
 [INPUT DATA]
@@ -349,28 +333,39 @@ You are Panditji, an uncompromising, elite forensic Vedic Astrologer and tactica
 {planet_summary}
 
 [OUTPUT DIRECTIVE]
-Generate a master-level forensic audit structured strictly into these 9 sections:
-1. **Star, Nakshatra & Psychological Baseline**
-2. **Detailed Star Positions & House Synthesis**
-3. **Cosmic Conflicts & Stress Vectors**
-4. **Holistic Life Prediction**
-5. **Detailed Manifestations & High-Impact Time-Bracketed Roadmap**
-6. **Karmic Liabilities, Psychological Entrapment & Confinement (Bandhana Yoga)**
-7. **Corrective Remedies (Upaayas)**
-8. **Rare Yogas & Anomalies**
-9. **DEDICATED CATASTROPHIC RISK SCANNER (Forensic Independent Audit)**:
-   - Major Health Problems / Sudden Hospitalization
-   - Legal Issues / Imprisonment / Confinement
-   - Career Termination / Business Shutdown
-   - High-Conflict Divorce / Marital Alienation
-   - Financial Bankruptcy / Asset Seizure
-   - Partnership Betrayal / Business Fraud
+Generate a master-level forensic audit structured strictly into these 6 sections. Use Markdown formatting (** for bold):
+
+1. **Executive Summary & Age-Contextual Baseline**
+   - Synthesize the core theme of the chart.
+   - Explicitly state what life areas are in focus based on the user's age.
+
+2. **Forensic Planetary Synthesis & House Mapping**
+   - Analyze the Ascendant Lord, Moon, and Sun placements.
+   - Breakdown the most heavily occupied or aspected houses and what they mandate.
+
+3. **Cosmic Conflicts & Karmic Entrapments (Bandhana Yogas)**
+   - Identify exact graha yuddhas (planetary wars), afflictions, or restrictive yogas.
+   - Explain the psychological or physical confinement they cause.
+
+4. **Age-Calibrated Time-Bracketed Roadmap (Next 5 Years)**
+   - Provide a highly specific timeline based on current and 5-year Dashas.
+   - State exact windows of opportunity and windows of vulnerability.
+
+5. **Catastrophic Risk Scanner (Forensic Audit)**
+   - *Health Vulnerabilities*: Specific organ/mental health risks based on 6th/8th/12th lords.
+   - *Financial & Career Threats*: Bankruptcy, job loss, fraud triggers (relevant to age).
+   - *Legal & Confinement*: Court cases, imprisonment vectors.
+   - *Relationship Threats*: Alienation, divorce (ONLY if age appropriate).
+
+6. **Tactical Remediation Protocol (Upaayas)**
+   - Step-by-step, highly specific actions to mitigate risks identified in Section 5.
+   - Include mantras, donation protocols, and behavioral modifications.
 """
 
                 payload = {
                     "model": "llama-3.3-70b-versatile",
                     "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.5
+                    "temperature": 0.4
                 }
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
 
@@ -383,7 +378,7 @@ Generate a master-level forensic audit structured strictly into these 9 sections
                     generate_pdf_report(final_text, pdf_path, f"{day:02d}-{month:02d}-{year} at {hour:02d}:{minute:02d} in {city_clean} (Age: {age})")
                     send_document(chat_id, pdf_path)
                     
-                    send_message(chat_id, "📄 **Master Forensic PDF Dossier & Chart Delivered!** You can now ask specific tactical questions.")
+                    send_message(chat_id, "📄 **Master Forensic PDF Dossier & Chart Delivered!** \nYou can now ask specific tactical questions based on this audit.")
                 else:
                     send_message(chat_id, f"Groq API Error: {res.text[:150]}")
                     
@@ -396,8 +391,10 @@ Generate a master-level forensic audit structured strictly into these 9 sections
 You are Panditji, an elite forensic Vedic Astrologer. Today's date is {session['t_ctx']['current_date']}.
 
 [MANDATORY RULES]
-- Give an uncompromising, direct, fact-based response with zero vague fluff. State exact triggers, timelines, and operational remedies.
+- Give an uncompromising, direct, fact-based response with zero vague fluff.
 - Always include Hindi names in brackets for every planet referenced.
+- STRICTLY ADHERE to the user's Life Stage. Do not give irrelevant age-based advice.
+- State exact triggers, timelines, and operational remedies.
 
 [CALCULATED LOGIC & CONTEXT]
 {session['logic_breakdown']}
@@ -416,7 +413,7 @@ Provide a forensic, unvarnished response addressing the core threat vector, exac
                 payload = {
                     "model": "llama-3.3-70b-versatile",
                     "messages": [{"role": "user", "content": q_prompt}],
-                    "temperature": 0.5
+                    "temperature": 0.4
                 }
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
 
@@ -429,7 +426,7 @@ Provide a forensic, unvarnished response addressing the core threat vector, exac
                 else:
                     send_message(chat_id, "Error processing your question. Please try again.")
             else:
-                send_message(chat_id, "Please start by sending your birth details in format:\nDD-MM-YYYY HH:MM City")
+                send_message(chat_id, "Please start by sending your birth details in format:\n`DD-MM-YYYY HH:MM City`")
 
     except Exception as e:
         print(f"CRITICAL Webhook Error: {str(e)}", flush=True)
