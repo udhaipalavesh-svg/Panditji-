@@ -12,7 +12,9 @@ app = Flask(__name__)
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
-processed_updates = set()
+# In-memory session store to remember user chart data for follow-up questions
+# Format: { chat_id: { "planet_summary": "...", "asc_sign": "...", "active_dasha": "...", "city": "..." } }
+USER_SESSIONS = {}
 
 ZODIAC_SIGNS = [
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
@@ -157,24 +159,18 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     now_dt = datetime.now()
     active_dasha = calculate_vimshottari_dasha(moon_lon, dt_ist, now_dt)
     
-    # Calculate future temporal brackets anchored to current date
     dt_6m = now_dt + timedelta(days=182)
     dt_1y = now_dt + timedelta(days=365)
     dt_5y = now_dt + timedelta(days=365 * 5)
     dt_10y = now_dt + timedelta(days=365 * 10)
     
-    dasha_6m = calculate_vimshottari_dasha(moon_lon, dt_ist, dt_6m)
-    dasha_1y = calculate_vimshottari_dasha(moon_lon, dt_ist, dt_1y)
-    dasha_5y = calculate_vimshottari_dasha(moon_lon, dt_ist, dt_5y)
-    dasha_10y = calculate_vimshottari_dasha(moon_lon, dt_ist, dt_10y)
-    
     temporal_context = {
         "current_date": now_dt.strftime("%B %d, %Y"),
         "dasha_now": active_dasha,
-        "dasha_6m": dasha_6m,
-        "dasha_1y": dasha_1y,
-        "dasha_5y": dasha_5y,
-        "dasha_10y": dasha_10y
+        "dasha_6m": calculate_vimshottari_dasha(moon_lon, dt_ist, dt_6m),
+        "dasha_1y": calculate_vimshottari_dasha(moon_lon, dt_ist, dt_1y),
+        "dasha_5y": calculate_vimshottari_dasha(moon_lon, dt_ist, dt_5y),
+        "dasha_10y": calculate_vimshottari_dasha(moon_lon, dt_ist, dt_10y)
     }
     
     return asc_sign, asc_nak, asc_pada, positions, temporal_context
@@ -190,22 +186,27 @@ def webhook():
         if not update:
             return jsonify(status="ignored"), 200
             
-        print(f"Received update: {update}", flush=True)
-
         if "message" in update and "text" in update["message"]:
             chat_id = update["message"]["chat"]["id"]
             user_text = update["message"]["text"].strip()
             
+            groq_key = os.environ.get("GROQ_API_KEY")
+            groq_url = "https://api.groq.com/openai/v1/chat/completions"
+            
             if user_text.startswith("/start"):
-                welcome_msg = "Welcome! Send your birth details to receive the comprehensive 8-part astrological report:\nDD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)"
-                send_message(chat_id, welcome_msg)
-            else:
-                match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
-                if not match:
-                    send_message(chat_id, "Please use format: DD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)")
-                    return jsonify(status="success"), 200
+                # Clear previous session when starting fresh
+                if chat_id in USER_SESSIONS:
+                    del USER_SESSIONS[chat_id]
                     
-                send_message(chat_id, "Validating current date anchor, computing time-bracketed temporal arrays, and generating psychological master report...")
+                welcome_msg = "Welcome! Send your birth details to receive your tactical astrological report:\nDD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)"
+                send_message(chat_id, welcome_msg)
+                return jsonify(status="success"), 200
+                
+            # Check if user is sending birth details format
+            match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
+            
+            if match:
+                send_message(chat_id, "Running astrological audit and compiling master report...")
                 
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
@@ -213,6 +214,17 @@ def webhook():
 
                 lat, lon, city_clean = get_coordinates(city_input)
                 asc_sign, asc_nak, asc_pada, planets, t_ctx = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
+                
+                planet_summary = "\n".join([f"- {p}: {info[0]} | Exact Deg: {info[1]:.2f}° | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
+                
+                # Save session data for follow-up questions
+                USER_SESSIONS[chat_id] = {
+                    "asc_sign": asc_sign,
+                    "asc_nak": asc_nak,
+                    "asc_pada": asc_pada,
+                    "planet_summary": planet_summary,
+                    "t_ctx": t_ctx
+                }
                 
                 os.makedirs("/tmp", exist_ok=True)
                 file_tag = str(int(time.time()))
@@ -237,66 +249,88 @@ def webhook():
                 north.draw("/tmp/", svg_filename)
                 send_document(chat_id, svg_path)
 
-                planet_summary = "\n".join([f"- {p}: {info[0]} | Exact Deg: {info[1]:.2f}° | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
-                
-                groq_key = os.environ.get("GROQ_API_KEY")
-                groq_url = "https://api.groq.com/openai/v1/chat/completions"
-                
                 prompt = f"""
 [SYSTEM ROLE]
-You are Panditji, an elite master Vedic Astrologer, deep archetypal psychologist, and master time-fractal analyst. Today's strict baseline anchor date is {t_ctx['current_date']}. All temporal tracking must start precisely from this current timeline anchor.
+You are Panditji, an uncompromising master Vedic Astrologer and tactical life strategist. Today's baseline anchor date is {t_ctx['current_date']}.
 
-[VERIFIED INPUT DATA & TEMPORAL TIMELINE BRACKETS]
+[INPUT DATA]
 - Baseline Anchor Date (Today): {t_ctx['current_date']}
-- Current Active Dasha (Now): {t_ctx['dasha_now']}
-- 6-Month Projection Window: {t_ctx['dasha_6m']}
-- 6-to-12 Month Projection Window: {t_ctx['dasha_1y']}
-- 5-Year Long-Term Bracket (Up to 5 years out): {t_ctx['dasha_5y']}
-- 10-Year Long-Term Bracket (Up to 10 years out): {t_ctx['dasha_10y']}
+- Current Active Dasha: {t_ctx['dasha_now']}
 - Ascendant (Lagna): {asc_sign} in {asc_nak} Pada {asc_pada}
-- Audited Planetary Array:
+- Planetary Array:
 {planet_summary}
 
 [OUTPUT DIRECTIVE]
-Generate a deeply reflective, psychologically penetrating, and rigorously structured Vedic analysis. Strictly anchor all temporal forecasts starting from today ({t_ctx['current_date']}). Use precise bullet points under each heading. Always include Hindi names in brackets for every planet (e.g., Saturn (Shani), Moon (Chandra)).
-
-Structure the report strictly into these 8 sections:
-1. **Star & Nakshatra Brief**: Core celestial alignment overview, foundational emotional signature, and psychological baseline as of {t_ctx['current_date']}.
-2. **Detailed Star Positions**: House-by-house breakdown of psychological strengths, intellectual wiring, and internal conflicts.
-3. **Cosmic Conflicts**: Active planetary oppositions or conjunctions mapped to internal psychological tensions and behavioral blind spots.
-4. **General Life Prediction**: Deep evolutionary trajectory across career, purpose, inner fulfillment, and wealth mindset evaluated across time horizons.
-5. **Detailed Manifestations & Time-Bracketed Roadmap**: Granular predictive timeline structured explicitly into:
-   - *Immediate Present (Active Now)*: Current conditions under {t_ctx['dasha_now']}.
-   - *Next 6 Months*: Transition shifts and immediate focus areas.
-   - *6 Months to 1 Year*: Mid-term unfolding patterns under {t_ctx['dasha_1y']}.
-   - *Long-Term Brackets (5-Year & 10-Year Horizons)*: Structural macro cycles under {t_ctx['dasha_5y']} and {t_ctx['dasha_10y']}.
-6. **Karmic Liabilities, Psychological Entrapment & Confinement (Bandhana Yoga)**: Rigorous evaluation of 6th/8th/12th houses, deep-seated emotional self-sabotage, subconscious confinement loops, inner attachment chains, litigation/obligation weights, and precise pathways toward psychological and spiritual liberation.
-7. **Corrective Remedies**: Exhaustive Lal Kitab & Vedic mental/spiritual alignment measures.
-8. **Rare Yogas & Anomalies**: Unique structural configurations present in the chart and their deep psychological gifts.
+Generate a high-impact, razor-sharp predictive blueprint structured strictly into these 8 sections:
+1. Star & Nakshatra Brief
+2. Detailed Star Positions
+3. Cosmic Conflicts
+4. General Life Prediction
+5. Detailed Manifestations & High-Impact Time-Bracketed Roadmap
+6. Karmic Liabilities & Confinement (Bandhana Yoga)
+7. Corrective Remedies
+8. Rare Yogas & Anomalies
 """
 
                 payload = {
                     "model": "llama-3.3-70b-versatile",
                     "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.75
+                    "temperature": 0.7
                 }
-                headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {groq_key}"
-                }
+                headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
 
                 res = requests.post(groq_url, headers=headers, json=payload, timeout=90)
                 if res.status_code == 200:
-                    data = res.json()
-                    final_text = data['choices'][0]['message']['content']
-                    
+                    final_text = res.json()['choices'][0]['message']['content']
                     max_length = 4000
                     for i in range(0, len(final_text), max_length):
-                        chunk = final_text[i:i + max_length]
-                        send_message(chat_id, chunk)
+                        send_message(chat_id, final_text[i:i + max_length])
+                        time.sleep(0.5)
+                    
+                    # Prompt the user for follow-up questions
+                    send_message(chat_id, "💡 **Master Report Complete.** You can now ask me any specific question about your chart, career, wealth, or timing (e.g., *'Should I switch jobs in the next 3 months?'* or *'What do my financial prospects look like?'*).")
+                else:
+                    send_message(chat_id, f"Groq API Error: {res.text[:150]}",)
+                    
+            elif chat_id in USER_SESSIONS:
+                # Handle specific follow-up questions using saved session data
+                session = USER_SESSIONS[chat_id]
+                send_message(chat_id, "Consulting your chart for your specific question...")
+                
+                q_prompt = f"""
+[SYSTEM ROLE]
+You are Panditji, an elite master Vedic Astrologer. The user has already received their master chart report and is now asking a specific follow-up question. Today's date is {session['t_ctx']['current_date']}.
+
+[USER CHART CONTEXT]
+- Ascendant: {session['asc_sign']} in {session['asc_nak']} Pada {session['asc_pada']}
+- Active Dasha: {session['t_ctx']['dasha_now']}
+- Planetary Array:
+{session['planet_summary']}
+
+[USER'S SPECIFIC QUESTION]
+"{user_text}"
+
+[OUTPUT DIRECTIVE]
+Provide a direct, tactical, and astrologically grounded answer to the user's specific question using their chart configuration. Avoid generic fluff. Give concrete guidance and clear operational timelines.
+"""
+
+                payload = {
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": q_prompt}],
+                    "temperature": 0.7
+                }
+                headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
+
+                res = requests.post(groq_url, headers=headers, json=payload, timeout=60)
+                if res.status_code == 200:
+                    answer = res.json()['choices'][0]['message']['content']
+                    for i in range(0, len(answer), 4000):
+                        send_message(chat_id, answer[i:i + 4000])
                         time.sleep(0.5)
                 else:
-                    send_message(chat_id, f"Groq API Error HTTP {res.status_code}: {res.text[:150]}")
+                    send_message(chat_id, "Error processing your question. Please try again.")
+            else:
+                send_message(chat_id, "Please start by sending your birth details in format:\nDD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)")
 
     except Exception as e:
         print(f"CRITICAL Webhook Error: {str(e)}", flush=True)
