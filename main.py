@@ -154,7 +154,7 @@ def webhook():
         if not update:
             return jsonify(status="ignored"), 200
             
-        gemini_key = os.environ.get("GEMINI_API_KEY")
+        groq_key = os.environ.get("GROQ_API_KEY") or os.environ.get("GEMINI_API_KEY")
         today_date = datetime.now().strftime("%B %d, %Y")
 
         if "message" in update and "text" in update["message"]:
@@ -204,7 +204,7 @@ def webhook():
 
                 planet_summary = "\n".join([f"- {p}: {info[0]} | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
                 
-                gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
+                groq_url = "https://api.groq.com/openai/v1/chat/completions"
                 
                 prompt = f"""
 [SYSTEM ROLE]
@@ -230,26 +230,32 @@ Structure the report strictly into these 8 sections:
 8. **Rare Yogas & Anomalies**: Unique structural configurations present in the chart.
 """
 
-                payload = {"contents": [{"parts": [{"text": prompt}]}]}
-                headers = {"Content-Type": "application/json"}
+                payload = {
+                    "model": "llama-3.1-8b-instant",
+                    "messages": [{"role": "user", "content": prompt}]
+                }
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {groq_key}"
+                }
 
                 success = False
                 final_text = ""
                 
                 for attempt in range(3):
                     try:
-                        res = requests.post(gemini_url, headers=headers, json=payload, timeout=30)
+                        res = requests.post(groq_url, headers=headers, json=payload, timeout=30)
                         if res.status_code == 200:
                             data = res.json()
-                            if 'candidates' in data and data['candidates']:
-                                final_text = data['candidates'][0]['content']['parts'][0]['text']
+                            if 'choices' in data and data['choices']:
+                                final_text = data['choices'][0]['message']['content']
                                 success = True
                                 break
                         elif res.status_code in [429, 503]:
-                            time.sleep(6 * (attempt + 1))
+                            time.sleep(5 * (attempt + 1))
                             continue
                         else:
-                            send_message(chat_id, f"Gemini API error code {res.status_code}: {res.text[:150]}")
+                            send_message(chat_id, f"Groq API error code {res.status_code}: {res.text[:150]}")
                             break
                     except Exception as api_err:
                         time.sleep(3)
@@ -258,7 +264,7 @@ Structure the report strictly into these 8 sections:
                 if success:
                     send_message(chat_id, final_text)
                 else:
-                    send_message(chat_id, "The celestial servers are temporarily congested or experiencing high demand (Error 429/503). Please wait a moment and try sending your details again.")
+                    send_message(chat_id, "The celestial servers are temporarily busy. Please wait a moment and try sending your details again.")
 
     except Exception as e:
         print(f"Webhook Error: {str(e)}")
