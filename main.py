@@ -204,7 +204,6 @@ def webhook():
 
                 planet_summary = "\n".join([f"- {p}: {info[0]} | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
                 
-                # Updated to gemini-3.6-flash
                 gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
                 
                 prompt = f"""
@@ -246,8 +245,8 @@ Structure the report strictly into these 8 sections:
                                 final_text = data['candidates'][0]['content']['parts'][0]['text']
                                 success = True
                                 break
-                        elif res.status_code == 429:
-                            time.sleep(5 * (attempt + 1))
+                        elif res.status_code in [429, 503]:
+                            time.sleep(6 * (attempt + 1))
                             continue
                         else:
                             send_message(chat_id, f"Gemini API error code {res.status_code}: {res.text[:150]}")
@@ -259,7 +258,7 @@ Structure the report strictly into these 8 sections:
                 if success:
                     send_message(chat_id, final_text)
                 else:
-                    send_message(chat_id, "The celestial servers are temporarily congested due to free-tier rate limits (Error 429). Please wait a moment and try sending your details again.")
+                    send_message(chat_id, "The celestial servers are temporarily congested or experiencing high demand (Error 429/503). Please wait a moment and try sending your details again.")
 
     except Exception as e:
         print(f"Webhook Error: {str(e)}")
@@ -268,4 +267,4 @@ Structure the report strictly into these 8 sections:
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-        
+    
