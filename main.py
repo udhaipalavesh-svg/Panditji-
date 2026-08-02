@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import swisseph as swe
 import jyotichart as chart
 import time
-import threading
 
 app = Flask(__name__)
 
@@ -37,13 +36,20 @@ DASHA_LORDS = [
 def send_message(chat_id, text):
     url = f"{TELEGRAM_API_URL}/sendMessage"
     payload = {"chat_id": chat_id, "text": text}
-    requests.post(url, json=payload)
+    try:
+        requests.post(url, json=payload, timeout=10)
+    except Exception as e:
+        print(f"Send message error: {e}")
 
 def send_document(chat_id, file_path):
-    with open(file_path, 'rb') as f:
-        files = {'document': f}
-        data = {'chat_id': chat_id}
-        requests.post(f"{TELEGRAM_API_URL}/sendDocument", data=data, files=files)
+    url = f"{TELEGRAM_API_URL}/sendDocument"
+    try:
+        with open(file_path, 'rb') as f:
+            files = {'document': f}
+            data = {'chat_id': chat_id}
+            requests.post(url, data=data, files=files, timeout=15)
+    except Exception as e:
+        print(f"Send document error: {e}")
 
 def get_coordinates(city_name):
     try:
@@ -147,51 +153,81 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     active_dasha = calculate_vimshottari_dasha(moon_lon, dt_ist, datetime.now())
     return asc_sign, asc_nak, asc_pada, positions, active_dasha
 
-def process_astrology_task(chat_id, user_text):
+@app.route('/', methods=['POST', 'GET'])
+def webhook():
+    if request.method == 'GET':
+        return "Render Persistent Bot Server is Active", 200
+        
     try:
-        match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
-        if not match:
-            send_message(chat_id, "Please use format: DD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)")
-            return
+        update = request.get_json(silent=True)
+        if not update:
+            return jsonify(status="ignored"), 200
             
-        send_message(chat_id, "Executing high-precision Sidereal scan, computing Dasha timeline and generating 8-part master report...")
+        update_id = update.get("update_id")
+        if update_id in processed_updates:
+            return jsonify(status="duplicate_ignored"), 200
+        processed_updates.add(update_id)
         
-        day, month, year, hour, minute, city_input = match.groups()
-        day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
-        city_input = city_input.strip()
+        if len(processed_updates) > 100:
+            processed_updates.pop()
 
-        lat, lon, city_clean = get_coordinates(city_input)
-        asc_sign, asc_nak, asc_pada, planets, active_dasha = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
-        
-        os.makedirs("/tmp", exist_ok=True)
-        file_tag = str(int(time.time()))
-        svg_filename = f"natal_chart_{file_tag}"
-        svg_path = f"/tmp/{svg_filename}.svg"
-
-        north = chart.NorthChart("Natal Chart (Lahiri)", f"{day:02d}-{month:02d}-{year} ({city_clean})", IsFullChart=True)
-        north.set_ascendantsign(asc_sign)
-        
-        p_map = {
-            "Sun (Surya)": chart.SUN, "Moon (Chandra)": chart.MOON,
-            "Mars (Mangal)": chart.MARS, "Mercury (Budh)": chart.MERCURY,
-            "Jupiter (Guru)": chart.JUPITER, "Venus (Shukra)": chart.VENUS,
-            "Saturn (Shani)": chart.SATURN, "Rahu": chart.RAHU, "Ketu": chart.KETU
-        }
-        for p_name, p_code in p_map.items():
-            if p_name in planets:
-                sign_name, _, _, _ = planets[p_name]
-                sign_idx = ZODIAC_SIGNS.index(sign_name) + 1
-                north.add_planet(p_code, p_name[:2], sign_idx)
-                
-        north.draw("/tmp/", svg_filename)
-        send_document(chat_id, svg_path)
-
-        planet_summary = "\n".join([f"- {p}: {info[0]} | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
-        today_date = datetime.now().strftime("%B %d, %Y")
         groq_key = os.environ.get("GROQ_API_KEY")
-        groq_url = "https://api.groq.com/openai/v1/chat/completions"
-        
-        prompt = f"""
+        if not groq_key:
+            if "message" in update and "text" in update["message"]:
+                send_message(update["message"]["chat"]["id"], "Configuration Error: GROQ_API_KEY environment variable is missing on Render.")
+            return jsonify(status="missing_key"), 200
+
+        today_date = datetime.now().strftime("%B %d, %Y")
+
+        if "message" in update and "text" in update["message"]:
+            chat_id = update["message"]["chat"]["id"]
+            user_text = update["message"]["text"].strip()
+            
+            if user_text.startswith("/start"):
+                welcome_msg = "Welcome! Send your birth details to receive the comprehensive 8-part astrological report:\nDD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)"
+                send_message(chat_id, welcome_msg)
+            else:
+                match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
+                if not match:
+                    send_message(chat_id, "Please use format: DD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)")
+                    return jsonify(status="success"), 200
+                    
+                send_message(chat_id, "Executing high-precision Sidereal scan, computing Dasha timeline and generating 8-part master report...")
+                
+                day, month, year, hour, minute, city_input = match.groups()
+                day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
+                city_input = city_input.strip()
+
+                lat, lon, city_clean = get_coordinates(city_input)
+                asc_sign, asc_nak, asc_pada, planets, active_dasha = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
+                
+                os.makedirs("/tmp", exist_ok=True)
+                file_tag = str(int(time.time()))
+                svg_filename = f"natal_chart_{file_tag}"
+                svg_path = f"/tmp/{svg_filename}.svg"
+
+                north = chart.NorthChart("Natal Chart (Lahiri)", f"{day:02d}-{month:02d}-{year} ({city_clean})", IsFullChart=True)
+                north.set_ascendantsign(asc_sign)
+                
+                p_map = {
+                    "Sun (Surya)": chart.SUN, "Moon (Chandra)": chart.MOON,
+                    "Mars (Mangal)": chart.MARS, "Mercury (Budh)": chart.MERCURY,
+                    "Jupiter (Guru)": chart.JUPITER, "Venus (Shukra)": chart.VENUS,
+                    "Saturn (Shani)": chart.SATURN, "Rahu": chart.RAHU, "Ketu": chart.KETU
+                }
+                for p_name, p_code in p_map.items():
+                    if p_name in planets:
+                        sign_name, _, _, _ = planets[p_name]
+                        sign_idx = ZODIAC_SIGNS.index(sign_name) + 1
+                        north.add_planet(p_code, p_name[:2], sign_idx)
+                        
+                north.draw("/tmp/", svg_filename)
+                send_document(chat_id, svg_path)
+
+                planet_summary = "\n".join([f"- {p}: {info[0]} | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
+                
+                groq_url = "https://api.groq.com/openai/v1/chat/completions"
+                prompt = f"""
 [SYSTEM ROLE]
 You are Panditji, an uncompromising master Vedic Astrologer. Today's date is {today_date}.
 
@@ -215,71 +251,39 @@ Structure the report strictly into these 8 sections:
 8. **Rare Yogas & Anomalies**: Unique structural configurations present in the chart.
 """
 
-        payload = {
-            "model": "llama-3.3-70b-versatile",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.7
-        }
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {groq_key}"
-        }
+                payload = {
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.7
+                }
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {groq_key}"
+                }
 
-        success = False
-        final_text = ""
-        error_details = ""
-        
-        for attempt in range(2):
-            try:
-                res = requests.post(groq_url, headers=headers, json=payload, timeout=60)
-                if res.status_code == 200:
-                    data = res.json()
-                    if 'choices' in data and data['choices']:
-                        final_text = data['choices'][0]['message']['content']
-                        success = True
-                        break
+                success = False
+                final_text = ""
+                error_details = ""
+                
+                for attempt in range(2):
+                    try:
+                        res = requests.post(groq_url, headers=headers, json=payload, timeout=50)
+                        if res.status_code == 200:
+                            data = res.json()
+                            if 'choices' in data and data['choices']:
+                                final_text = data['choices'][0]['message']['content']
+                                success = True
+                                break
+                        else:
+                            error_details = f"HTTP {res.status_code}: {res.text[:200]}"
+                    except Exception as e:
+                        error_details = str(e)
+                    time.sleep(2)
+
+                if success:
+                    send_message(chat_id, final_text)
                 else:
-                    error_details = f"HTTP {res.status_code}: {res.text[:200]}"
-            except Exception as e:
-                error_details = str(e)
-            time.sleep(2)
-
-        if success:
-            send_message(chat_id, final_text)
-        else:
-            send_message(chat_id, f"Groq API Error: {error_details}")
-
-    except Exception as e:
-        print(f"Background Task Error: {str(e)}")
-
-@app.route('/', methods=['POST', 'GET'])
-def webhook():
-    if request.method == 'GET':
-        return "Render Persistent Bot Server is Active", 200
-        
-    try:
-        update = request.get_json(silent=True)
-        if not update:
-            return jsonify(status="ignored"), 200
-            
-        update_id = update.get("update_id")
-        if update_id in processed_updates:
-            return jsonify(status="duplicate_ignored"), 200
-        processed_updates.add(update_id)
-        
-        if len(processed_updates) > 100:
-            processed_updates.pop()
-
-        if "message" in update and "text" in update["message"]:
-            chat_id = update["message"]["chat"]["id"]
-            user_text = update["message"]["text"].strip()
-            
-            if user_text.startswith("/start"):
-                welcome_msg = "Welcome! Send your birth details to receive the comprehensive 8-part astrological report:\nDD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)"
-                send_message(chat_id, welcome_msg)
-            else:
-                # Instantly acknowledge and return HTTP 200 to Telegram to prevent timeouts
-                threading.Thread(target=process_astrology_task, args=(chat_id, user_text)).start()
+                    send_message(chat_id, f"Groq API Error: {error_details}")
 
     except Exception as e:
         print(f"Webhook Error: {str(e)}")
