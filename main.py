@@ -12,6 +12,7 @@ app = Flask(__name__)
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
+# State store for interactive follow-up questions
 USER_SESSIONS = {}
 
 ZODIAC_SIGNS = [
@@ -195,14 +196,14 @@ def webhook():
                 if chat_id in USER_SESSIONS:
                     del USER_SESSIONS[chat_id]
                     
-                welcome_msg = "Welcome! Send your birth details to receive your tactical astrological report:\nDD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)"
+                welcome_msg = "Welcome! Send your birth details to receive your master tactical astrological report:\nDD-MM-YYYY HH:MM City\n(e.g., 05-09-1981 12:16 Amritsar)"
                 send_message(chat_id, welcome_msg)
                 return jsonify(status="success"), 200
                 
             match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
             
             if match:
-                send_message(chat_id, "Executing high-precision tactical audit with strict Hindi nomenclature and high-potency remedial protocols...")
+                send_message(chat_id, "Executing elite tactical astrological audit with strict Hindi nomenclature and high-potency remedial protocols...")
                 
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
@@ -248,10 +249,10 @@ def webhook():
 [SYSTEM ROLE]
 You are Panditji, an uncompromising, elite master Vedic Astrologer and tactical life strategist. Today's strict baseline anchor date is {t_ctx['current_date']}.
 
-[STRICT ENFORCEMENT RULES]
-1. **HINDI NOMENCLATURE MANDATE**: You MUST include Hindi names in brackets for EVERY single planetary reference without exception (e.g., Sun (Surya), Moon (Chandra), Mars (Mangal), Mercury (Budh), Jupiter (Guru), Venus (Shukra), Saturn (Shani), Rahu, Ketu). Missing a Hindi name is a system failure.
-2. **HIGH-POTENCY REMEDIES**: Section 7 must contain exact, procedural Lal Kitab and Vedic Upaayas (e.g., specific donation items, exact weekdays, feeding rituals, or material item rules). Absolutely no generic spiritual advice like "meditate or pray."
-3. **DEFINITIVE PREDICTION**: Avoid passive hedging words like "might" or "suggests a potential for." Deliver direct, tactical astrological forecasts.
+[MANDATORY SYSTEM RULES]
+1. **HINDI NOMENCLATURE MANDATE**: You MUST include Hindi names in brackets for EVERY single planetary reference without exception (e.g., Sun (Surya), Moon (Chandra), Mars (Mangal), Mercury (Budh), Jupiter (Guru), Venus (Shukra), Saturn (Shani), Rahu, Ketu). 
+2. **HIGH-POTENCY REMEDIES**: Section 7 must contain exact, procedural Lal Kitab and Vedic Upaayas (specifying exact material charity items, weekdays, feeding rules, or gem restrictions). No generic advice.
+3. **DEFINITIVE FORECASTING**: Avoid passive hedging words like "might" or "potential for." Deliver direct, authoritative astrological realities.
 
 [INPUT DATA]
 - Baseline Anchor Date (Today): {t_ctx['current_date']}
@@ -300,8 +301,8 @@ Generate a master-level tactical blueprint structured strictly into these 8 sect
 You are Panditji, an elite master Vedic Astrologer. Today's date is {session['t_ctx']['current_date']}.
 
 [MANDATORY RULES]
-- Always include Hindi names in brackets for every planet referenced (e.g., Saturn (Shani), Moon (Chandra), Mars (Mangal)).
-- Give direct, unvarnished, tactically sound answers with clear timelines and explicit Upaayas where applicable.
+- Always include Hindi names in brackets for every planet referenced (e.g., Saturn (Shani), Moon (Chandra)).
+- Provide direct, unvarnished, tactically sound answers with clear timelines and explicit Upaayas where applicable.
 
 [USER CHART CONTEXT]
 - Ascendant: {session['asc_sign']} in {session['asc_nak']} Pada {session['asc_pada']}
@@ -332,7 +333,7 @@ Provide an uncompromising, astrologically grounded response addressing the core 
                 else:
                     send_message(chat_id, "Error processing your question. Please try again.")
             else:
-                send_message(chat_id, "Please start by sending your birth details in format:\nDD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)")
+                send_message(chat_id, "Please start by sending your birth details in format:\nDD-MM-YYYY HH:MM City\n(e.g., 05-09-1981 12:16 Amritsar)")
 
     except Exception as e:
         print(f"CRITICAL Webhook Error: {str(e)}", flush=True)
