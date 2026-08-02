@@ -86,7 +86,7 @@ def generate_pdf_report(report_text, pdf_path, birth_details_str):
     )
 
     story = []
-    story.append(Paragraph("<b>Panditji - Master Vedic Astrological Blueprint</b>", title_style))
+    story.append(Paragraph("<b>Panditji - Master Vedic Blueprint & Catastrophic Risk Dossier</b>", title_style))
     story.append(Paragraph(f"<b>Client Profile / Details:</b> {birth_details_str}", body_style))
     story.append(Spacer(1, 10))
 
@@ -155,9 +155,9 @@ def calculate_chart_logic(asc_sign, planets, birth_dt):
     age = (now - birth_dt).days // 365
     
     if age < 18:
-        life_stage = f"MINOR / STUDENT (Age {age}): Focus strictly on House 5 (Education, Learning Aptitude, Memory), House 4 (Foundational Happiness, Mother, Home), and House 9 (Higher Guidance/Mentorship). Do NOT discuss adult career shifts, marriage, or financial investments."
+        life_stage = f"MINOR / STUDENT (Age {age}): Focus strictly on House 5 (Education, Learning Aptitude), House 4 (Home), and House 9 (Mentorship). Do NOT discuss adult career, divorce, or financial litigation."
     else:
-        life_stage = f"ADULT / PROFESSIONAL (Age {age}): Focus on Career (House 10), Wealth/Assets (House 2 & 11), Relationships (House 7), and Life Path."
+        life_stage = f"ADULT / PROFESSIONAL (Age {age}): Full adult life vector analysis required across career, marriage, health, and serious risk scanning."
 
     sign_lords = {
         "Aries": "Mars (Mangal)", "Taurus": "Venus (Shukra)", "Gemini": "Mercury (Budh)",
@@ -270,14 +270,14 @@ def webhook():
                 if chat_id in USER_SESSIONS:
                     del USER_SESSIONS[chat_id]
                     
-                welcome_msg = "Welcome! Send your birth details to receive your age-adapted astrological report and PDF (including 5-year bracket predictions):\nDD-MM-YYYY HH:MM City\n(e.g., 05-09-1981 12:16 Amritsar)"
+                welcome_msg = "Welcome! Send your birth details to receive your master astrological report and **Catastrophic Risk Scan Dossier**:\nDD-MM-YYYY HH:MM City\n(e.g., 05-09-1981 12:16 Amritsar)"
                 send_message(chat_id, welcome_msg)
                 return jsonify(status="success"), 200
                 
             match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
             
             if match:
-                send_message(chat_id, "Calculating life-stage age filter, temporal dasha brackets (including 5-year macro blocks), and compiling PDF...")
+                send_message(chat_id, "Running psychological synthesis, time-bracketed projections, and **Dedicated Catastrophic Risk Scanner**...")
                 
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
@@ -325,10 +325,10 @@ def webhook():
 You are Panditji, an elite master Vedic Astrologer and tactical life strategist. Today's strict baseline anchor date is {t_ctx['current_date']}.
 
 [MANDATORY SYSTEM RULES]
-1. **AGE & LIFE-STAGE LOGIC**: Adhere strictly to the calculated age filter provided below. If the user is a minor, focus on education, aptitude, health, and upbringing. Do NOT discuss adult topics.
-2. **HINDI NOMENCLATURE MANDATE**: Include Hindi names in brackets for EVERY planetary reference (e.g., Saturn (Shani), Moon (Chandra)).
-3. **PROGRAMMATIC HOUSE LOGIC**: Base all house interpretations strictly on the pre-calculated House Map provided below.
-4. **5-YEAR & 10-YEAR BRACKETED PREDICTIONS**: Section 5 MUST explicitly detail macro predictions structured across 5-year and 10-year structural windows.
+1. **PSYCHOLOGICAL & CATASTROPHIC RISK SYNTHESIS**: Synthesize inner psychological triggers with outer vulnerabilities.
+2. **HINDI NOMENCLATURE MANDATE**: Include Hindi names in brackets for EVERY planetary reference without exception (e.g., Saturn (Shani), Moon (Chandra)).
+3. **PROGRAMMATIC HOUSE LOGIC**: Base interpretations strictly on the pre-calculated House Map provided below.
+4. **DEDICATED CATASTROPHIC RISK SCANNER**: Section 9 must be an independent, rigorous audit scanning the major risk vectors separately, detailing the likely window/date of impact and granular tactical Upaayas for each.
 
 [CALCULATED ASTROLOGICAL, TEMPORAL & AGE LOGIC]
 - Baseline Anchor Date (Today): {t_ctx['current_date']}
@@ -345,20 +345,23 @@ You are Panditji, an elite master Vedic Astrologer and tactical life strategist.
 {planet_summary}
 
 [OUTPUT DIRECTIVE]
-Generate a master-level tactical blueprint structured strictly into these 8 sections:
-1. **Star & Nakshatra Brief**
-2. **Detailed Star Positions**
-3. **Cosmic Conflicts**
-4. **General Life Prediction (Age-Appropriate)**
-5. **Detailed Manifestations & High-Impact Time-Bracketed Roadmap**:
-   - *Immediate Present (Active Now)*
-   - *Next 6 Months*
-   - *6 Months to 1 Year*
-   - *5-Year Long-Term Macro Block*
-   - *10-Year Strategic Horizon*
+Generate a master-level tactical blueprint structured strictly into these 9 sections:
+1. **Star, Nakshatra & Psychological Baseline**
+2. **Detailed Star Positions & House Synthesis**
+3. **Cosmic Conflicts & Stress Vectors**
+4. **Holistic Life Prediction**
+5. **Detailed Manifestations & High-Impact Time-Bracketed Roadmap** (Immediate, 6m, 1y, 5y, 10y)
 6. **Karmic Liabilities & Confinement (Bandhana Yoga)**
 7. **Corrective Remedies (Upaayas)**
 8. **Rare Yogas & Anomalies**
+9. **DEDICATED CATASTROPHIC RISK SCANNER (Separate Independent Audit)**:
+   Scan each issue separately with: (a) Threat Analysis, (b) Likely Window/Date of Impact, and (c) Granular Tactical Solution (Immediate Action vs. Long-term Prevention) for:
+   - Major Health Problems / Hospitalization
+   - Legal Issues / Prison / Confinement
+   - Career Termination / Business Shutdown
+   - High-Conflict Divorce / Marital Alienation
+   - Financial Bankruptcy / Asset Seizure
+   - Partnership Betrayal / Business Fraud
 """
 
                 payload = {
@@ -374,20 +377,20 @@ Generate a master-level tactical blueprint structured strictly into these 8 sect
                     pdf_path = f"/tmp/Astrological_Report_{file_tag}.pdf"
                     generate_pdf_report(final_text, pdf_path, f"{day:02d}-{month:02d}-{year} at {hour:02d}:{minute:02d} in {city_clean} (Age: {age})")
                     send_document(chat_id, pdf_path)
-                    send_message(chat_id, "📄 **Master PDF Report & Chart Delivered (Featuring 5-Year Macro Predictions)!** You can now ask specific questions.")
+                    send_message(chat_id, "📄 **Master PDF Report, Chart, & Catastrophic Risk Dossier Delivered!** You can now ask specific tactical questions.")
                 else:
                     send_message(chat_id, f"Groq API Error: {res.text[:150]}")
                     
             elif chat_id in USER_SESSIONS:
                 session = USER_SESSIONS[chat_id]
-                send_message(chat_id, "Consulting your chart with age-appropriate and macro-bracket logic...")
+                send_message(chat_id, "Consulting your chart via Catastrophic Risk Scanner...")
                 
                 q_prompt = f"""
 [SYSTEM ROLE]
 You are Panditji, an elite master Vedic Astrologer. Today's date is {session['t_ctx']['current_date']}.
 
 [MANDATORY RULES]
-- Adhere to the client's age-bracket ({session['age']} years old). 
+- Address any specific high-stakes risk or question with absolute clarity, identifying exact windows of impact and actionable Upaayas.
 - Always include Hindi names in brackets for every planet referenced.
 
 [CALCULATED LOGIC & CONTEXT]
@@ -401,7 +404,7 @@ You are Panditji, an elite master Vedic Astrologer. Today's date is {session['t_
 "{user_text}"
 
 [OUTPUT DIRECTIVE]
-Provide an uncompromising, astrologically grounded response addressing the question directly based on their age, house map, and long-term 5-year macro outlook.
+Provide an uncompromising, astrologically grounded response addressing the threat vector, exact timeline, and precise preventative remedies.
 """
 
                 payload = {
