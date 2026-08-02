@@ -154,7 +154,7 @@ def webhook():
         if not update:
             return jsonify(status="ignored"), 200
             
-        groq_key = os.environ.get("GROQ_API_KEY") or os.environ.get("GEMINI_API_KEY")
+        groq_key = os.environ.get("GROQ_API_KEY")
         today_date = datetime.now().strftime("%B %d, %Y")
 
         if "message" in update and "text" in update["message"]:
@@ -231,7 +231,7 @@ Structure the report strictly into these 8 sections:
 """
 
                 payload = {
-                    "model": "llama-3.1-8b-instant",
+                    "model": "openai/gpt-oss-20b",
                     "messages": [{"role": "user", "content": prompt}]
                 }
                 headers = {
