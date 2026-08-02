@@ -24,34 +24,17 @@ NAKSHATRAS = [
     "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"
 ]
 
-CATEGORIES = {
-    "edu": ("🎓 Education", "4th & 5th houses, Mercury (Budh) and Jupiter (Guru)."),
-    "car": ("💼 Career Stagnation / Layoffs", "10th, 6th & 11th houses, Saturn (Shani) and Sun (Surya)."),
-    "fin": ("💰 Financial Disputes & Debt", "2nd, 6th & 11th houses, Mars (Mangal) and Rahu."),
-    "hea": ("🏥 Medical Issues & Surgery", "1st, 6th & 8th houses, Sun (Surya) and Moon (Chandra)."),
-    "rel": ("❤️ Relationships & Burnout", "5th & 7th houses, Venus (Shukra) and Moon (Chandra)."),
-    "mar": ("💍 High-Conflict Marriage & Divorce", "7th & 9th houses, Venus (Shukra) and Saturn (Shani)."),
-    "fam": ("🏡 Family Environment", "2nd & 4th houses, Moon (Chandra) and Jupiter (Guru)."),
-    "tra": ("✈️ Foreign Travel & Visa Blocks", "9th & 12th houses, Rahu and Moon (Chandra)."),
-    "pro": ("🏠 Property & Legal Disputes", "4th house, Mars (Mangal) and Saturn (Shani)."),
-    "spi": ("🧘 Spiritual Growth & Karma", "8th, 9th & 12th houses, Ketu and Jupiter (Guru)."),
-    "obs": ("⚖️ Legal Battles, Courts & Enemies", "6th & 8th houses, Saturn (Shani), Mars (Mangal), and Rahu."),
-    "chi": ("👶 Children & Progeny Delays", "5th house, Jupiter (Guru) and Ketu."),
-    "men": ("🧠 Mental Peace & Anxiety", "4th & 12th houses, Moon (Chandra) and Mercury (Budh).")
-}
+# Vimshottari Dasha Lords and their span in years
+DASHA_LORDS = [
+    ("Ketu", 7), ("Venus (Shukra)", 20), ("Sun (Surya)", 6),
+    ("Moon (Chandra)", 10), ("Mars (Mangal)", 7), ("Rahu", 18),
+    ("Jupiter (Guru)", 16), ("Saturn (Shani)", 19), ("Mercury (Budh)", 17)
+]
+TOTAL_DASHA_YEARS = 120
 
-def send_message(chat_id, text, reply_markup=None):
+def send_message(chat_id, text):
     url = f"{TELEGRAM_API_URL}/sendMessage"
     payload = {"chat_id": chat_id, "text": text}
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
-    requests.post(url, json=payload)
-
-def edit_message(chat_id, message_id, text, reply_markup=None):
-    url = f"{TELEGRAM_API_URL}/editMessageText"
-    payload = {"chat_id": chat_id, "message_id": message_id, "text": text}
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
     requests.post(url, json=payload)
 
 def send_document(chat_id, file_path):
@@ -59,9 +42,6 @@ def send_document(chat_id, file_path):
         files = {'document': f}
         data = {'chat_id': chat_id}
         requests.post(f"{TELEGRAM_API_URL}/sendDocument", data=data, files=files)
-
-def answer_callback(callback_id, text=""):
-    requests.post(f"{TELEGRAM_API_URL}/answerCallbackQuery", json={"callback_query_id": callback_id, "text": text})
 
 def get_coordinates(city_name):
     try:
@@ -79,11 +59,49 @@ def get_nakshatra_info(lon):
     nak_idx = int(lon / nak_span) % 27
     rem = lon % nak_span
     pada = int(rem / (nak_span / 4.0)) + 1
-    return NAKSHATRAS[nak_idx], pada
+    return nak_idx, NAKSHATRAS[nak_idx], pada, rem
+
+def calculate_vimshottari_dasha(moon_lon, birth_dt, target_dt):
+    """Calculates active Mahadasha based on Moon's Sidereal Nakshatra position"""
+    nak_span = 360.0 / 27.0
+    nak_idx, nak_name, _, rem = get_nakshatra_info(moon_lon)
+    
+    # Each Nakshatra spans 13.3333 degrees (800 minutes). Ruler sequence maps every 3 nakshatras to a planet lord.
+    lord_idx = (nak_idx // 3) % 9
+    dasha_lord, total_years = DASHA_LORDS[lord_idx]
+    
+    # Fraction of dasha elapsed based on how far into the nakshatra the moon is
+    fraction_elapsed = rem / nak_span
+    fraction_remaining = 1.0 - fraction_elapsed
+    years_remaining = fraction_remaining * total_years
+    
+    # Calculate birth JD to target JD progression
+    current_jd = swe.julday(target_dt.year, target_dt.month, target_dt.day)
+    birth_jd = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day)
+    days_passed = current_jd - birth_jd
+    years_passed = days_passed / 365.25
+    
+    # Traverse through subsequent dashas to find current active Mahadasha
+    accumulated_years = years_remaining
+    current_lord_idx = lord_idx
+    
+    if years_passed <= years_remaining:
+        return f"{dasha_lord} Mahadasha (Balance remaining: {years_remaining - years_passed:.1f} years)"
+    
+    years_passed_after_balance = years_passed - years_remaining
+    current_lord_idx = (current_lord_idx + 1) % 9
+    
+    while years_passed_after_balance > 0:
+        lord, span = DASHA_LORDS[current_lord_idx]
+        if years_passed_after_balance <= span:
+            return f"{lord} Mahadasha (Active running period)"
+        years_passed_after_balance -= span
+        current_lord_idx = (current_lord_idx + 1) % 9
+        
+    return f"{DASHA_LORDS[current_lord_idx][0]} Mahadasha"
 
 def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     swe.set_ephe_path(None)
-    # Set Sidereal Mode to Lahiri (Chitra Paksha)
     swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     
     dt_ist = datetime(year, month, day, hour, minute)
@@ -91,7 +109,6 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     utc_decimal = dt_utc.hour + (dt_utc.minute / 60.0)
     jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, utc_decimal)
     
-    # Use Sidereal calculation flags
     flags = swe.FLG_SWIEPH + swe.FLG_SPEED + swe.FLG_SIDEREAL
     
     planets = {
@@ -103,11 +120,12 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
         "Venus (Shukra)": swe.VENUS,
         "Saturn (Shani)": swe.SATURN,
         "Rahu": swe.MEAN_NODE,
-        "Ketu": 10  # Calculated dynamically or offset from Rahu
+        "Ketu": 10
     }
     
     positions = {}
     rahu_lon = 0.0
+    moon_lon = 0.0
     for name, p_id in planets.items():
         if name == "Ketu":
             lon_val = (rahu_lon + 180.0) % 360.0
@@ -116,10 +134,12 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
             lon_val = calc[0] if isinstance(calc[0], float) else calc[0][0]
             if name == "Rahu":
                 rahu_lon = lon_val
+            if name == "Moon (Chandra)":
+                moon_lon = lon_val
                 
         sign_idx = int(lon_val / 30) % 12
         sign_name = ZODIAC_SIGNS[sign_idx]
-        nak_name, pada = get_nakshatra_info(lon_val)
+        _, nak_name, pada, _ = get_nakshatra_info(lon_val)
         positions[name] = (sign_name, lon_val, nak_name, pada)
         
     try:
@@ -129,41 +149,10 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
         asc_lon = 0.0
         
     asc_sign = ZODIAC_SIGNS[int(asc_lon / 30) % 12]
-    asc_nak, asc_pada = get_nakshatra_info(asc_lon)
-    return asc_sign, asc_nak, asc_pada, positions
-
-def build_menu_keyboard(city_clean, day, month, year, hour, minute):
-    param_str = f"{day}-{month}-{year}-{hour}-{minute}-{city_clean}"
-    keyboard = [
-        [
-            {"text": "🎓 Education", "callback_data": f"cat:edu|{param_str}"},
-            {"text": "💼 Career/Layoffs", "callback_data": f"cat:car|{param_str}"}
-        ],
-        [
-            {"text": "💰 Finances/Debt", "callback_data": f"cat:fin|{param_str}"},
-            {"text": "🏥 Medical/Surgery", "callback_data": f"cat:hea|{param_str}"}
-        ],
-        [
-            {"text": "❤️ Relationships", "callback_data": f"cat:rel|{param_str}"},
-            {"text": "💍 Marriage/Divorce", "callback_data": f"cat:mar|{param_str}"}
-        ],
-        [
-            {"text": "🏡 Family", "callback_data": f"cat:fam|{param_str}"},
-            {"text": "✈️ Travel/Visas", "callback_data": f"cat:tra|{param_str}"}
-        ],
-        [
-            {"text": "🏠 Property/Legal", "callback_data": f"cat:pro|{param_str}"},
-            {"text": "🧘 Spiritual Path", "callback_data": f"cat:spi|{param_str}"}
-        ],
-        [
-            {"text": "⚖️ Courts & Enemies", "callback_data": f"cat:obs|{param_str}"},
-            {"text": "👶 Progeny Delays", "callback_data": f"cat:chi|{param_str}"}
-        ],
-        [
-            {"text": "🧠 Mental Peace", "callback_data": f"cat:men|{param_str}"}
-        ]
-    ]
-    return {"inline_keyboard": keyboard}
+    _, asc_nak, asc_pada, _ = get_nakshatra_info(asc_lon)
+    
+    active_dasha = calculate_vimshottari_dasha(moon_lon, dt_ist, datetime.now())
+    return asc_sign, asc_nak, asc_pada, positions, active_dasha
 
 @app.route('/api', methods=['POST', 'GET'])
 def webhook():
@@ -175,77 +164,20 @@ def webhook():
         gemini_key = os.environ.get("GEMINI_API_KEY")
         today_date = datetime.now().strftime("%B %d, %Y")
 
-        if "callback_query" in update:
-            cb = update["callback_query"]
-            chat_id = cb["message"]["chat"]["id"]
-            message_id = cb["message"]["message_id"]
-            data = cb["data"]
-            
-            answer_callback(cb["id"])
-            edit_message(chat_id, message_id, "Consulting Sidereal Sidhi & Nakshatras... ⏳")
-
-            try:
-                parts = data.replace("cat:", "").split("|")
-                cat_code = parts[0]
-                d_parts = parts[1].split("-")
-                day, month, year, hour, minute = map(int, d_parts[:5])
-                city_input = d_parts[5]
-                
-                cat_name, cat_focus = CATEGORIES.get(cat_code, ("🔮 General", "General life guidance"))
-                lat, lon, city_clean = get_coordinates(city_input)
-                asc_sign, asc_nak, asc_pada, planets = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
-                
-                planet_summary = "\n".join([f"- {p}: {info[0]} | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
-
-                prompt = f"""
-                You are Panditji, an expert Vedic Astrologer using precise Sidereal Lahiri calculations. Today's date is {today_date}.
-                Domain: **{cat_name}** ({cat_focus})
-                
-                Precise Sidereal Chart Data:
-                - Ascendant (Lagna): {asc_sign} in {asc_nak} Pada {asc_pada}
-                {planet_summary}
-                
-                RULE: Mention Hindi names in brackets for every planet (e.g., Saturn (Shani), Moon (Chandra)).
-                
-                Structure response into these 5 strict headings:
-                1. **Planetary & Nakshatra Influences**: Analyze how these specific house lords, planetary placements, and Nakshatra energies impact this domain.
-                2. **Current Situation**: Real-time transit analysis.
-                3. **Short-Term Forecast**: Next 3-6 months.
-                4. **Long-Term Trajectory**: 1-3 years outlook.
-                5. **Lal Kitab & Vedic Remedies**: 2 practical, safe, non-gemstone remedies (e.g., specific charity, animal feeding, or water offerings).
-                
-                Keep it structured, punchy, and concise.
-                """
-
-                gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
-                res = requests.post(gemini_url, headers={"Content-Type": "application/json"}, json={"contents": [{"parts": [{"text": prompt}]}]})
-                
-                if res.status_code == 200:
-                    ai_text = res.json()['candidates'][0]['content']['parts'][0]['text']
-                    menu = build_menu_keyboard(city_clean, day, month, year, hour, minute)
-                    send_message(chat_id, ai_text, reply_markup=menu)
-                else:
-                    send_message(chat_id, "The connection flickered. Please try clicking the button again.")
-
-            except Exception as e:
-                send_message(chat_id, f"Error: {str(e)}")
-
-            return jsonify(status="success"), 200
-
         if "message" in update and "text" in update["message"]:
             chat_id = update["message"]["chat"]["id"]
             user_text = update["message"]["text"]
             
             if user_text.startswith("/start"):
-                welcome_msg = "Welcome! Please send your birth details in this format:\nDD-MM-YYYY HH:MM City\n(e.g., 01-01-1900 12:00 Amritsar)"
+                welcome_msg = "Welcome! Send your birth details to receive the audited, deep 8-part astrological report:\nDD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)"
                 send_message(chat_id, welcome_msg)
             else:
-                send_message(chat_id, "Calculating Sidereal Lahiri chart, Nakshatras, and drawing chart...")
+                send_message(chat_id, "Executing dual-engine Sidereal scan, computing Dasha timelines and auditing planetary conflicts...")
 
                 try:
                     match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
                     if not match:
-                        send_message(chat_id, "Please use format: DD-MM-YYYY HH:MM City\n(e.g., 01-01-1900 12:00 Amritsar)")
+                        send_message(chat_id, "Please use format: DD-MM-YYYY HH:MM City\n(e.g., 02-01-1980 19:25 Chandigarh)")
                         return jsonify(status="success"), 200
                         
                     day, month, year, hour, minute, city_input = match.groups()
@@ -253,8 +185,9 @@ def webhook():
                     city_input = city_input.strip()
 
                     lat, lon, city_clean = get_coordinates(city_input)
-                    asc_sign, asc_nak, asc_pada, planets = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
+                    asc_sign, asc_nak, asc_pada, planets, active_dasha = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
                     
+                    # Generate Chart SVG
                     north = chart.NorthChart("Natal Chart (Lahiri)", f"{day:02d}-{month:02d}-{year} ({city_clean})", IsFullChart=True)
                     north.set_ascendantsign(asc_sign)
                     
@@ -275,25 +208,59 @@ def webhook():
                     north.draw("/tmp/", "natal_chart")
                     send_document(chat_id, svg_path)
 
-                    planet_summary = "\n".join([f"- {p}: {info[0]} | {info[2]} (Pada {info[3]})" for p, info in planets.items()])
-                    prompt = f"""
-                    You are Panditji. Today's date is {today_date}.
-                    Sidereal Chart Data: Ascendant ({asc_sign} in {asc_nak} Pada {asc_pada}), Placements:\n{planet_summary}
+                    planet_summary = "\n".join([f"- {p}: {info[0]} | Nakshatra: {info[2]} (Pada {info[3]})" for p, info in planets.items()])
                     
-                    RULE: Mention Hindi names in brackets for any planet.
-                    Provide a concise general overview highlighting their Ascendant and Nakshatra core dynamic. Keep under 150 words.
+                    # STEP 1: Generator Prompt
+                    gen_prompt = f"""
+                    You are Panditji, a master Vedic Astrologer. Today's date is {today_date}.
+                    Active Timing Engine (Vimshottari Dasha): {active_dasha}
+                    
+                    Sidereal Lahiri Chart Data:
+                    - Ascendant (Lagna): {asc_sign} in {asc_nak} Pada {asc_pada}
+                    {planet_summary}
+                    
+                    Write an exhaustive, uncompromising 8-part analytical report covering:
+                    1. Star and Nakshatra Position in Brief
+                    2. Star and Nakshatra Positions in Detail
+                    3. Conflicts Amongst Stars and Nakshatras
+                    4. General Prediction
+                    5. Prediction in Detail
+                    6. Potential Issues, Psychological Impact, and Legal/Confinement Deductions (explicitly analyze Bandhana Yoga, 6th/8th/12th house weights, and prison/litigation reality if present)
+                    7. Remedies (Exhaustive Lal Kitab & Vedic Corrective Actions)
+                    8. Extraordinary Cosmic Anomalies & Rare Yogas
+                    
+                    RULE: Mention Hindi names in brackets for every planet.
                     """
 
                     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={gemini_key}"
-                    res = requests.post(gemini_url, headers={"Content-Type": "application/json"}, json={"contents": [{"parts": [{"text": prompt}]}]})
+                    res1 = requests.post(gemini_url, headers={"Content-Type": "application/json"}, json={"contents": [{"parts": [{"text": gen_prompt}]}]})
                     
-                    menu = build_menu_keyboard(city_clean, day, month, year, hour, minute)
-                    
-                    if res.status_code == 200:
-                        ai_text = res.json()['candidates'][0]['content']['parts'][0]['text']
-                        send_message(chat_id, ai_text, reply_markup=menu)
+                    if res1.status_code == 200:
+                        initial_report = res1.json()['candidates'][0]['content']['parts'][0]['text']
+                        
+                        # STEP 2: Adversarial Reflection / Auditor Prompt
+                        audit_prompt = f"""
+                        You are a strict, skeptical Senior Master Jyotishi and Quality Control Auditor. Review the following astrological report generated for a chart with Ascendant {asc_sign} and Active Dasha {active_dasha}.
+                        
+                        Draft Report to Audit:
+                        {initial_report}
+                        
+                        Your Task:
+                        - Audit the report for absolute technical accuracy, correct house lord associations, Nakshatra consistency, and depth.
+                        - Ensure all 8 structured headings are fully fleshed out.
+                        - Correct any logical flaws or surface-level summaries, making the analysis intensely sharp, accurate, and psychological.
+                        - Return the final, polished, airtight 8-part report.
+                        """
+                        
+                        res2 = requests.post(gemini_url, headers={"Content-Type": "application/json"}, json={"contents": [{"parts": [{"text": audit_prompt}]}]})
+                        
+                        if res2.status_code == 200:
+                            final_text = res2.json()['candidates'][0]['content']['parts'][0]['text']
+                            send_message(chat_id, final_text)
+                        else:
+                            send_message(chat_id, initial_report)
                     else:
-                        send_message(chat_id, "Select a category below:", reply_markup=menu)
+                        send_message(chat_id, "The celestial connection flickered. Please resend your birth details.")
 
                 except Exception as e:
                     send_message(chat_id, f"Technical Error: {str(e)}")
