@@ -12,7 +12,6 @@ app = Flask(__name__)
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
-# Keep track of processed update IDs temporarily to prevent duplicate webhook triggers
 processed_updates = set()
 
 ZODIAC_SIGNS = [
@@ -166,6 +165,12 @@ def webhook():
             processed_updates.pop()
 
         groq_key = os.environ.get("GROQ_API_KEY")
+        if not groq_key:
+            # Send alert if key is missing on Render
+            if "message" in update and "text" in update["message"]:
+                send_message(update["message"]["chat"]["id"], "Configuration Error: GROQ_API_KEY environment variable is missing on Render.")
+            return jsonify(status="missing_key"), 200
+
         today_date = datetime.now().strftime("%B %d, %Y")
 
         if "message" in update and "text" in update["message"]:
@@ -251,6 +256,7 @@ Structure the report strictly into these 8 sections:
 
                 success = False
                 final_text = ""
+                error_details = ""
                 
                 for attempt in range(2):
                     try:
@@ -261,19 +267,16 @@ Structure the report strictly into these 8 sections:
                                 final_text = data['choices'][0]['message']['content']
                                 success = True
                                 break
-                        elif res.status_code in [429, 503]:
-                            time.sleep(4)
-                            continue
                         else:
-                            break
-                    except Exception:
-                        time.sleep(2)
-                        continue
+                            error_details = f"HTTP {res.status_code}: {res.text[:200]}"
+                    except Exception as e:
+                        error_details = str(e)
+                    time.sleep(2)
 
                 if success:
                     send_message(chat_id, final_text)
                 else:
-                    send_message(chat_id, "The celestial servers are temporarily busy. Please try sending your details again shortly.")
+                    send_message(chat_id, f"Groq API Error: {error_details}")
 
     except Exception as e:
         print(f"Webhook Error: {str(e)}")
