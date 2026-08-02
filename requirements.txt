@@ -1,5 +1,5 @@
 Flask
 requests
-datetime
 pysweph
-jyotichart==5.0.0
+jyotichart
+gunicorn
