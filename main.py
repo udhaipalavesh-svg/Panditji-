@@ -121,33 +121,45 @@ def generate_svg_chart(filename, title, asc_sign, planets_data):
 
 def generate_master_pdf(report_text, pdf_path, birth_details_str):
     try:
-        doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+        doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=50, leftMargin=50, topMargin=50, bottomMargin=50)
         styles = getSampleStyleSheet()
         
-        title_style = ParagraphStyle('ReportTitle', parent=styles['Heading1'], fontSize=16, spaceAfter=8, textColor=colors.HexColor('#4A154B'), alignment=TA_CENTER)
-        heading_style = ParagraphStyle('SectionHeading', parent=styles['Heading2'], fontSize=12, spaceBefore=12, spaceAfter=6, textColor=colors.HexColor('#1D1C1D'))
-        body_style = ParagraphStyle('ReportBody', parent=styles['Normal'], fontSize=9.5, leading=14, spaceAfter=6, alignment=TA_JUSTIFY)
+        # Premium PDF Styles
+        title_style = ParagraphStyle('ReportTitle', parent=styles['Heading1'], fontSize=18, spaceAfter=10, textColor=colors.HexColor('#4A154B'), alignment=TA_CENTER, fontName='Helvetica-Bold')
+        subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=10, spaceAfter=20, textColor=colors.HexColor('#555555'), alignment=TA_CENTER, fontName='Helvetica-Oblique')
+        h1_style = ParagraphStyle('H1', parent=styles['Heading1'], fontSize=14, spaceBefore=18, spaceAfter=10, textColor=colors.HexColor('#4A154B'), fontName='Helvetica-Bold')
+        h2_style = ParagraphStyle('H2', parent=styles['Heading2'], fontSize=12, spaceBefore=12, spaceAfter=6, textColor=colors.HexColor('#1D1C1D'), fontName='Helvetica-Bold')
+        body_style = ParagraphStyle('Body', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=6, alignment=TA_JUSTIFY, fontName='Helvetica')
+        bullet_style = ParagraphStyle('Bullet', parent=body_style, leftIndent=20, bulletIndent=10, spaceAfter=4)
+        sub_bullet_style = ParagraphStyle('SubBullet', parent=body_style, leftIndent=40, bulletIndent=30, spaceAfter=2, fontSize=9.5, textColor=colors.HexColor('#333333'))
 
         story = []
-        story.append(Paragraph("<b>Panditji - Forensic Astrological Audit</b>", title_style))
-        story.append(Paragraph(f"<b>Client Profile:</b> {escape(birth_details_str)}", body_style))
-        story.append(Spacer(1, 12))
-
+        story.append(Paragraph("Panditji - Forensic Astrological Audit", title_style))
+        story.append(Paragraph(f"Client Profile: {escape(birth_details_str)}", subtitle_style))
+        
+        # Robust Markdown Parser
         for line in report_text.split('\n'):
             line = line.strip()
             if not line: 
                 continue
             
             safe_line = escape(line)
+            safe_line = re.sub(r'\*\*\*(.*?)\*\*\*', r'<b><i>\1</i></b>', safe_line)
             safe_line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', safe_line)
-            safe_line = re.sub(r'^[\*\-]\s+', '• ', safe_line)
+            safe_line = re.sub(r'\*(.*?)\*', r'<i>\1</i>', safe_line)
             
-            if safe_line.startswith("# PART 1") or safe_line.startswith("# PART 2"):
+            if safe_line.startswith("# PART"):
                 story.append(PageBreak())
-                story.append(Paragraph(safe_line.replace("# ", ""), heading_style))
-            elif re.match(r'^\d+\.\s+<b>', safe_line) or safe_line.startswith("# "):
+                story.append(Paragraph(safe_line.replace("# ", ""), h1_style))
+            elif safe_line.startswith("### "):
+                story.append(Paragraph(safe_line.replace("### ", ""), h2_style))
+            elif re.match(r'^\d+\.\s+', safe_line):
                 story.append(Spacer(1, 6))
-                story.append(Paragraph(safe_line.replace("# ", ""), heading_style))
+                story.append(Paragraph(re.sub(r'^\d+\.\s+', '', safe_line), h2_style))
+            elif safe_line.startswith("  - ") or safe_line.startswith("   - "):
+                story.append(Paragraph(safe_line.replace("- ", "", 1), sub_bullet_style, bulletText='◦'))
+            elif safe_line.startswith("- "):
+                story.append(Paragraph(safe_line.replace("- ", "", 1), bullet_style, bulletText='•'))
             else:
                 story.append(Paragraph(safe_line, body_style))
 
@@ -280,19 +292,29 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     for h, data in houses.items():
         logic_summary += f"  House {h} ({data['hindi_sign']}, Ruled by {data['ruler']} in H{data['ruler_placed_in']}): Occ: {data['occupants'] if data['occupants'] else 'Empty'}. Asp: {data['aspected_by'] if data['aspected_by'] else 'None'}.\n"
     
+    # --- DEEP ANALYTICAL ENGINE ---
     asc_dosha = DOSHA_MAP.get(asc_sign, "Unknown")
     moon_dosha = DOSHA_MAP.get(planets_full["Moon (Chandra)"]["sign"], "Unknown")
     psych_triggers = []
     
+    asc_lord = sign_lords.get(asc_sign)
+    asc_lord_house = get_house_of_planet(houses, asc_lord) if asc_lord else None
+    asc_lord_dignity = planets_full.get(asc_lord, {}).get("dignity", "Neutral")
+
+    if asc_lord_dignity.startswith("Debilitated"):
+        psych_triggers.append(f"The Lagna Lord ({asc_lord}) is Debilitated. This severely weakens the user's core vitality, self-esteem, and ability to execute plans independently. They will face imposter syndrome or self-sabotage.")
+    if asc_lord_house in [6, 8, 12]:
+        psych_triggers.append(f"The Lagna Lord is placed in a Dusthana (House {asc_lord_house}). This indicates the user's life path is fraught with overcoming obstacles, health issues, or hidden enemies, requiring constant strategic adjustment.")
+
     moon_house = get_house_of_planet(houses, "Moon (Chandra)")
     mercury_house = get_house_of_planet(houses, "Mercury (Budh)")
     
     if moon_house in [6, 8, 12]: 
-        psych_triggers.append("Moon in Dusthana indicates emotional volatility.")
+        psych_triggers.append("Moon in Dusthana indicates severe emotional volatility and suppressed anxiety.")
     if planets_full["Moon (Chandra)"]["dignity"].startswith("Debilitated"): 
-        psych_triggers.append("Debilitated Moon indicates depressive loops.")
+        psych_triggers.append("Debilitated Moon indicates chronic depressive loops and emotional hypersensitivity.")
     if mercury_house in [8, 12]: 
-        psych_triggers.append("Mercury in 8th/12th creates nervous burnout.")
+        psych_triggers.append("Mercury in 8th/12th creates nervous system burnout, paranoia, and over-analysis of hidden motives.")
 
     threats = []
     opportunities = []
@@ -313,7 +335,7 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     if houses[10]["ruler_placed_in"] in [8, 12]: 
         threats.append("Vector: CAREER TERMINATION | Trigger: 10th Lord in 8th/12th House | Meaning: Sudden job loss or business collapse.")
     if houses[2]["ruler_placed_in"] == 12 and "Rahu" in houses[2]["occupants"]: 
-        threats.append("Vector: BANKRUPTCY | Trigger: 2nd Lord in 12th with Rahu | Meaning: Catastrophic wealth erosion.")
+        threats.append("Vector: BANKRUPTCY | Trigger: 2nd Lord in 12th with Rahu | Meaning: Catastrophic wealth erosion and speculative fraud.")
     if houses[7]["ruler_placed_in"] == 6 or any(m in h7_occ for m in ["Mars (Mangal)", "Rahu"]): 
         threats.append("Vector: DIVORCE | Trigger: 7th Lord in 6th or afflicted by Mars/Rahu | Meaning: High-conflict separation.")
     if "Rahu" in h6_occ or "Rahu" in h8_occ: 
@@ -421,7 +443,6 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     asc_sign = ZODIAC_SIGNS[int(asc_lon / 30) % 12]
     _, asc_nak, asc_pada, _ = get_nakshatra_info(asc_lon)
     
-    # Calculate D9 Ascendant
     asc_d9_sign_idx = int((asc_lon % (30/9)) / (30/9)) + (ZODIAC_SIGNS.index(asc_sign) * 9)
     asc_d9_sign = ZODIAC_SIGNS[asc_d9_sign_idx % 12]
     
@@ -462,7 +483,6 @@ def webhook():
                 send_message(chat_id, welcome_msg)
                 return jsonify(status="success"), 200
                 
-            # More forgiving regex (allows spaces around hyphens)
             match = re.search(r'(\d{1,2})\s*-\s*(\d{1,2})\s*-\s*(\d{4})\s+(\d{1,2}):(\d{1,2})\s+(.+)', user_text)
             
             if match:
@@ -485,26 +505,26 @@ def webhook():
                 os.makedirs("/tmp", exist_ok=True)
                 file_tag = str(int(time.time()))
                 
-                # 1. Generate & Send Charts as separate SVGs
                 d1_svg = generate_svg_chart(f"d1_{file_tag}", "Rasi (D1)", asc_sign, planets)
                 d9_svg = generate_svg_chart(f"d9_{file_tag}", "Navamsha (D9)", asc_d9_sign, d9_planets)
                 
                 send_document(chat_id, d1_svg)
                 send_document(chat_id, d9_svg)
 
-                # 2. The Unified Master Output Prompt (Enforced)
+                # DEEP ANALYTICAL SYSTEM PROMPT
                 system_msg = """
-You are Panditji, an uncompromising, elite forensic Vedic Astrologer. 
-Your goal is to generate a TWO-PART MASTER OUTPUT that is mathematically accurate, psychologically impactful, but professional and non-deterministic.
+You are Panditji, an uncompromising, elite forensic Vedic Astrologer and strategic life consultant. 
+Your goal is to generate a TWO-PART MASTER OUTPUT that synthesizes astrological math into deep, actionable, and psychologically impactful intelligence.
 
 [ABSOLUTE LAWS - VIOLATION = FAILURE]
-1. FACTS ONLY: Do NOT invent planetary positions, degrees, or yogas. Synthesize ONLY the math provided in the user prompt.
+1. DEEP SYNTHESIS: Do NOT just rephrase the data provided. Connect the dots. If the Lagna Lord is weak AND the 10th Lord is in the 8th, synthesize this into a narrative of professional execution failure and sudden career collapse.
 2. HINDI MANDATORY: You MUST use the Hindi names provided for EVERY Zodiac Sign and Planet. Example: 'Leo (Simha)', 'Saturn (Shani)'. English-only names are FORBIDDEN.
-3. PLAIN ENGLISH: Every time you state an astrological condition (e.g., Debilitated, Retrograde), you MUST immediately explain what it means in plain English.
-4. NO DEGREES: Do NOT output raw decimal degrees (e.g., 139.02°). Use Dignity (Exalted/Debilitated) instead.
-5. NO FLUFF: Do NOT use phrases like "celestial canvas," "interplay of energies," "setting the stage," or "cosmic conflicts." Be clinical and tactical.
-6. NO GEMSTONES: Do NOT recommend gemstones (like Blue Sapphire). Focus on behavioral, Ayurvedic, and mantra-based remedies.
-7. STRUCTURE: You MUST use the exact Two-Part structure provided below.
+3. PLAIN ENGLISH: Every time you state an astrological condition (e.g., Debilitated, Dusthana), you MUST immediately explain what it means in real-world terms.
+4. NO DEGREES: Do NOT output raw decimal degrees. Use Dignity (Exalted/Debilitated) instead.
+5. NO FLUFF: Do NOT use phrases like "celestial canvas," "interplay of energies," or "cosmic conflicts." Be clinical, tactical, and direct.
+6. NO GEMSTONES: Do NOT recommend gemstones. Focus on behavioral, Ayurvedic, and mantra-based remedies.
+7. AYURVEDIC LINK: You must explain HOW the Ayurvedic Dosha (Vata/Pitta/Kapha) physically manifests the psychological triggers.
+8. STRUCTURE: You MUST use the exact Two-Part structure provided below.
 """
 
                 user_msg = f"""
@@ -523,26 +543,26 @@ Your goal is to generate a TWO-PART MASTER OUTPUT that is mathematically accurat
 
 # PART 1: THE EXECUTIVE BRIEF
 1. **Core Planetary Matrix**
-   - List Lagna, Active Dasha, and a concise bullet list of the 5 core planets (Sun, Moon, Mars, Jupiter, Saturn) with their Hindi Sign and Dignity (translated to plain English).
+   - List Lagna, Lagna Lord (and its dignity/house), Active Dasha, and a concise bullet list of the 5 core planets (Sun, Moon, Mars, Jupiter, Saturn) with their Hindi Sign and Dignity (translated to plain English).
 2. **Timeline Summary (Past, Present, Future)**
    - *Past*: Briefly state what the previous Dasha theme was.
-   - *Present*: What the current Dasha is activating right now (Threats/Opportunities).
+   - *Present*: What the current Dasha is activating right now (Threats/Opportunities). Synthesize the specific vectors triggered.
    - *Future*: What the next Dasha indicates.
 
 # PART 2: COMPREHENSIVE FORENSIC DOSSIER
 3. **Psychological Blueprint & Ayurvedic Baseline**
-   - Explain mental triggers and emotional loops based strictly on the [PSYCHOLOGICAL TRIGGERS] data.
-   - Detail Ayurvedic constitution (Vata/Pitta/Kapha) and physical health vulnerabilities.
+   - Deeply analyze mental triggers based on the [PSYCHOLOGICAL TRIGGERS] data. Explain how the Lagna Lord and Moon placements affect their self-esteem and emotional regulation.
+   - Detail Ayurvedic constitution (Vata/Pitta/Kapha) and explain exactly how this Dosha will physically manifest the psychological stress (e.g., "Vata aggravation will lead to nervous system burnout and insomnia").
 4. **Strategic Domain Audit (Risk vs. Reward)**
-   - Deep dive into Career, Wealth, Marriage, Legal, and Progeny/Property based on the House Map.
-   - Frame this as a risk-to-reward matrix. Explicitly mention the Vector and Trigger provided in the math.
+   - Deep dive into Career, Wealth, Marriage, Legal, and Progeny/Property based on the House Map and Lord placements.
+   - Frame this as a risk-to-reward matrix. Explicitly state the Vector and Trigger provided in the math, and explain the real-world manifestation.
 5. **5-Year Chronological Roadmap**
    - Map the current Dasha and 5-Year Dasha to specific chronological life events. 
-   - State exact years and expected outcomes.
+   - State exact years and expected outcomes based on the planetary activations.
 6. **Tiered Remediation Protocol (Upaayas)**
-   - *Immediate First Aid*: 1-2 urgent actions.
-   - *Tactical Actions*: Behavioral/Ayurvedic modifications.
-   - *Long-Term Alignment*: Mantras or spiritual practices.
+   - *Immediate First Aid*: 1-2 urgent actions to stop bleeding.
+   - *Tactical Actions*: Behavioral/Ayurvedic modifications specific to their Dosha.
+   - *Long-Term Alignment*: Mantras or spiritual practices to realign the weak Lagna/Moon.
 """
 
                 payload = {
@@ -559,7 +579,6 @@ Your goal is to generate a TWO-PART MASTER OUTPUT that is mathematically accurat
                 if res.status_code == 200:
                     final_text = res.json()['choices'][0]['message']['content']
                     
-                    # 3. Generate and Send PDF Document
                     send_message(chat_id, "⏳ Audit complete. Formatting Dossier and generating PDF...")
                     pdf_path = f"/tmp/Forensic_Dossier_{file_tag}.pdf"
                     
@@ -569,7 +588,6 @@ Your goal is to generate a TWO-PART MASTER OUTPUT that is mathematically accurat
                         send_document(chat_id, pdf_path)
                         send_message(chat_id, "📄 **Master Forensic PDF Dossier attached above!** ⬆️\nYou can now ask specific tactical questions based on this audit.")
                     else:
-                        # Fallback if PDF generation fails
                         send_message(chat_id, "⚠️ PDF generation failed on server. Sending text report instead:")
                         for i in range(0, len(final_text), 3900):
                             send_message(chat_id, final_text[i:i + 3900])
@@ -585,7 +603,7 @@ Your goal is to generate a TWO-PART MASTER OUTPUT that is mathematically accurat
 [SYSTEM ROLE]
 You are Panditji, an elite forensic Vedic Astrologer. Today's date is {session['t_ctx']['current_date']}.
 [MANDATORY RULES]
-- Give an uncompromising, direct, fact-based response.
+- Give an uncompromising, direct, fact-based response. Synthesize the data, don't just rephrase it.
 - ALWAYS use Hindi names for planets and zodiac signs (e.g., Virgo (Kanya), Saturn (Shani)).
 - STRICTLY ADHERE to the user's Life Stage. Do not give irrelevant age-based advice.
 - USE PROVIDED FACTS ONLY. Do not invent aspects or yogas not listed below.
