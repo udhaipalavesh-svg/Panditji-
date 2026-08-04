@@ -7,14 +7,13 @@ from datetime import datetime, timedelta
 import swisseph as swe
 import jyotichart as chart
 
-# ReportLab & SVG imports for PDF generation
+# ReportLab imports for PDF generation
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
 from xml.sax.saxutils import escape
-from svglib.svglib import svg2rlg
 
 app = Flask(__name__)
 
@@ -114,7 +113,7 @@ def generate_svg_chart(filename, title, asc_sign, planets_map):
     north.draw("/tmp/", filename)
     return svg_path
 
-def generate_master_pdf(report_text, pdf_path, birth_details_str, d1_svg, d9_svg):
+def generate_master_pdf(report_text, pdf_path, birth_details_str):
     try:
         doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
         styles = getSampleStyleSheet()
@@ -122,30 +121,12 @@ def generate_master_pdf(report_text, pdf_path, birth_details_str, d1_svg, d9_svg
         title_style = ParagraphStyle('ReportTitle', parent=styles['Heading1'], fontSize=16, spaceAfter=8, textColor=colors.HexColor('#4A154B'), alignment=TA_CENTER)
         heading_style = ParagraphStyle('SectionHeading', parent=styles['Heading2'], fontSize=12, spaceBefore=12, spaceAfter=6, textColor=colors.HexColor('#1D1C1D'))
         body_style = ParagraphStyle('ReportBody', parent=styles['Normal'], fontSize=9.5, leading=14, spaceAfter=6, alignment=TA_JUSTIFY)
-        caption_style = ParagraphStyle('Caption', parent=body_style, alignment=TA_CENTER, fontSize=8)
 
         story = []
         story.append(Paragraph("<b>Panditji - Forensic Astrological Audit</b>", title_style))
         story.append(Paragraph(f"<b>Client Profile:</b> {escape(birth_details_str)}", body_style))
         story.append(Spacer(1, 12))
 
-        # PART 1: BRIEF
-        story.append(Paragraph("<b>PART 1: THE EXECUTIVE BRIEF</b>", heading_style))
-        
-        # Embed D1 Chart
-        if os.path.exists(d1_svg):
-            try:
-                drawing = svg2rlg(d1_svg)
-                drawing.scale = 0.5
-                drawing.width *= 0.5
-                drawing.height *= 0.5
-                story.append(drawing)
-                story.append(Paragraph("<i>Figure 1: Rasi Chart (D1)</i>", caption_style))
-            except Exception as e:
-                print(f"SVG D1 render error: {e}", flush=True)
-                pass
-
-        # PART 2: COMPREHENSIVE
         for line in report_text.split('\n'):
             line = line.strip()
             if not line: 
@@ -155,25 +136,12 @@ def generate_master_pdf(report_text, pdf_path, birth_details_str, d1_svg, d9_svg
             safe_line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', safe_line)
             safe_line = re.sub(r'^[\*\-]\s+', '• ', safe_line)
             
-            if safe_line.startswith("# PART 2"):
+            if safe_line.startswith("# PART 1") or safe_line.startswith("# PART 2"):
                 story.append(PageBreak())
-                story.append(Paragraph("<b>PART 2: COMPREHENSIVE FORENSIC DOSSIER</b>", heading_style))
-                
-                # Embed D9 Chart
-                if os.path.exists(d9_svg):
-                    try:
-                        drawing = svg2rlg(d9_svg)
-                        drawing.scale = 0.5
-                        drawing.width *= 0.5
-                        drawing.height *= 0.5
-                        story.append(drawing)
-                        story.append(Paragraph("<i>Figure 2: Navamsha Chart (D9)</i>", caption_style))
-                    except Exception as e:
-                        print(f"SVG D9 render error: {e}", flush=True)
-                        pass
+                story.append(Paragraph(safe_line.replace("# ", ""), heading_style))
             elif re.match(r'^\d+\.\s+<b>', safe_line) or safe_line.startswith("# "):
                 story.append(Spacer(1, 6))
-                story.append(Paragraph(safe_line, heading_style))
+                story.append(Paragraph(safe_line.replace("# ", ""), heading_style))
             else:
                 story.append(Paragraph(safe_line, body_style))
 
@@ -320,7 +288,6 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     if mercury_house in [8, 12]: 
         psych_triggers.append("Mercury in 8th/12th creates nervous burnout.")
 
-    # Expanded Risk Vectors
     threats = []
     opportunities = []
     
@@ -334,7 +301,6 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     h11_occ = houses[11]["occupants"] + houses[11]["aspected_by"]
     h12_occ = houses[12]["occupants"] + houses[12]["aspected_by"]
 
-    # Threats
     if any(m in h8_occ for m in MALEFICS): 
         threats.append("Vector: HOSPITALIZATION | Trigger: Malefics in 8th House | Meaning: Risk of sudden trauma/surgery.")
     if houses[10]["ruler_placed_in"] in [8, 12]: 
@@ -352,7 +318,6 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     if houses[4]["ruler_placed_in"] in [6, 8, 12]: 
         threats.append("Vector: PROPERTY DISPUTES | Trigger: 4th Lord in 6th/8th/12th | Meaning: Litigation over real estate.")
 
-    # Opportunities
     if "Jupiter (Guru)" in h10_occ or "Jupiter (Guru)" in h11_occ or houses[10]["ruler_placed_in"] == 11: 
         opportunities.append("Vector: PROMOTION | Trigger: Jupiter aspecting 10th/11th | Meaning: Leadership elevation.")
     if houses[2]["ruler_placed_in"] == 11 or houses[11]["ruler_placed_in"] == 2: 
@@ -424,4 +389,226 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
                 
         positions[name] = {
             "sign": sign_name, "hindi_sign": HINDI_SIGNS[sign_name], "lon": lon_val % 360.0, 
-            "nak": nak_name, "pada": pada, "digni
+            "nak": nak_name, "pada": pada, "dignity": dignity, "retro": is_retro, "combust": is_combust
+        }
+        
+        d9_sign_idx = int((lon_val % (30/9)) / (30/9)) + (sign_idx * 9)
+        d9_sign_name = ZODIAC_SIGNS[d9_sign_idx % 12]
+        d9_positions[name] = {"sign": d9_sign_name, "hindi_sign": HINDI_SIGNS[d9_sign_name]}
+        
+    try:
+        _, ascmc = swe.houses_ex(jdut, lat, lon, b'W', flags)
+        asc_lon = ascmc[0] % 360.0
+    except Exception:
+        asc_lon = 0.0
+        
+    asc_sign = ZODIAC_SIGNS[int(asc_lon / 30) % 12]
+    _, asc_nak, asc_pada, _ = get_nakshatra_info(asc_lon)
+    
+    now_dt = datetime.now()
+    active_dasha = calculate_vimshottari_dasha(moon_lon, dt_ist, now_dt)
+    
+    t_ctx = {
+        "current_date": now_dt.strftime("%B %d, %Y"),
+        "dasha_now": active_dasha,
+        "dasha_5y": calculate_vimshottari_dasha(moon_lon, dt_ist, now_dt + timedelta(days=365 * 5))
+    }
+    
+    logic_breakdown, age = calculate_chart_logic(asc_sign, positions, dt_ist)
+    return asc_sign, asc_nak, asc_pada, positions, d9_positions, t_ctx, logic_breakdown, age
+
+@app.route('/', methods=['POST', 'GET'])
+@app.route(f'/{TELEGRAM_BOT_TOKEN}', methods=['POST', 'GET'])
+def webhook():
+    if request.method == 'GET':
+        return "Render Persistent Bot Server is Active", 200
+        
+    try:
+        update = request.get_json(silent=True)
+        if not update: 
+            return jsonify(status="ignored"), 200
+            
+        if "message" in update and "text" in update["message"]:
+            chat_id = update["message"]["chat"]["id"]
+            user_text = update["message"]["text"].strip()
+            
+            groq_key = os.environ.get("GROQ_API_KEY")
+            groq_url = "https://api.groq.com/openai/v1/chat/completions"
+            
+            if user_text.startswith("/start"):
+                if chat_id in USER_SESSIONS: 
+                    del USER_SESSIONS[chat_id]
+                welcome_msg = "Welcome! Send your birth details to receive your **Forensic Astrological Report**:\n`DD-MM-YYYY HH:MM City`\n(e.g., `05-09-1981 12:16 Amritsar`)"
+                send_message(chat_id, welcome_msg)
+                return jsonify(status="success"), 200
+                
+            match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
+            
+            if match:
+                send_message(chat_id, "⏳ Calculating exact astronomical degrees, Ayurvedic doshas, and activated vectors...")
+                
+                day, month, year, hour, minute, city_input = match.groups()
+                day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
+                city_input = city_input.strip()
+
+                lat, lon, city_clean = get_coordinates(city_input)
+                asc_sign, asc_nak, asc_pada, planets, d9_planets, t_ctx, logic_breakdown, age = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
+                
+                planet_summary = "\n".join([f"- {p}: {d['hindi_sign']} | Nak: {d['nak']} (P{d['pada']}) | Dignity: {d['dignity']} {'[Retrograde]' if d['retro'] else ''} {'[Combust]' if d['combust'] else ''}" for p, d in planets.items()])
+                
+                USER_SESSIONS[chat_id] = {
+                    "asc_sign": asc_sign, "planet_summary": planet_summary, "t_ctx": t_ctx, 
+                    "logic_breakdown": logic_breakdown, "age": age
+                }
+                
+                os.makedirs("/tmp", exist_ok=True)
+                file_tag = str(int(time.time()))
+                
+                # 1. Generate & Send Charts as separate SVGs
+                p_map = {"Sun (Surya)": chart.SUN, "Moon (Chandra)": chart.MOON, "Mars (Mangal)": chart.MARS, "Mercury (Budh)": chart.MERCURY, "Jupiter (Guru)": chart.JUPITER, "Venus (Shukra)": chart.VENUS, "Saturn (Shani)": chart.SATURN, "Rahu": chart.RAHU, "Ketu": chart.KETU}
+                
+                d1_svg = generate_svg_chart(f"d1_{file_tag}", "Rasi (D1)", asc_sign, planets)
+                d9_svg = generate_svg_chart(f"d9_{file_tag}", "Navamsha (D9)", d9_planets["Moon (Chandra)"]["sign"], d9_planets)
+                
+                send_document(chat_id, d1_svg)
+                send_document(chat_id, d9_svg)
+
+                # 2. The Unified Master Output Prompt (Enforced)
+                system_msg = """
+You are Panditji, an uncompromising, elite forensic Vedic Astrologer. 
+Your goal is to generate a TWO-PART MASTER OUTPUT that is mathematically accurate, psychologically impactful, but professional and non-deterministic.
+
+[ABSOLUTE LAWS - VIOLATION = FAILURE]
+1. FACTS ONLY: Do NOT invent planetary positions, degrees, or yogas. Synthesize ONLY the math provided in the user prompt.
+2. HINDI MANDATORY: You MUST use the Hindi names provided for EVERY Zodiac Sign and Planet. Example: 'Leo (Simha)', 'Saturn (Shani)'. English-only names are FORBIDDEN.
+3. PLAIN ENGLISH: Every time you state an astrological condition (e.g., Debilitated, Retrograde), you MUST immediately explain what it means in plain English.
+4. NO DEGREES: Do NOT output raw decimal degrees (e.g., 139.02°). Use Dignity (Exalted/Debilitated) instead.
+5. NO FLUFF: Do NOT use phrases like "celestial canvas," "interplay of energies," "setting the stage," or "cosmic conflicts." Be clinical and tactical.
+6. NO GEMSTONES: Do NOT recommend gemstones (like Blue Sapphire). Focus on behavioral, Ayurvedic, and mantra-based remedies.
+7. STRUCTURE: You MUST use the exact Two-Part structure provided below.
+"""
+
+                user_msg = f"""
+[INPUT DATA]
+- Baseline Date: {t_ctx['current_date']}
+- Current Dasha: {t_ctx['dasha_now']}
+- 5-Year Dasha: {t_ctx['dasha_5y']}
+{logic_breakdown}
+
+[PLANETARY ARRAY]
+- Ascendant (Lagna): {HINDI_SIGNS[asc_sign]} in {asc_nak} Pada {asc_pada}
+{planet_summary}
+
+[OUTPUT TEMPLATE - FOLLOW EXACTLY]
+*Disclaimer: This audit maps karmic tendencies and probabilistic risk vectors based on planetary mathematics. Astrological indications are environmental influences, not absolute mandates.*
+
+# PART 1: THE EXECUTIVE BRIEF
+1. **Core Planetary Matrix**
+   - List Lagna, Active Dasha, and a concise bullet list of the 5 core planets (Sun, Moon, Mars, Jupiter, Saturn) with their Hindi Sign and Dignity (translated to plain English).
+2. **Timeline Summary (Past, Present, Future)**
+   - *Past*: Briefly state what the previous Dasha theme was.
+   - *Present*: What the current Dasha is activating right now (Threats/Opportunities).
+   - *Future*: What the next Dasha indicates.
+
+# PART 2: COMPREHENSIVE FORENSIC DOSSIER
+3. **Psychological Blueprint & Ayurvedic Baseline**
+   - Explain mental triggers and emotional loops based strictly on the [PSYCHOLOGICAL TRIGGERS] data.
+   - Detail Ayurvedic constitution (Vata/Pitta/Kapha) and physical health vulnerabilities.
+4. **Strategic Domain Audit (Risk vs. Reward)**
+   - Deep dive into Career, Wealth, Marriage, Legal, and Progeny/Property based on the House Map.
+   - Frame this as a risk-to-reward matrix. Explicitly mention the Vector and Trigger provided in the math.
+5. **5-Year Chronological Roadmap**
+   - Map the current Dasha and 5-Year Dasha to specific chronological life events. 
+   - State exact years and expected outcomes.
+6. **Tiered Remediation Protocol (Upaayas)**
+   - *Immediate First Aid*: 1-2 urgent actions.
+   - *Tactical Actions*: Behavioral/Ayurvedic modifications.
+   - *Long-Term Alignment*: Mantras or spiritual practices.
+"""
+
+                payload = {
+                    "model": "llama-3.3-70b-versatile", 
+                    "messages": [
+                        {"role": "system", "content": system_msg},
+                        {"role": "user", "content": user_msg}
+                    ], 
+                    "temperature": 0.2
+                }
+                headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
+
+                res = requests.post(groq_url, headers=headers, json=payload, timeout=120)
+                if res.status_code == 200:
+                    final_text = res.json()['choices'][0]['message']['content']
+                    
+                    # 3. Generate and Send PDF Document
+                    send_message(chat_id, "⏳ Audit complete. Formatting Dossier and generating PDF...")
+                    pdf_path = f"/tmp/Forensic_Dossier_{file_tag}.pdf"
+                    
+                    pdf_success = generate_master_pdf(final_text, pdf_path, f"{day:02d}-{month:02d}-{year} at {hour:02d}:{minute:02d} in {city_clean} (Age: {age})")
+                    
+                    if pdf_success and os.path.exists(pdf_path):
+                        send_document(chat_id, pdf_path)
+                        send_message(chat_id, "📄 **Master Forensic PDF Dossier attached above!** ⬆️\nYou can now ask specific tactical questions based on this audit.")
+                    else:
+                        # Fallback if PDF generation fails
+                        send_message(chat_id, "⚠️ PDF generation failed on server. Sending text report instead:")
+                        for i in range(0, len(final_text), 3900):
+                            send_message(chat_id, final_text[i:i + 3900])
+                            time.sleep(0.5)
+                else:
+                    send_message(chat_id, f"Groq API Error: {res.text[:150]}")
+                    
+            elif chat_id in USER_SESSIONS:
+                session = USER_SESSIONS[chat_id]
+                send_message(chat_id, "Running forensic follow-up audit...")
+                
+                q_prompt = f"""
+[SYSTEM ROLE]
+You are Panditji, an elite forensic Vedic Astrologer. Today's date is {session['t_ctx']['current_date']}.
+[MANDATORY RULES]
+- Give an uncompromising, direct, fact-based response.
+- ALWAYS use Hindi names for planets and zodiac signs (e.g., Virgo (Kanya), Saturn (Shani)).
+- STRICTLY ADHERE to the user's Life Stage. Do not give irrelevant age-based advice.
+- USE PROVIDED FACTS ONLY. Do not invent aspects or yogas not listed below.
+- Frame predictions as probabilistic risk vectors, not guaranteed doom.
+- Address the user's specific question by referencing the exact activated vectors.
+
+[CALCULATED LOGIC & CONTEXT]
+{session['logic_breakdown']}
+- Active Dasha: {session['t_ctx']['dasha_now']}
+- 5-Year Horizon Dasha: {session['t_ctx']['dasha_5y']}
+- Planetary Array:
+{session['planet_summary']}
+
+[USER'S SPECIFIC QUESTION]
+"{user_text}"
+
+[OUTPUT DIRECTIVE]
+Provide a forensic, unvarnished response. Explicitly state the astrological trigger, the exact timeline of impact, and precise preventative measures.
+"""
+
+                payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": q_prompt}], "temperature": 0.2}
+                headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
+
+                res = requests.post(groq_url, headers=headers, json=payload, timeout=90)
+                if res.status_code == 200:
+                    answer = res.json()['choices'][0]['message']['content']
+                    for i in range(0, len(answer), 3900):
+                        send_message(chat_id, answer[i:i + 3900])
+                        time.sleep(0.5)
+                else:
+                    send_message(chat_id, "Error processing your question.")
+            else:
+                send_message(chat_id, "Please start by sending your birth details in format:\n`DD-MM-YYYY HH:MM City`")
+
+    except Exception as e:
+        print(f"CRITICAL Webhook Error: {str(e)}", flush=True)
+        try:
+            send_message(chat_id, "An error occurred. Please ensure the format is correct.")
+        except: 
+            pass
+        
+    return jsonify(status="success"), 200
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
