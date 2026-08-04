@@ -103,13 +103,19 @@ def send_document(chat_id, file_path):
         print(f"Exception in send_document: {e}", flush=True)
         return False
 
-def generate_svg_chart(filename, title, asc_sign, planets_map):
+def generate_svg_chart(filename, title, asc_sign, planets_data):
+    p_chart_map = {
+        "Sun (Surya)": chart.SUN, "Moon (Chandra)": chart.MOON, "Mars (Mangal)": chart.MARS,
+        "Mercury (Budh)": chart.MERCURY, "Jupiter (Guru)": chart.JUPITER, "Venus (Shukra)": chart.VENUS,
+        "Saturn (Shani)": chart.SATURN, "Rahu": chart.RAHU, "Ketu": chart.KETU
+    }
     svg_path = f"/tmp/{filename}.svg"
     north = chart.NorthChart(title, "", IsFullChart=True)
     north.set_ascendantsign(asc_sign)
-    for p_name, p_code in planets_map.items():
-        sign_name = planets_map[p_name]["sign"]
-        north.add_planet(p_code, p_name[:2], ZODIAC_SIGNS.index(sign_name) + 1)
+    for p_name, p_data in planets_data.items():
+        if p_name in p_chart_map:
+            sign_name = p_data["sign"]
+            north.add_planet(p_chart_map[p_name], p_name[:2], ZODIAC_SIGNS.index(sign_name) + 1)
     north.draw("/tmp/", filename)
     return svg_path
 
@@ -297,6 +303,7 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     h6_occ = houses[6]["occupants"] + houses[6]["aspected_by"]
     h7_occ = houses[7]["occupants"] + houses[7]["aspected_by"]
     h8_occ = houses[8]["occupants"] + houses[8]["aspected_by"]
+    h9_occ = houses[9]["occupants"] + houses[9]["aspected_by"]
     h10_occ = houses[10]["occupants"] + houses[10]["aspected_by"]
     h11_occ = houses[11]["occupants"] + houses[11]["aspected_by"]
     h12_occ = houses[12]["occupants"] + houses[12]["aspected_by"]
@@ -363,14 +370,23 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
             speed = 0
         else:
             calc = swe.calc_ut(jdut, p_id, flags)
-            lon_val = calc[0] if isinstance(calc[0], float) else calc[0][0]
-            speed = calc[3] if isinstance(calc[3], float) else calc[3][0]
-            if name == "Rahu": 
-                rahu_lon = lon_val
-            if name == "Moon (Chandra)": 
-                moon_lon = lon_val
-            if name == "Sun (Surya)": 
-                sun_lon = lon_val
+            if isinstance(calc, tuple):
+                if isinstance(calc[0], float):
+                    lon_val = calc[0]
+                    speed = calc[3] if len(calc) > 3 else 0.0
+                elif isinstance(calc[0], tuple) and len(calc[0]) > 3:
+                    lon_val = calc[0][0]
+                    speed = calc[0][3]
+                else:
+                    lon_val = calc[0][0]
+                    speed = 0.0
+            else:
+                lon_val = 0.0
+                speed = 0.0
+
+            if name == "Rahu": rahu_lon = lon_val
+            if name == "Moon (Chandra)": moon_lon = lon_val
+            if name == "Sun (Surya)": sun_lon = lon_val
                 
         sign_idx = int(lon_val / 30) % 12
         sign_name = ZODIAC_SIGNS[sign_idx]
@@ -405,6 +421,10 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     asc_sign = ZODIAC_SIGNS[int(asc_lon / 30) % 12]
     _, asc_nak, asc_pada, _ = get_nakshatra_info(asc_lon)
     
+    # Calculate D9 Ascendant
+    asc_d9_sign_idx = int((asc_lon % (30/9)) / (30/9)) + (ZODIAC_SIGNS.index(asc_sign) * 9)
+    asc_d9_sign = ZODIAC_SIGNS[asc_d9_sign_idx % 12]
+    
     now_dt = datetime.now()
     active_dasha = calculate_vimshottari_dasha(moon_lon, dt_ist, now_dt)
     
@@ -415,7 +435,7 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     }
     
     logic_breakdown, age = calculate_chart_logic(asc_sign, positions, dt_ist)
-    return asc_sign, asc_nak, asc_pada, positions, d9_positions, t_ctx, logic_breakdown, age
+    return asc_sign, asc_nak, asc_pada, positions, d9_positions, asc_d9_sign, t_ctx, logic_breakdown, age
 
 @app.route('/', methods=['POST', 'GET'])
 @app.route(f'/{TELEGRAM_BOT_TOKEN}', methods=['POST', 'GET'])
@@ -442,7 +462,8 @@ def webhook():
                 send_message(chat_id, welcome_msg)
                 return jsonify(status="success"), 200
                 
-            match = re.search(r'(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})\s+(.+)', user_text)
+            # More forgiving regex (allows spaces around hyphens)
+            match = re.search(r'(\d{1,2})\s*-\s*(\d{1,2})\s*-\s*(\d{4})\s+(\d{1,2}):(\d{1,2})\s+(.+)', user_text)
             
             if match:
                 send_message(chat_id, "⏳ Calculating exact astronomical degrees, Ayurvedic doshas, and activated vectors...")
@@ -452,7 +473,7 @@ def webhook():
                 city_input = city_input.strip()
 
                 lat, lon, city_clean = get_coordinates(city_input)
-                asc_sign, asc_nak, asc_pada, planets, d9_planets, t_ctx, logic_breakdown, age = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
+                asc_sign, asc_nak, asc_pada, planets, d9_planets, asc_d9_sign, t_ctx, logic_breakdown, age = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
                 
                 planet_summary = "\n".join([f"- {p}: {d['hindi_sign']} | Nak: {d['nak']} (P{d['pada']}) | Dignity: {d['dignity']} {'[Retrograde]' if d['retro'] else ''} {'[Combust]' if d['combust'] else ''}" for p, d in planets.items()])
                 
@@ -465,10 +486,8 @@ def webhook():
                 file_tag = str(int(time.time()))
                 
                 # 1. Generate & Send Charts as separate SVGs
-                p_map = {"Sun (Surya)": chart.SUN, "Moon (Chandra)": chart.MOON, "Mars (Mangal)": chart.MARS, "Mercury (Budh)": chart.MERCURY, "Jupiter (Guru)": chart.JUPITER, "Venus (Shukra)": chart.VENUS, "Saturn (Shani)": chart.SATURN, "Rahu": chart.RAHU, "Ketu": chart.KETU}
-                
                 d1_svg = generate_svg_chart(f"d1_{file_tag}", "Rasi (D1)", asc_sign, planets)
-                d9_svg = generate_svg_chart(f"d9_{file_tag}", "Navamsha (D9)", d9_planets["Moon (Chandra)"]["sign"], d9_planets)
+                d9_svg = generate_svg_chart(f"d9_{file_tag}", "Navamsha (D9)", asc_d9_sign, d9_planets)
                 
                 send_document(chat_id, d1_svg)
                 send_document(chat_id, d9_svg)
