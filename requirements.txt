@@ -3,3 +3,4 @@ requests
 pysweph
 jyotichart
 gunicorn
+svglib
