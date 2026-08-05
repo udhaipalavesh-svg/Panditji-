@@ -1,28 +1,3 @@
-This is a brilliant and highly detailed critique. You are absolutely right—we need to transition this from a "chatbot output" to a **Premium, Professional Astrological Audit Document**. 
-
-Here are the major structural and analytical upgrades implemented in this new code:
-
-### 1. Premium PDF Layout & Cover Page
-*   **Cover Page:** Renamed to "Astrological Audit". Accepts an optional Name input. Includes Date/Time of generation at the bottom. Vertically centered, clean, and professional.
-*   **Page 2 (Charts & Overview):** D1 and D9 charts are embedded directly into the PDF (side-by-side) using `svglib`. The AI provides a Nakshatra and Planet brief right below them.
-*   **Typography Hierarchy Fixed:** H1 (Parts) is 16pt, H2 (Main Sections) is 13pt, H3 (Sub-sections) is 11pt. Clear visual distinction.
-
-### 2. Structural Rework (No "Forensic")
-*   Renamed to "Comprehensive Predictions".
-*   **Ayurvedic Baseline** is moved to the very end of the report, completely separated from the psychological/predictive sections as per your instruction.
-*   **Remediation Protocols (Upaayas)** is deeply expanded.
-
-### 3. Deep Analytical Expansion (More Vectors)
-*   Added **Mangal Dosha** detection (Mars in 1,4,7,8,12).
-*   Added **Kemadruma Yoga** detection (Moon with no planets on either side).
-*   Added **Neecha Bhanga Raja Yoga** detection (Debilitation cancellation).
-*   The AI prompt now demands a minimum of 2-3 paragraphs per prediction domain to ensure maximum depth.
-
-*Note: To render the charts inside the PDF, you must add `svglib` to your `requirements.txt` file.*
-
-Here is the fully restructured, production-ready code:
-
-```python
 import os
 import requests
 import re
@@ -732,4 +707,3 @@ Provide an unvarnished response. Explicitly state the astrological trigger, the 
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-```
