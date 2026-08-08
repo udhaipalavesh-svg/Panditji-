@@ -34,6 +34,12 @@ COMBUSTION_ORB = {"Moon (Chandra)": 12, "Mars (Mangal)": 17, "Mercury (Budh)": 1
 MALEFICS = ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]
 DOSHA_MAP = {"Aries": "Pitta", "Taurus": "Kapha", "Gemini": "Vata", "Cancer": "Kapha", "Leo": "Pitta", "Virgo": "Vata", "Libra": "Vata", "Scorpio": "Kapha", "Sagittarius": "Pitta", "Capricorn": "Vata", "Aquarius": "Vata", "Pisces": "Kapha"}
 
+# Nakshatra Lords Mapping
+NAK_LORDS = ["Ketu", "Venus (Shukra)", "Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Rahu", "Jupiter (Guru)", "Saturn (Shani)", "Mercury (Budh)"]
+
+def get_nakshatra_lord(nak_idx):
+    return NAK_LORDS[nak_idx % 9]
+
 # ==========================================
 # YOGA ENGINE INTEGRATED
 # ==========================================
@@ -265,8 +271,10 @@ def generate_master_pdf(report_text, pdf_path, birth_details_str, name_str, plan
             safe_line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', safe_line)
             safe_line = re.sub(r'\*(.*?)\*', r'<i>\1</i>', safe_line)
             
-            if safe_line.startswith("# PART 1"): story.append(Paragraph("ASTROLOGICAL OVERVIEW", h1_style)); story.append(Spacer(1, 12))
-            elif safe_line.startswith("# PART 2"): story.append(PageBreak()); story.append(Paragraph("COMPREHENSIVE PREDICTIONS", h1_style)); story.append(Spacer(1, 12))
+            if safe_line.startswith("# I.") or safe_line.startswith("# II.") or safe_line.startswith("# III.") or safe_line.startswith("# IV."):
+                if not safe_line.startswith("# I."): story.append(PageBreak())
+                story.append(Paragraph(safe_line.replace("# ", ""), h1_style))
+                story.append(Spacer(1, 12))
             elif safe_line.startswith("# PART 3"): story.append(PageBreak()); story.append(Paragraph("COMPATIBILITY & SYNESTRY ANALYSIS", h1_style)); story.append(Spacer(1, 12))
             elif safe_line.startswith("*Disclaimer:"):
                 story.append(Spacer(1, 6)); story.append(Paragraph(safe_line, disclaimer_style)); story.append(Spacer(1, 10))
@@ -464,8 +472,10 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     flags = swe.FLG_SWIEPH + swe.FLG_SPEED + swe.FLG_SIDEREAL
     planets = {"Sun (Surya)": swe.SUN, "Moon (Chandra)": swe.MOON, "Mars (Mangal)": swe.MARS, "Mercury (Budh)": swe.MERCURY, "Jupiter (Guru)": swe.JUPITER, "Venus (Shukra)": swe.VENUS, "Saturn (Shani)": swe.SATURN, "Rahu": swe.MEAN_NODE, "Ketu": 10}
     positions = {}; d9_positions = {}; rahu_lon = 0.0; moon_lon = 0.0; sun_lon = 0.0
+    
     for name, p_id in planets.items():
-        if name == "Ketu": lon_val = (rahu_lon + 180.0) % 360.0; speed = 0
+        if name == "Ketu": 
+            lon_val = (rahu_lon + 180.0) % 360.0; speed = 0
         else:
             calc = swe.calc_ut(jdut, p_id, flags)
             if isinstance(calc, tuple):
@@ -473,11 +483,15 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
                 elif isinstance(calc[0], tuple) and len(calc[0]) > 3: lon_val = calc[0][0]; speed = calc[0][3]
                 else: lon_val = calc[0][0]; speed = 0.0
             else: lon_val = 0.0; speed = 0.0
+            
             if name == "Rahu": rahu_lon = lon_val
             if name == "Moon (Chandra)": moon_lon = lon_val
             if name == "Sun (Surya)": sun_lon = lon_val
+            
         sign_idx = int(lon_val / 30) % 12; sign_name = ZODIAC_SIGNS[sign_idx]
-        _, nak_name, pada, _ = get_nakshatra_info(lon_val)
+        nak_idx, nak_name, pada, _ = get_nakshatra_info(lon_val)
+        nak_lord = get_nakshatra_lord(nak_idx) 
+        
         dignity = get_planet_dignity(name, sign_name)
         is_retro = speed < 0 if name not in ["Sun (Surya)", "Moon (Chandra)"] else False
         is_combust = False
@@ -489,13 +503,35 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
         d9_sign_idx = int((lon_val % (30/9)) / (30/9)) + (sign_idx * 9); d9_sign_name = ZODIAC_SIGNS[d9_sign_idx % 12]
         is_vargottama = (sign_name == d9_sign_name)
         
-        positions[name] = {"sign": sign_name, "hindi_sign": HINDI_SIGNS[sign_name], "lon": lon_val % 360.0, "nak": nak_name, "pada": pada, "dignity": dignity, "retro": is_retro, "combust": is_combust, "vargottama": is_vargottama}
+        positions[name] = {
+            "sign": sign_name, "hindi_sign": HINDI_SIGNS[sign_name], "lon": lon_val % 360.0, 
+            "nak": nak_name, "nak_lord": nak_lord, "pada": pada, 
+            "dignity": dignity, "retro": is_retro, "combust": is_combust, 
+            "vargottama": is_vargottama, "jaimini": ""
+        }
         d9_positions[name] = {"sign": d9_sign_name, "hindi_sign": HINDI_SIGNS[d9_sign_name]}
         
-    try: _, ascmc = swe.houses_ex(jdut, lat, lon, b'W', flags); asc_lon = ascmc[0] % 360.0
-    except: asc_lon = 0.0
+    try: 
+        _, ascmc = swe.houses_ex(jdut, lat, lon, b'W', flags); asc_lon = ascmc[0] % 360.0
+    except: 
+        asc_lon = 0.0
+        
     asc_sign = ZODIAC_SIGNS[int(asc_lon / 30) % 12]; _, asc_nak, asc_pada, _ = get_nakshatra_info(asc_lon)
     asc_d9_sign_idx = int((asc_lon % (30/9)) / (30/9)) + (ZODIAC_SIGNS.index(asc_sign) * 9); asc_d9_sign = ZODIAC_SIGNS[asc_d9_sign_idx % 12]
+    
+    # --- JAIMINI KARAKAS CALCULATION ---
+    jaimini_planets = []
+    for name in ["Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Mercury (Budh)", "Jupiter (Guru)", "Venus (Shukra)", "Saturn (Shani)"]:
+        if name in positions:
+            deg_in_sign = positions[name]["lon"] % 30
+            jaimini_planets.append((name, deg_in_sign))
+            
+    jaimini_planets.sort(key=lambda x: x[1], reverse=True)
+    
+    if len(jaimini_planets) >= 1:
+        positions[jaimini_planets[0][0]]["jaimini"] = "Atmakaraka (Soul's Core Karma)"
+    if len(jaimini_planets) >= 2:
+        positions[jaimini_planets[1][0]]["jaimini"] = "Amatyakaraka (Career & Wealth Driver)"
     
     now_dt = datetime.now()
     dasha_timeline = get_dasha_timeline(moon_lon, dt_ist, now_dt)
@@ -580,9 +616,17 @@ def webhook():
                 lat, lon, city_clean = get_coordinates(city_input)
                 asc_sign, asc_nak, asc_pada, planets, d9_planets, asc_d9_sign, t_ctx, logic_breakdown, age = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
                 
+                # UPDATED planet_summary LOGIC WITH NAK LORDS & JAIMINI
+                planet_summary = "\n".join([
+                    f"- {p}: {d['hindi_sign']} | Nak: {d['nak']} (ruled by {d.get('nak_lord', 'Unknown')}) | Dignity: {d['dignity']} {'[Vargottama]' if d.get('vargottama') else ''} | {d['jaimini']}" 
+                    if d.get('jaimini') else 
+                    f"- {p}: {d['hindi_sign']} | Nak: {d['nak']} (ruled by {d.get('nak_lord', 'Unknown')}) | Dignity: {d['dignity']} {'[Vargottama]' if d.get('vargottama') else ''}" 
+                    for p, d in planets.items()
+                ])
+                
                 USER_SESSIONS[chat_id] = {
                     "state": "awaiting_focus",
-                    "asc_sign": asc_sign, "planet_summary": "\n".join([f"- {p}: {d['hindi_sign']} | Nak: {d['nak']} (P{d['pada']}) | Dignity: {d['dignity']} {'[Vargottama]' if d.get('vargottama') else ''}" for p, d in planets.items()]),
+                    "asc_sign": asc_sign, "planet_summary": planet_summary,
                     "planet_data": planets, "d9_planets": d9_planets, "asc_d9_sign": asc_d9_sign, "t_ctx": t_ctx, "logic_breakdown": logic_breakdown, "age": age, "name": name_str,
                     "d1_svg": generate_svg_chart(f"d1_{chat_id}_{int(time.time())}", "Rasi (D1)", asc_sign, planets),
                     "d9_svg": generate_svg_chart(f"d9_{chat_id}_{int(time.time())}", "Navamsha (D9)", asc_d9_sign, d9_planets),
@@ -630,18 +674,18 @@ def webhook():
 def generate_final_pdf(chat_id, session, groq_key, groq_url):
     send_message(chat_id, "⏳ Audit complete. Formatting Dossier and generating PDF...")
     
-    system_msg = """You are a Forensic Astrological Diagnostician. You do not describe potentials; you diagnose hard realities based on the math. 
+    system_msg = """You are an Elite Forensic Astrological Diagnostician. You write tactical, highly structured threat-matrix dossiers. 
 [ABSOLUTE LAWS - VIOLATION = FAILURE]
-1. NEUROLOGICAL SYNTHESIS: Do not separate psychology from astrology. Explain the exact neurological mechanism (e.g., "Debilitated Moon causes Vata aggravation, which hijacks the amygdala, resulting in panic attacks and insomnia").
-2. HARD DEDUCTIONS: If the data shows a structural risk, you MUST state the situational impact bluntly. 
-3. ZERO TOLERANCE FOR HEDGING: Do not use words like "Assuming", "Potentially", "may indicate", "possibly", "suggesting", or "may bring". Make definitive diagnostic statements.
-4. NO HALLUCINATIONS: You are strictly forbidden from inventing planetary aspects. You may ONLY mention an aspect if it is explicitly listed in the [GLOBAL INTERCONNECTION MATRIX]. 
-5. HINDI MANDATORY: You MUST use the Hindi names provided for EVERY Zodiac Sign and Planet.
-6. PLAIN ENGLISH: Every time you state an astrological condition, you MUST immediately explain what it means in real-world terms.
-7. STRICT UPAAYAS CATEGORIZATION:
-   - Do NOT suggest journaling, yoga, or meditation. 
-   - Immediate First Aid must be a tactical astrological or financial triage step (e.g., specific donations, halting certain investments, freezing credit).
-   - Lal Kitab Remedies: You MUST use the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section of the logic data. Do not invent your own Lal Kitab remedies. Present them as verbatim behavioral actions. Do NOT include gemstones here.
+1. FORBIDDEN PHRASES: Do not use 'manage stress', 'practice mindfulness', 'seek balance', 'self-care', 'Assuming', 'Potentially', 'possibly', or 'suggesting'. Use blunt, definitive diagnostic statements.
+2. CHAIN OF DEDUCTION: For every Threat Vector, you MUST output your analysis in this exact 4-part structure:
+   - Astronomical Root: [State the hard planet/house/nakshatra data]
+   - Systemic Vulnerability: [Explain the structural/neurological weakness this creates]
+   - Real-World Manifestation: [State exactly what this looks like in the user's daily life, career, or bank account]
+   - Tactical Countermeasure: [Provide the prescribed remedy]
+3. THE PUPPET MASTERS: You must analyze the Nakshatra Lords. A planet is only as strong as its Nakshatra Lord. 
+4. JAIMINI MANDATE: You must explicitly interpret the Atmakaraka (Soul's Core Karma) and Amatyakaraka (Career Driver). 
+5. LAL KITAB STRICTNESS: Use the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section verbatim. Do not invent remedies.
+6. HINDI MANDATORY: Use the Hindi names provided for EVERY Zodiac Sign and Planet.
 """
 
     logic = session['logic_breakdown']
@@ -671,8 +715,6 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
    - Detail specific remedies to mitigate friction in the relationship.
 """
 
-    aspect_firewall = "CRITICAL RULE: If the Fact Block says 'Aspected by: None', you MUST explicitly state: 'This house receives no planetary aspects.' You are strictly forbidden from discussing any other aspects for this house. A post-generation Python firewall will redact any hallucinated aspects."
-
     user_msg = f"""[INPUT DATA]
 - Baseline Date: {session['t_ctx']['current_date']}
 - Ascendant Nakshatra: {session['t_ctx']['asc_nakshatra']}
@@ -684,54 +726,44 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
 [PLANETARY ARRAY]
 - Ascendant (Lagna): {HINDI_SIGNS[session['asc_sign']]}
 {session['planet_summary']}
-"""
 
-    if "synastry" in session:
-        user_msg += f"""
-[PARTNER COMPATIBILITY DATA]
-{session['synastry']}
-[PARTNER PLANETARY LOGIC]
-{session.get('partner_logic', 'N/A')}
-"""
-
-    user_msg += f"""
 [OUTPUT TEMPLATE - FOLLOW EXACTLY]
 *Disclaimer: This audit maps karmic tendencies and probabilistic risk vectors based on planetary mathematics. Astrological indications are environmental influences, not absolute mandates.*
 
-# PART 1: ASTROLOGICAL OVERVIEW
-1. **Nakshatra & Planetary Brief**
-   - Explicitly state the Ascendant Nakshatra and Moon Nakshatra. Explain exactly what psychological traits they grant the user. 
-   - List Lagna, Lagna Lord, Active Dasha (including Pratyantardasha), and the 5 core planets with their Hindi Sign and Dignity. Explain what the dignity means. Explicitly mention Vargottama status if present.
+# I. EXECUTIVE DIAGNOSIS (The Karmic Baseline)
+- **The Core Constraint (Atmakaraka):** Explicitly name the Atmakaraka planet. Diagnose the native's primary, inescapable karmic loop and psychological bottleneck based on this planet.
+- **The Structural Reality:** Write a brutal synthesis of the [PRE-CALCULATED YOGAS] and [HARD DEDUCTIVE INFERENCES]. State the absolute truth of their current crisis.
 
-# PART 2: COMPREHENSIVE PREDICTIONS
-2. **Timeline & Life Stage Context (Distinct Sub-Periods)**
-   - *Past*: Based on the "Past Antardasha", describe the psychological and situational impact.
-   - *Present*: Based on the "Current Antardasha" and "Current Pratyantardasha", synthesize the current state. Explicitly state the situational impact of the [HARD DEDUCTIVE INFERENCES] (e.g., liquidity freeze, nervous system burnout).
-   - *Future*: Based on the "Future Antardasha", describe the expected shift or continuation of themes.
-3. **Career & Professional Trajectory**
-   - [FACT BLOCK FOR 10TH HOUSE]: {h10_facts}
-   - Directive: First, list 2-3 career models most suitable according to the 10th Lord and Nakshatra placement. Then, write 2 paragraphs providing a SITUATIONAL ANALYSIS of the current state of their career. Acknowledge any Pre-Calculated Yogas. {aspect_firewall}
-4. **Wealth & Financial Assets**
-   - [FACT BLOCK FOR 2ND HOUSE]: {h2_facts}
-   - [FACT BLOCK FOR 11TH HOUSE]: {h11_facts}
-   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of their financial life. Explicitly diagnose the wealth erosion risk and acknowledge Daridra Yoga if listed. {aspect_firewall}
-5. **Marriage & Relationship Dynamics**
-   - [FACT BLOCK FOR 7TH HOUSE]: {h7_facts}
-   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of their marriage/partnerships. Focus on the psychological friction. {aspect_firewall}
-6. **Health & Legal Risk Vectors**
-   - [FACT BLOCK FOR 6TH HOUSE]: {h6_facts}
-   - [FACT BLOCK FOR 8TH HOUSE]: {h8_facts}
-   - [FACT BLOCK FOR 12TH HOUSE]: {h12_facts}
-   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of health/legal vulnerabilities. Explicitly state the nervous system burnout risk. {aspect_firewall}
-7. **Ayurvedic Baseline & Constitution**
-   - Detail Dosha and explain exactly how it physically manifests the psychological stress (e.g., Vata imbalance directly causes panic attacks and insomnia). Provide specific dietary advice to stabilize the nervous system.
-8. **Remediation Protocols (Upaayas)**
-   - *Immediate First Aid*: 1-2 urgent, tactical astrological or financial triage steps targeting the most critical threat vector. (DO NOT suggest journaling, yoga, or meditation).
-   - *Lal Kitab Remedies*: You MUST use the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section of the logic data verbatim. Do NOT include gemstones here.
-   - *Ayurvedic/Behavioral*: Specific lifestyle/dietary shifts for their exact Dosha.
-   - *Gemstone Enhancement*: Recommend 1-2 specific gemstones for beneficial planets. Include the exact metal, finger, and day to activate it.
-   - *Mantra/Long-Term Alignment*: Specific mantras for the Lagna Lord or afflicted planets.
-   (FORBIDDEN WORDS: "manage stress", "practice mindfulness", "seek balance", "self-care". Be hyper-specific and actionable).
+# II. THE TEMPORAL TRIGGER (Micro-Timing)
+- **Current Pratyantardasha Trigger:** Analyze the Current Pratyantardasha. Look at the Dasha Lord and its Nakshatra Lord. Explain exactly *why* the financial/psychological collapse triggered right now.
+- **Timeline Trajectory:** Briefly contrast this with the Past Antardasha and define the survival requirements for the Future Antardasha.
+
+# III. THREAT MATRIX & DEDUCTIVE TRIAGE
+*(Analyze the following vectors using the strict 4-part Chain of Deduction)*
+
+**Vector 1: Wealth, Career & Amatyakaraka**
+- [FACT BLOCKS]: House 2: {h2_facts} | House 10: {h10_facts} | House 11: {h11_facts}
+- **Astronomical Root:** (State the specific planetary dignities, Amatyakaraka, and empty/aspected houses)
+- **Systemic Vulnerability:** (Explain the mechanical flaw in their wealth generation or career structure)
+- **Real-World Manifestation:** (Diagnose the liquidity freeze, business shutdown, or career stagnation bluntly)
+- **Tactical Countermeasure:** (Provide the exact [MANDATORY LAL KITAB REMEDY] verbatim here, plus 1 tactical non-astrological financial step)
+
+**Vector 2: Neurological & Psychological Baseline**
+- [FACT BLOCKS]: House 6: {h6_facts} | House 8: {h8_facts} | House 12: {h12_facts}
+- **Astronomical Root:** (State the Moon's dignity, Nakshatra Lord, and Dosha)
+- **Systemic Vulnerability:** (Explain the exact neurological breakdown, e.g., Vata/Pitta overload)
+- **Real-World Manifestation:** (Diagnose clinical anxiety, panic, or insomnia)
+- **Tactical Countermeasure:** (Specific dietary/lifestyle shifts for their Dosha, plus 1-2 specific gemstones with exact metal, finger, and day)
+
+**Vector 3: Relationship & Partnership Dynamics**
+- [FACT BLOCKS]: House 7: {h7_facts}
+- **Astronomical Root:** (State the 7th house occupants and aspects)
+- **Systemic Vulnerability:** (Explain the psychological friction or emotional unavailability)
+- **Real-World Manifestation:** (State how this damages their marriage or business partnerships)
+- **Tactical Countermeasure:** (Specific behavioral adjustment)
+
+# IV. LONG-TERM ALIGNMENT STRATEGY
+- Detail specific Mantras for the Lagna Lord or afflicted planets to rebuild self-worth and survive the upcoming Future Dasha.
 {synastry_block}
 """
 
@@ -741,6 +773,8 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
     
     if res.status_code == 200:
         final_text = res.json()['choices'][0]['message']['content']
+        
+        # POST-GENERATION PYTHON FIREWALL
         final_text = llm_output_firewall(final_text, logic)
         
         file_tag = str(int(time.time()))
