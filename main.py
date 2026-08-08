@@ -7,6 +7,10 @@ from datetime import datetime, timedelta
 import swisseph as swe
 import jyotichart as chart
 
+# Import the new Engines
+from yoga_engine import detect_yogas
+from lal_kitab_remedies import get_lal_kitab_remedy
+
 # ReportLab imports for PDF generation
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle, HRFlowable
@@ -206,7 +210,6 @@ def get_nakshatra_info(lon):
     return nak_idx, NAKSHATRAS[nak_idx], pada, rem
 
 def get_dasha_timeline(moon_lon, birth_dt, target_dt):
-    """Calculates exact Previous, Current, Next Antardashas, and Current Pratyantardasha."""
     nak_span = 360.0 / 27.0
     nak_idx, _, _, rem = get_nakshatra_info(moon_lon)
     lord_idx = (nak_idx // 3) % 9
@@ -240,10 +243,9 @@ def get_dasha_timeline(moon_lon, birth_dt, target_dt):
         
     current_ad = f"{m_lord}-{DASHA_LORDS[a_idx][0]}"
     
-    # Pratyantardasha (PA) Calculation
     pa_idx = a_idx
     pa_years = (DASHA_LORDS[pa_idx][1] * DASHA_LORDS[a_idx][1]) / 120.0
-    pa_years *= (DASHA_LORDS[m_idx][1] / 120.0) # Scale to AD period
+    pa_years *= (DASHA_LORDS[m_idx][1] / 120.0)
     
     while days_passed > pa_years * days_per_year:
         days_passed -= pa_years * days_per_year
@@ -253,7 +255,6 @@ def get_dasha_timeline(moon_lon, birth_dt, target_dt):
         
     current_pa = f"{DASHA_LORDS[pa_idx][0]}"
     
-    # Previous Antardasha
     if a_idx == m_idx:
         prev_m_idx = (m_idx - 1) % 9
         prev_m_lord = DASHA_LORDS[prev_m_idx][0]
@@ -263,7 +264,6 @@ def get_dasha_timeline(moon_lon, birth_dt, target_dt):
         prev_a_idx = (a_idx - 1) % 9
         prev_ad = f"{m_lord}-{DASHA_LORDS[prev_a_idx][0]}"
         
-    # Next Antardasha
     if a_idx == (m_idx + 8) % 9:
         next_m_idx = (m_idx + 1) % 9
         next_m_lord = DASHA_LORDS[next_m_idx][0]
@@ -287,7 +287,8 @@ def get_aspects(planet, house):
     elif planet == "Jupiter (Guru)": aspects.extend([5, 9])
     elif planet == "Saturn (Shani)": aspects.extend([3, 10])
     elif planet in ["Rahu", "Ketu"]: aspects.extend([5, 9])
-    return [((house - 1 + a) % 12) + 1 for a in aspects]
+    # FIXED ASPECT MATH: (house + aspect - 2) % 12 + 1
+    return [((house + a - 2) % 12) + 1 for a in aspects]
 
 def get_house_of_planet(houses, planet_name):
     for h_num, h_data in houses.items():
@@ -321,7 +322,6 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
         ruler = h_data["ruler"]
         h_data["ruler_placed_in"] = get_house_of_planet(houses, ruler) if ruler else None
 
-    # GLOBAL INTERCONNECTION MATRIX
     fact_sheet = "[GLOBAL PLANETARY INTERCONNECTION MATRIX]\n"
     for h, data in houses.items():
         occ_str = ', '.join(data['occupants']) if data['occupants'] else 'Empty'
@@ -330,26 +330,26 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     
     logic_summary = f"[LIFE STAGE FILTER - MANDATORY]: {life_stage}\n{fact_sheet}"
     
-    # YOGA ENGINE & HARD DEDUCTIONS
+    # DECOUPLED CONFIRMATION BIAS - STRUCTURAL RISK FLAGS ONLY
     inferences = []
-    yogas = []
     asc_lord = sign_lords.get(asc_sign)
     asc_lord_dignity = planets_full.get(asc_lord, {}).get("dignity", "Neutral")
     
-    if asc_lord_dignity.startswith("Debilitated"): inferences.append("Lagna Lord is Debilitated: The native is facing severe clinical depression, loss of self-worth, and imposter syndrome.")
-    if planets_full["Moon (Chandra)"]["dignity"].startswith("Debilitated"): inferences.append("Moon is Debilitated: The native is suffering from chronic emotional hypersensitivity, anxiety, and nervous system burnout.")
+    if asc_lord_dignity.startswith("Debilitated"): inferences.append("High Risk of Psychological Vitality Loss: Lagna Lord is Debilitated, structurally weakening core self-esteem and vitality.")
+    if planets_full["Moon (Chandra)"]["dignity"].startswith("Debilitated"): inferences.append("High Risk of Nervous System Burnout: Moon is Debilitated, indicating chronic emotional volatility and anxiety.")
     
     if "Saturn (Shani)" in houses[2]["occupants"] and planets_full["Saturn (Shani)"]["combust"]:
-        inferences.append("Financial Crisis Detected: Saturn is Combust in the 2nd House (Wealth). This indicates a massive, active financial crisis, zero business returns, and frozen liquidity.")
+        inferences.append("High Risk of Liquidity Freeze & Wealth Erosion: Saturn is Combust in the 2nd House (Wealth), severely damaging financial discipline and retention.")
         
     if houses[10]["ruler_placed_in"] in [8, 12]:
-        inferences.append("Career Collapse Detected: 10th Lord is in the 8th or 12th House. This indicates sudden career termination or business shutdown.")
+        inferences.append("High Risk of Career Collapse: 10th Lord is in the 8th or 12th House, indicating sudden career termination or structural instability.")
 
-    # Daridra Yoga (Poverty)
+    # --- DYNAMIC YOGA ENGINE INTEGRATION ---
+    yogas = detect_yogas(houses, planets_full)
+
     if houses[2]["ruler_placed_in"] in [6, 8, 12] or houses[11]["ruler_placed_in"] in [6, 8, 12]:
         yogas.append("Daridra Yoga (Poverty Yoga): 2nd or 11th Lord is in a Dusthana (6/8/12). This confirms the structural root of the liquidity freeze and severe wealth erosion.")
 
-    # Panch Mahapurusha Yogas
     for p_name in ["Mars (Mangal)", "Mercury (Budh)", "Jupiter (Guru)", "Venus (Shukra)", "Saturn (Shani)"]:
         if p_name in planets_full:
             p_house = get_house_of_planet(houses, p_name)
@@ -357,8 +357,12 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
             if p_house in [1, 4, 7, 10] and ("Own Sign" in p_dignity or "Exalted" in p_dignity):
                 yogas.append(f"Panch Mahapurusha Yoga ({p_name.split(' ')[0]} in Kendra): Exceptional potential in its domain, but requires harnessing amidst the current crisis.")
 
+    # --- LAL KITAB REMEDY INTEGRATION ---
+    lal_kitab_rules = get_lal_kitab_remedy(houses, planets_full)
+    
     logic_summary += f"\n[PRE-CALCULATED YOGAS]:\n - " + "\n - ".join(yogas) if yogas else "\n[PRE-CALCULATED YOGAS]: None."
     logic_summary += f"\n[HARD DEDUCTIVE INFERENCES]:\n - " + "\n - ".join(inferences) if inferences else "\n[HARD DEDUCTIVE INFERENCES]: None."
+    logic_summary += f"\n[MANDATORY LAL KITAB REMEDY]:\n - " + "\n - ".join(lal_kitab_rules) if lal_kitab_rules else "\n[MANDATORY LAL KITAB REMEDY]: None."
 
     return logic_summary, age
 
@@ -437,15 +441,11 @@ def calculate_synastry(p1_data, p2_data):
 
 def llm_output_firewall(text, logic_summary):
     """Post-generation validation that strips hallucinated aspects."""
-    # Find houses that have "Aspected by: None"
-    none_houses = re.findall(r"House (\d+).*?Aspected by: None\.", logic_summary)
+    none_houses = re.findall(r"House (\d+).*?Aspected by: none\.", logic_summary, re.IGNORECASE)
     
     clean_text = text
     for h_num in none_houses:
-        # If the LLM mentioned an aspect on this house, redact the sentence.
-        # This regex looks for sentences mentioning "aspect" and the house number, but not "no planetary aspects"
         pattern = rf'(?i)([^.]*aspect[^.]*House {h_num}[^.]*\.)|([^.]House {h_num}[^.]*aspect[^.]*\.)'
-        # Only redact if it doesn't explicitly say "no"
         def replace_func(match):
             if "no planetary" in match.group(0).lower() or "none" in match.group(0).lower():
                 return match.group(0)
@@ -548,12 +548,15 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
     system_msg = """You are a Forensic Astrological Diagnostician. You do not describe potentials; you diagnose hard realities based on the math. 
 [ABSOLUTE LAWS - VIOLATION = FAILURE]
 1. NEUROLOGICAL SYNTHESIS: Do not separate psychology from astrology. Explain the exact neurological mechanism (e.g., "Debilitated Moon causes Vata aggravation, which hijacks the amygdala, resulting in panic attacks and insomnia").
-2. HARD DEDUCTIONS: If the data shows a crisis, you MUST state it bluntly. 
-3. ZERO TOLERANCE FOR HEDGING: Do not use words like "Assuming", "Potentially", "may indicate", or "possibly". Make definitive diagnostic statements.
+2. HARD DEDUCTIONS: If the data shows a structural risk, you MUST state the situational impact bluntly. 
+3. ZERO TOLERANCE FOR HEDGING: Do not use words like "Assuming", "Potentially", "may indicate", "possibly", "suggesting", or "may bring". Make definitive diagnostic statements.
 4. NO HALLUCINATIONS: You are strictly forbidden from inventing planetary aspects. You may ONLY mention an aspect if it is explicitly listed in the [GLOBAL INTERCONNECTION MATRIX]. 
 5. HINDI MANDATORY: You MUST use the Hindi names provided for EVERY Zodiac Sign and Planet.
 6. PLAIN ENGLISH: Every time you state an astrological condition, you MUST immediately explain what it means in real-world terms.
-7. ACTIONABLE REMEDIES: Do NOT use vague phrases like "manage stress". Remedies must be hyper-specific physical actions, donations, gemstones, or mantras.
+7. STRICT UPAAYAS CATEGORIZATION:
+   - Do NOT suggest journaling, yoga, or meditation. 
+   - Immediate First Aid must be a tactical astrological or financial triage step (e.g., specific donations, halting certain investments, freezing credit).
+   - Lal Kitab Remedies: You MUST use the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section of the logic data. Do not invent your own Lal Kitab remedies. Present them as verbatim behavioral actions. Do NOT include gemstones here.
 """
 
     logic = session['logic_breakdown']
@@ -583,7 +586,7 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
    - Detail specific remedies to mitigate friction in the relationship.
 """
 
-    aspect_firewall = "CRITICAL RULE: If the Fact Block says 'Aspected by: None', you MUST explicitly state: 'This house receives no planetary aspects.' You are strictly forbidden from mentioning Mars, Jupiter, Rahu, or Ketu in this house unless they are explicitly listed in the Fact Block. A post-generation Python firewall will redact any hallucinated aspects."
+    aspect_firewall = "CRITICAL RULE: If the Fact Block says 'Aspected by: None', you MUST explicitly state: 'This house receives no planetary aspects.' You are strictly forbidden from discussing any other aspects for this house. A post-generation Python firewall will redact any hallucinated aspects."
 
     user_msg = f"""[INPUT DATA]
 - Baseline Date: {session['t_ctx']['current_date']}
@@ -618,7 +621,7 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
 # PART 2: COMPREHENSIVE PREDICTIONS
 2. **Timeline & Life Stage Context (Distinct Sub-Periods)**
    - *Past*: Based on the "Past Antardasha", describe the psychological and situational impact.
-   - *Present*: Based on the "Current Antardasha" and "Current Pratyantardasha", synthesize the current state. Explicitly mention the financial crisis, lack of business returns, and severe depression if indicated by the [HARD DEDUCTIVE INFERENCES].
+   - *Present*: Based on the "Current Antardasha" and "Current Pratyantardasha", synthesize the current state. Explicitly state the situational impact of the [HARD DEDUCTIVE INFERENCES] (e.g., liquidity freeze, nervous system burnout).
    - *Future*: Based on the "Future Antardasha", describe the expected shift or continuation of themes.
 3. **Career & Professional Trajectory**
    - [FACT BLOCK FOR 10TH HOUSE]: {h10_facts}
@@ -626,7 +629,7 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
 4. **Wealth & Financial Assets**
    - [FACT BLOCK FOR 2ND HOUSE]: {h2_facts}
    - [FACT BLOCK FOR 11TH HOUSE]: {h11_facts}
-   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of their financial life. Explicitly diagnose the current massive financial crisis and acknowledge Daridra Yoga if listed. {aspect_firewall}
+   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of their financial life. Explicitly diagnose the wealth erosion risk and acknowledge Daridra Yoga if listed. {aspect_firewall}
 5. **Marriage & Relationship Dynamics**
    - [FACT BLOCK FOR 7TH HOUSE]: {h7_facts}
    - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of their marriage/partnerships. Focus on the psychological friction. {aspect_firewall}
@@ -634,12 +637,12 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
    - [FACT BLOCK FOR 6TH HOUSE]: {h6_facts}
    - [FACT BLOCK FOR 8TH HOUSE]: {h8_facts}
    - [FACT BLOCK FOR 12TH HOUSE]: {h12_facts}
-   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of health/legal vulnerabilities. Explicitly state the severe clinical depression and anxiety. {aspect_firewall}
+   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of health/legal vulnerabilities. Explicitly state the nervous system burnout risk. {aspect_firewall}
 7. **Ayurvedic Baseline & Constitution**
-   - Detail Dosha and explain exactly how it physically manifests the severe psychological stress (e.g., Vata imbalance directly causes panic attacks and insomnia). Provide specific dietary advice to stabilize the nervous system.
+   - Detail Dosha and explain exactly how it physically manifests the psychological stress (e.g., Vata imbalance directly causes panic attacks and insomnia). Provide specific dietary advice to stabilize the nervous system.
 8. **Remediation Protocols (Upaayas)**
-   - *Immediate First Aid*: 1-2 urgent, specific actions targeting the most critical threat vector.
-   - *Lal Kitab Remedies*: Provide 2-3 highly specific Lal Kitab remedies for the afflicted planets.
+   - *Immediate First Aid*: 1-2 urgent, tactical astrological or financial triage steps targeting the most critical threat vector. (DO NOT suggest journaling, yoga, or meditation).
+   - *Lal Kitab Remedies*: You MUST use the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section of the logic data verbatim. Do NOT include gemstones here.
    - *Ayurvedic/Behavioral*: Specific lifestyle/dietary shifts for their exact Dosha.
    - *Gemstone Enhancement*: Recommend 1-2 specific gemstones for beneficial planets. Include the exact metal, finger, and day to activate it.
    - *Mantra/Long-Term Alignment*: Specific mantras for the Lagna Lord or afflicted planets.
