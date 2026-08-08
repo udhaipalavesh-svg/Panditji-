@@ -4,3 +4,4 @@ pysweph
 jyotichart
 gunicorn
 svglib
+pillow
