@@ -40,6 +40,7 @@ DOSHA_MAP = {"Aries": "Pitta", "Taurus": "Kapha", "Gemini": "Vata", "Cancer": "K
 
 NAK_LORDS = ["Ketu", "Venus (Shukra)", "Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Rahu", "Jupiter (Guru)", "Saturn (Shani)", "Mercury (Budh)"]
 
+# Nakshatra Pada Traits (Phase 2)
 NAK_PADA_TRAITS = {
     "Ashwini": ["Pioneering & Aggressive", "Stable & Patient", "Analytical & Critical", "Philosophical & Expansive"],
     "Bharani": ["Creative & Stubborn", "Emotional & Nurturing", "Intellectual & Ambitious", "Disciplined & Structured"],
@@ -830,7 +831,8 @@ def webhook():
 
             elif chat_id in USER_SESSIONS and USER_SESSIONS[chat_id].get("state") == "awaiting_partner":
                 if user_text.lower() == 'skip':
-                    session = USER_SESSIONS[chat_id]; session["state"] = "ready_to_generate"
+                    session = USER_SESSIONS[chat_id]
+                    session["state"] = "ready_to_generate"
                     return generate_final_pdf(chat_id, session, groq_key, groq_url)
                 else:
                     send_message(chat_id, "Please send the partner's details in the correct format:\n`Name DD-MM-YYYY HH:MM City`\n\nOr type 'skip'.")
