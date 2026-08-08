@@ -564,7 +564,9 @@ def calculate_synastry(p1_data, p2_data):
     if gan_pts == 1: summary += "- GAN DOSHA DETECTED: Temperament mismatch (Deva vs Rakshasa).\n"
     return summary.strip()
 
+# TASK 2: Upgraded Python Firewall
 def llm_output_firewall(text, logic_summary):
+    # 1. Aspect Hallucination Filter
     none_houses = re.findall(r"House (\d+).*?Aspected by: none\.", logic_summary, re.IGNORECASE)
     clean_text = text
     for h_num in none_houses:
@@ -572,8 +574,14 @@ def llm_output_firewall(text, logic_summary):
         def replace_func(match):
             if "no planetary" in match.group(0).lower() or "none" in match.group(0).lower():
                 return match.group(0)
-            return " [REDACTED BY SYSTEM GUARD: HALLUCINATED ASPECT] "
+            return " [REDACTED: HALLUCINATED ASPECT] "
         clean_text = re.sub(pattern, replace_func, clean_text)
+        
+    # 2. Fluff & Soft Language Obliterator
+    forbidden_words = ["potentially", "possibly", "suggesting", "assuming", "self-care", "date nights", "yoga", "meditation", "mindfulness"]
+    for word in forbidden_words:
+        clean_text = re.compile(re.escape(word), re.IGNORECASE).sub("[CLINICAL REDACTION]", clean_text)
+        
     return clean_text
 
 @app.route('/', methods=['POST', 'GET'])
@@ -616,7 +624,6 @@ def webhook():
                 lat, lon, city_clean = get_coordinates(city_input)
                 asc_sign, asc_nak, asc_pada, planets, d9_planets, asc_d9_sign, t_ctx, logic_breakdown, age = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
                 
-                # UPDATED planet_summary LOGIC WITH NAK LORDS & JAIMINI
                 planet_summary = "\n".join([
                     f"- {p}: {d['hindi_sign']} | Nak: {d['nak']} (ruled by {d.get('nak_lord', 'Unknown')}) | Dignity: {d['dignity']} {'[Vargottama]' if d.get('vargottama') else ''} | {d['jaimini']}" 
                     if d.get('jaimini') else 
@@ -624,23 +631,19 @@ def webhook():
                     for p, d in planets.items()
                 ])
                 
+                # TASK 1A: Streamline UX - Skip awaiting_focus
                 USER_SESSIONS[chat_id] = {
-                    "state": "awaiting_focus",
+                    "state": "awaiting_partner",
                     "asc_sign": asc_sign, "planet_summary": planet_summary,
                     "planet_data": planets, "d9_planets": d9_planets, "asc_d9_sign": asc_d9_sign, "t_ctx": t_ctx, "logic_breakdown": logic_breakdown, "age": age, "name": name_str,
                     "d1_svg": generate_svg_chart(f"d1_{chat_id}_{int(time.time())}", "Rasi (D1)", asc_sign, planets),
                     "d9_svg": generate_svg_chart(f"d9_{chat_id}_{int(time.time())}", "Navamsha (D9)", asc_d9_sign, d9_planets),
                     "birth_str": f"{day:02d}-{month:02d}-{year} at {hour:02d}:{minute:02d} in {city_clean} (Age: {age})"
                 }
-                send_message(chat_id, "✅ Chart calculated. Before I generate the brief, would you like to include anything specific you want to know about? (e.g., Health, Finances, Legal, Career, Marriage)\n\n_Reply with your focus area, or type 'skip'._")
+                send_message(chat_id, "✅ Chart calculated. \n\nDo you want to analyze compatibility with a partner? \nSend their details (Name DD-MM-YYYY HH:MM City) or type 'skip'.")
                 return jsonify(status="success"), 200
 
-            elif chat_id in USER_SESSIONS and USER_SESSIONS[chat_id].get("state") == "awaiting_focus":
-                session = USER_SESSIONS[chat_id]
-                session["focus_areas"] = "General comprehensive audit." if user_text.lower() == 'skip' else user_text
-                session["state"] = "awaiting_partner"
-                send_message(chat_id, "Do you want to analyze compatibility with a partner? \n\nSend their details (Name DD-MM-YYYY HH:MM City) or type 'skip'.")
-                return jsonify(status="success"), 200
+            # TASK 1B: Removed the elif block for "awaiting_focus"
 
             elif chat_id in USER_SESSIONS and USER_SESSIONS[chat_id].get("state") == "awaiting_partner":
                 if user_text.lower() == 'skip':
@@ -674,17 +677,18 @@ def webhook():
 def generate_final_pdf(chat_id, session, groq_key, groq_url):
     send_message(chat_id, "⏳ Audit complete. Formatting Dossier and generating PDF...")
     
+    # TASK 3: Overhaul Output Prompts
     system_msg = """You are an Elite Forensic Astrological Diagnostician. You write tactical, highly structured threat-matrix dossiers. 
 [ABSOLUTE LAWS - VIOLATION = FAILURE]
-1. FORBIDDEN PHRASES: Do not use 'manage stress', 'practice mindfulness', 'seek balance', 'self-care', 'Assuming', 'Potentially', 'possibly', or 'suggesting'. Use blunt, definitive diagnostic statements.
+1. FORBIDDEN CONCEPTS: Do not use words like 'potentially', 'possibly', 'suggesting', or 'assuming'. Do NOT prescribe generic couples therapy (e.g., 'date nights', 'communication') or generic wellness (e.g., 'yoga', 'meditation', 'self-care'). Use blunt, definitive, clinical terminology only.
 2. CHAIN OF DEDUCTION: For every Threat Vector, you MUST output your analysis in this exact 4-part structure:
    - Astronomical Root: [State the hard planet/house/nakshatra data]
-   - Systemic Vulnerability: [Explain the structural/neurological weakness this creates]
-   - Real-World Manifestation: [State exactly what this looks like in the user's daily life, career, or bank account]
-   - Tactical Countermeasure: [Provide the prescribed remedy]
-3. THE PUPPET MASTERS: You must analyze the Nakshatra Lords. A planet is only as strong as its Nakshatra Lord. 
-4. JAIMINI MANDATE: You must explicitly interpret the Atmakaraka (Soul's Core Karma) and Amatyakaraka (Career Driver). 
-5. LAL KITAB STRICTNESS: Use the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section verbatim. Do not invent remedies.
+   - Systemic Vulnerability: [Explain the structural/neurological weakness]
+   - Real-World Manifestation: [State exactly what this looks like in the user's daily life]
+   - Tactical Countermeasure: [Provide a FULL-SPECTRUM PROTOCOL]
+3. THE PUPPET MASTERS: Analyze the Nakshatra Lords. A planet is only as strong as its Nakshatra Lord. 
+4. JAIMINI MANDATE: Explicitly interpret the Atmakaraka (Soul's Core Karma) and Amatyakaraka (Career Driver). 
+5. LAL KITAB STRICTNESS: Use the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section verbatim. Do not invent Lal Kitab remedies.
 6. HINDI MANDATORY: Use the Hindi names provided for EVERY Zodiac Sign and Planet.
 """
 
@@ -721,8 +725,6 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
 - Exact Dasha Timeline: {session['t_ctx']['dasha_timeline']}
 {session['logic_breakdown']}
 
-[USER FOCUS AREAS]: {session['focus_areas']}
-
 [PLANETARY ARRAY]
 - Ascendant (Lagna): {HINDI_SIGNS[session['asc_sign']]}
 {session['planet_summary']}
@@ -735,7 +737,7 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
 - **The Structural Reality:** Write a brutal synthesis of the [PRE-CALCULATED YOGAS] and [HARD DEDUCTIVE INFERENCES]. State the absolute truth of their current crisis.
 
 # II. THE TEMPORAL TRIGGER (Micro-Timing)
-- **Current Pratyantardasha Trigger:** Analyze the Current Pratyantardasha. Look at the Dasha Lord and its Nakshatra Lord. Explain exactly *why* the financial/psychological collapse triggered right now.
+- **Current Pratyantardasha Trigger:** Analyze the Current Pratyantardasha. Look at the Dasha Lord and its Nakshatra Lord. Explain exactly *why* the specific collapse triggered right now.
 - **Timeline Trajectory:** Briefly contrast this with the Past Antardasha and define the survival requirements for the Future Antardasha.
 
 # III. THREAT MATRIX & DEDUCTIVE TRIAGE
@@ -743,24 +745,24 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
 
 **Vector 1: Wealth, Career & Amatyakaraka**
 - [FACT BLOCKS]: House 2: {h2_facts} | House 10: {h10_facts} | House 11: {h11_facts}
-- **Astronomical Root:** (State the specific planetary dignities, Amatyakaraka, and empty/aspected houses)
+- **Astronomical Root:** (State specific dignities, Amatyakaraka, and empty/aspected houses)
 - **Systemic Vulnerability:** (Explain the mechanical flaw in their wealth generation or career structure)
-- **Real-World Manifestation:** (Diagnose the liquidity freeze, business shutdown, or career stagnation bluntly)
-- **Tactical Countermeasure:** (Provide the exact [MANDATORY LAL KITAB REMEDY] verbatim here, plus 1 tactical non-astrological financial step)
+- **Real-World Manifestation:** (Diagnose liquidity freezes, business shutdowns, or career stagnation bluntly)
+- **Tactical Countermeasure:** (Provide a Full-Spectrum Protocol: Include the [MANDATORY LAL KITAB REMEDY] verbatim, alongside highly specific financial triage, relevant Gemstone/Metal prescriptions, and karmic behavioral shifts.)
 
 **Vector 2: Neurological & Psychological Baseline**
 - [FACT BLOCKS]: House 6: {h6_facts} | House 8: {h8_facts} | House 12: {h12_facts}
 - **Astronomical Root:** (State the Moon's dignity, Nakshatra Lord, and Dosha)
 - **Systemic Vulnerability:** (Explain the exact neurological breakdown, e.g., Vata/Pitta overload)
 - **Real-World Manifestation:** (Diagnose clinical anxiety, panic, or insomnia)
-- **Tactical Countermeasure:** (Specific dietary/lifestyle shifts for their Dosha, plus 1-2 specific gemstones with exact metal, finger, and day)
+- **Tactical Countermeasure:** (Provide a Full-Spectrum Protocol: Detail specific Ayurvedic/dietary triage for their Dosha, exact daily behavioral routines to hack the nervous system, and targeted Mantric prescriptions.)
 
 **Vector 3: Relationship & Partnership Dynamics**
 - [FACT BLOCKS]: House 7: {h7_facts}
-- **Astronomical Root:** (State the 7th house occupants and aspects)
+- **Astronomical Root:** (State 7th house occupants and aspects)
 - **Systemic Vulnerability:** (Explain the psychological friction or emotional unavailability)
 - **Real-World Manifestation:** (State how this damages their marriage or business partnerships)
-- **Tactical Countermeasure:** (Specific behavioral adjustment)
+- **Tactical Countermeasure:** (Provide a Full-Spectrum Protocol: Prescribe clinical psychological adjustments, karmic offsets, and environmental corrections, completely avoiding generic couples-therapy tropes.)
 
 # IV. LONG-TERM ALIGNMENT STRATEGY
 - Detail specific Mantras for the Lagna Lord or afflicted planets to rebuild self-worth and survive the upcoming Future Dasha.
