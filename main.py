@@ -51,13 +51,7 @@ def send_document(chat_id, file_path):
     except: return False
 
 def generate_svg_chart(filename, title, asc_sign, planets_data):
-    # FIX 1: Corrected chart.MERCURY typo
-    p_chart_map = {
-        "Sun (Surya)": chart.SUN, "Moon (Chandra)": chart.MOON, "Mars (Mangal)": chart.MARS, 
-        "Mercury (Budh)": chart.MERCURY, 
-        "Jupiter (Guru)": chart.JUPITER, "Venus (Shukra)": chart.VENUS, 
-        "Saturn (Shani)": chart.SATURN, "Rahu": chart.RAHU, "Ketu": chart.KETU
-    }
+    p_chart_map = {"Sun (Surya)": chart.SUN, "Moon (Chandra)": chart.MOON, "Mars (Mangal)": chart.MARS, "Mercury (Budh)": chart.MERCURY, "Jupiter (Guru)": chart.JUPITER, "Venus (Shukra)": chart.VENUS, "Saturn (Shani)": chart.SATURN, "Rahu": chart.RAHU, "Ketu": chart.KETU}
     svg_path = f"/tmp/{filename}.svg"
     north = chart.NorthChart(title, "", IsFullChart=True)
     north.set_ascendantsign(asc_sign)
@@ -68,7 +62,6 @@ def generate_svg_chart(filename, title, asc_sign, planets_data):
     return svg_path
 
 def draw_north_chart_drawing(asc_sign, planets_data, title="Chart"):
-    """Pure ReportLab native chart drawing. 100% crash-proof."""
     d = Drawing(200, 220)
     d.add(String(100, 200, title, fontSize=10, fillColor=colors.HexColor('#4A154B'), fontName='Helvetica-Bold', textAnchor='middle'))
     d.add(Rect(10, 10, 180, 180, strokeColor=colors.black, fillColor=colors.white))
@@ -150,10 +143,10 @@ def generate_master_pdf(report_text, pdf_path, birth_details_str, name_str, plan
                 Paragraph(p_info['hindi_sign'], table_cell_style),
                 Paragraph(f"{p_info['nak']} (P{p_info['pada']})", table_cell_style),
                 Paragraph(p_info['dignity'].split(" - ")[0], table_cell_style),
-                Paragraph(f"{'Retro' if p_info['retro'] else ''} {'Combust' if p_info['combust'] else ''}", table_cell_style)
+                Paragraph(f"{'Retro' if p_info['retro'] else ''} {'Combust' if p_info['combust'] else ''} {'Vargottama' if p_info.get('vargottama') else ''}", table_cell_style)
             ])
             
-        planet_table = Table(table_data, colWidths=[70, 90, 110, 80, 60])
+        planet_table = Table(table_data, colWidths=[70, 90, 110, 70, 70])
         planet_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4A154B')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -212,57 +205,75 @@ def get_nakshatra_info(lon):
     pada = int(rem / (nak_span / 4.0)) + 1
     return nak_idx, NAKSHATRAS[nak_idx], pada, rem
 
-def get_antardasha(moon_lon, birth_dt, target_dt):
-    """Calculates exact Mahadasha and Antardasha for a specific date."""
+def get_dasha_timeline(moon_lon, birth_dt, target_dt):
+    """Calculates exact Previous, Current, Next Antardashas, and Current Pratyantardasha."""
     nak_span = 360.0 / 27.0
     nak_idx, _, _, rem = get_nakshatra_info(moon_lon)
     lord_idx = (nak_idx // 3) % 9
     
-    # Total years in Vimshottari = 120
-    total_jd_years = 120.0
-    jd_per_year = 365.25
-    
-    # Find Mahadasha balance at birth
-    dasha_lord, total_years = DASHA_LORDS[lord_idx]
-    fraction_remaining = 1.0 - (rem / nak_span)
-    years_remaining = fraction_remaining * total_years
-    
-    current_jd = swe.julday(target_dt.year, target_dt.month, target_dt.day)
+    days_per_year = 365.25
     birth_jd = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day)
-    years_passed = (current_jd - birth_jd) / jd_per_year
+    target_jd = swe.julday(target_dt.year, target_dt.month, target_dt.day)
+    days_passed = target_jd - birth_jd
     
-    # If within first dasha
-    if years_passed <= years_remaining:
-        m_lord = dasha_lord
-        # Antardasha calculation
-        m_idx = lord_idx
-        a_idx = m_idx
-        a_years_total = DASHA_LORDS[a_idx][1] * (DASHA_LORDS[m_idx][1] / 120.0)
-        a_years_passed = years_passed
-        while a_years_passed > a_years_total:
-            a_years_passed -= a_years_total
-            a_idx = (a_idx + 1) % 9
-            a_years_total = DASHA_LORDS[a_idx][1] * (DASHA_LORDS[m_idx][1] / 120.0)
-        return f"{m_lord}-{DASHA_LORDS[a_idx][0]}"
-        
-    # Else iterate to find correct Mahadasha and Antardasha
-    years_passed_after_balance = years_passed - years_remaining
-    m_idx = (lord_idx + 1) % 9
-    while years_passed_after_balance > DASHA_LORDS[m_idx][1]:
-        years_passed_after_balance -= DASHA_LORDS[m_idx][1]
+    m_idx = lord_idx
+    m_years = (1.0 - (rem / nak_span)) * DASHA_LORDS[m_idx][1]
+    is_first_maha = True
+    
+    while days_passed > m_years * days_per_year:
+        days_passed -= m_years * days_per_year
         m_idx = (m_idx + 1) % 9
+        m_years = DASHA_LORDS[m_idx][1]
+        is_first_maha = False
         
     m_lord = DASHA_LORDS[m_idx][0]
-    # Now find Antardasha
+    
     a_idx = m_idx
-    a_years_total = DASHA_LORDS[a_idx][1] * (DASHA_LORDS[m_idx][1] / 120.0)
-    a_years_passed = years_passed_after_balance
-    while a_years_passed > a_years_total:
-        a_years_passed -= a_years_total
-        a_idx = (a_idx + 1) % 9
-        a_years_total = DASHA_LORDS[a_idx][1] * (DASHA_LORDS[m_idx][1] / 120.0)
+    a_years = (DASHA_LORDS[a_idx][1] * DASHA_LORDS[m_idx][1]) / 120.0
+    if is_first_maha:
+        a_years *= (1.0 - (rem / nak_span))
         
-    return f"{m_lord}-{DASHA_LORDS[a_idx][0]}"
+    while days_passed > a_years * days_per_year:
+        days_passed -= a_years * days_per_year
+        a_idx = (a_idx + 1) % 9
+        a_years = (DASHA_LORDS[a_idx][1] * DASHA_LORDS[m_idx][1]) / 120.0
+        
+    current_ad = f"{m_lord}-{DASHA_LORDS[a_idx][0]}"
+    
+    # Pratyantardasha (PA) Calculation
+    pa_idx = a_idx
+    pa_years = (DASHA_LORDS[pa_idx][1] * DASHA_LORDS[a_idx][1]) / 120.0
+    pa_years *= (DASHA_LORDS[m_idx][1] / 120.0) # Scale to AD period
+    
+    while days_passed > pa_years * days_per_year:
+        days_passed -= pa_years * days_per_year
+        pa_idx = (pa_idx + 1) % 9
+        pa_years = (DASHA_LORDS[pa_idx][1] * DASHA_LORDS[a_idx][1]) / 120.0
+        pa_years *= (DASHA_LORDS[m_idx][1] / 120.0)
+        
+    current_pa = f"{DASHA_LORDS[pa_idx][0]}"
+    
+    # Previous Antardasha
+    if a_idx == m_idx:
+        prev_m_idx = (m_idx - 1) % 9
+        prev_m_lord = DASHA_LORDS[prev_m_idx][0]
+        prev_a_idx = (prev_m_idx + 8) % 9 
+        prev_ad = f"{prev_m_lord}-{DASHA_LORDS[prev_a_idx][0]}"
+    else:
+        prev_a_idx = (a_idx - 1) % 9
+        prev_ad = f"{m_lord}-{DASHA_LORDS[prev_a_idx][0]}"
+        
+    # Next Antardasha
+    if a_idx == (m_idx + 8) % 9:
+        next_m_idx = (m_idx + 1) % 9
+        next_m_lord = DASHA_LORDS[next_m_idx][0]
+        next_a_idx = next_m_idx 
+        next_ad = f"{next_m_lord}-{DASHA_LORDS[next_a_idx][0]}"
+    else:
+        next_a_idx = (a_idx + 1) % 9
+        next_ad = f"{m_lord}-{DASHA_LORDS[next_a_idx][0]}"
+        
+    return f"Past Antardasha: {prev_ad} | Current Antardasha: {current_ad} | Future Antardasha: {next_ad} | Current Pratyantardasha: {current_ad}-{current_pa}"
 
 def get_planet_dignity(planet, sign):
     if EXALTATION.get(planet) == sign: return "Exalted (Uchcha) - Planet is at maximum strength"
@@ -310,7 +321,8 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
         ruler = h_data["ruler"]
         h_data["ruler_placed_in"] = get_house_of_planet(houses, ruler) if ruler else None
 
-    fact_sheet = "[STRICT FACT SHEET - DO NOT CALCULATE LORDSHIPS YOURSELF]\n"
+    # GLOBAL INTERCONNECTION MATRIX
+    fact_sheet = "[GLOBAL PLANETARY INTERCONNECTION MATRIX]\n"
     for h, data in houses.items():
         occ_str = ', '.join(data['occupants']) if data['occupants'] else 'Empty'
         asp_str = ', '.join(data['aspected_by']) if data['aspected_by'] else 'None'
@@ -318,22 +330,34 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     
     logic_summary = f"[LIFE STAGE FILTER - MANDATORY]: {life_stage}\n{fact_sheet}"
     
-    # --- HARD DEDUCTIVE INFERENCE LOGIC ---
+    # YOGA ENGINE & HARD DEDUCTIONS
     inferences = []
+    yogas = []
     asc_lord = sign_lords.get(asc_sign)
     asc_lord_dignity = planets_full.get(asc_lord, {}).get("dignity", "Neutral")
     
     if asc_lord_dignity.startswith("Debilitated"): inferences.append("Lagna Lord is Debilitated: The native is facing severe clinical depression, loss of self-worth, and imposter syndrome.")
     if planets_full["Moon (Chandra)"]["dignity"].startswith("Debilitated"): inferences.append("Moon is Debilitated: The native is suffering from chronic emotional hypersensitivity, anxiety, and nervous system burnout.")
     
-    # Check for Financial Crisis (Combust Saturn in 2nd or 2nd Lord afflicted)
     if "Saturn (Shani)" in houses[2]["occupants"] and planets_full["Saturn (Shani)"]["combust"]:
         inferences.append("Financial Crisis Detected: Saturn is Combust in the 2nd House (Wealth). This indicates a massive, active financial crisis, zero business returns, and frozen liquidity.")
         
-    # Check for Career Collapse (10th Lord in 8th/12th)
     if houses[10]["ruler_placed_in"] in [8, 12]:
         inferences.append("Career Collapse Detected: 10th Lord is in the 8th or 12th House. This indicates sudden career termination or business shutdown.")
 
+    # Daridra Yoga (Poverty)
+    if houses[2]["ruler_placed_in"] in [6, 8, 12] or houses[11]["ruler_placed_in"] in [6, 8, 12]:
+        yogas.append("Daridra Yoga (Poverty Yoga): 2nd or 11th Lord is in a Dusthana (6/8/12). This confirms the structural root of the liquidity freeze and severe wealth erosion.")
+
+    # Panch Mahapurusha Yogas
+    for p_name in ["Mars (Mangal)", "Mercury (Budh)", "Jupiter (Guru)", "Venus (Shukra)", "Saturn (Shani)"]:
+        if p_name in planets_full:
+            p_house = get_house_of_planet(houses, p_name)
+            p_dignity = planets_full[p_name]["dignity"]
+            if p_house in [1, 4, 7, 10] and ("Own Sign" in p_dignity or "Exalted" in p_dignity):
+                yogas.append(f"Panch Mahapurusha Yoga ({p_name.split(' ')[0]} in Kendra): Exceptional potential in its domain, but requires harnessing amidst the current crisis.")
+
+    logic_summary += f"\n[PRE-CALCULATED YOGAS]:\n - " + "\n - ".join(yogas) if yogas else "\n[PRE-CALCULATED YOGAS]: None."
     logic_summary += f"\n[HARD DEDUCTIVE INFERENCES]:\n - " + "\n - ".join(inferences) if inferences else "\n[HARD DEDUCTIVE INFERENCES]: None."
 
     return logic_summary, age
@@ -368,25 +392,25 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
             dist_to_sun = abs(lon_val - sun_lon)
             if dist_to_sun > 180: dist_to_sun = 360 - dist_to_sun
             if dist_to_sun < COMBUSTION_ORB[name]: is_combust = True
-        positions[name] = {"sign": sign_name, "hindi_sign": HINDI_SIGNS[sign_name], "lon": lon_val % 360.0, "nak": nak_name, "pada": pada, "dignity": dignity, "retro": is_retro, "combust": is_combust}
+            
         d9_sign_idx = int((lon_val % (30/9)) / (30/9)) + (sign_idx * 9); d9_sign_name = ZODIAC_SIGNS[d9_sign_idx % 12]
+        is_vargottama = (sign_name == d9_sign_name)
+        
+        positions[name] = {"sign": sign_name, "hindi_sign": HINDI_SIGNS[sign_name], "lon": lon_val % 360.0, "nak": nak_name, "pada": pada, "dignity": dignity, "retro": is_retro, "combust": is_combust, "vargottama": is_vargottama}
         d9_positions[name] = {"sign": d9_sign_name, "hindi_sign": HINDI_SIGNS[d9_sign_name]}
+        
     try: _, ascmc = swe.houses_ex(jdut, lat, lon, b'W', flags); asc_lon = ascmc[0] % 360.0
     except: asc_lon = 0.0
     asc_sign = ZODIAC_SIGNS[int(asc_lon / 30) % 12]; _, asc_nak, asc_pada, _ = get_nakshatra_info(asc_lon)
     asc_d9_sign_idx = int((asc_lon % (30/9)) / (30/9)) + (ZODIAC_SIGNS.index(asc_sign) * 9); asc_d9_sign = ZODIAC_SIGNS[asc_d9_sign_idx % 12]
     
     now_dt = datetime.now()
-    # Calculate exact 1-year Past, Present, 1-year Future Antardashas
-    past_ad = get_antardasha(moon_lon, dt_ist, now_dt - timedelta(days=365))
-    present_ad = get_antardasha(moon_lon, dt_ist, now_dt)
-    future_ad = get_antardasha(moon_lon, dt_ist, now_dt + timedelta(days=365))
+    dasha_timeline = get_dasha_timeline(moon_lon, dt_ist, now_dt)
     
     t_ctx = {
         "current_date": now_dt.strftime("%B %d, %Y"), 
-        "past_ad": past_ad, 
-        "present_ad": present_ad, 
-        "future_ad": future_ad
+        "dasha_timeline": dasha_timeline, 
+        "asc_nakshatra": f"{asc_nak} Pada {asc_pada}"
     }
     logic_breakdown, age = calculate_chart_logic(asc_sign, positions, dt_ist)
     return asc_sign, asc_nak, asc_pada, positions, d9_positions, asc_d9_sign, t_ctx, logic_breakdown, age
@@ -411,6 +435,26 @@ def calculate_synastry(p1_data, p2_data):
     if gan_pts == 1: summary += "- GAN DOSHA DETECTED: Temperament mismatch (Deva vs Rakshasa).\n"
     return summary.strip()
 
+def llm_output_firewall(text, logic_summary):
+    """Post-generation validation that strips hallucinated aspects."""
+    # Find houses that have "Aspected by: None"
+    none_houses = re.findall(r"House (\d+).*?Aspected by: None\.", logic_summary)
+    
+    clean_text = text
+    for h_num in none_houses:
+        # If the LLM mentioned an aspect on this house, redact the sentence.
+        # This regex looks for sentences mentioning "aspect" and the house number, but not "no planetary aspects"
+        pattern = rf'(?i)([^.]*aspect[^.]*House {h_num}[^.]*\.)|([^.]House {h_num}[^.]*aspect[^.]*\.)'
+        # Only redact if it doesn't explicitly say "no"
+        def replace_func(match):
+            if "no planetary" in match.group(0).lower() or "none" in match.group(0).lower():
+                return match.group(0)
+            return " [REDACTED BY SYSTEM GUARD: HALLUCINATED ASPECT] "
+            
+        clean_text = re.sub(pattern, replace_func, clean_text)
+        
+    return clean_text
+
 @app.route('/', methods=['POST', 'GET'])
 @app.route(f'/{TELEGRAM_BOT_TOKEN}', methods=['POST', 'GET'])
 def webhook():
@@ -427,7 +471,6 @@ def webhook():
                 send_message(chat_id, "Welcome! Send your birth details to begin your **Astrological Audit**:\n`Name DD-MM-YYYY HH:MM City`\n(e.g., `Rahul 05-09-1981 12:16 Amritsar`)\n\n_(Name is optional)_")
                 return jsonify(status="success"), 200
                 
-            # FIX 2: Bulletproof Regex to handle city names with parentheses, symbols, etc.
             match = re.search(r'^(?:(?P<name>[A-Za-z][\w\s\.]+?)\s+)?(?P<day>\d{1,2})\s*[-/]\s*(?P<month>\d{1,2})\s*[-/]\s*(?P<year>\d{2,4})\s+(?P<hour>\d{1,2}):(?P<minute>\d{1,2})\s+(?P<city>[A-Za-z][\w\s\(\)\&\-]+)$', user_text)
             
             if match:
@@ -454,7 +497,7 @@ def webhook():
                 
                 USER_SESSIONS[chat_id] = {
                     "state": "awaiting_focus",
-                    "asc_sign": asc_sign, "planet_summary": "\n".join([f"- {p}: {d['hindi_sign']} | Nak: {d['nak']} (P{d['pada']}) | Dignity: {d['dignity']}" for p, d in planets.items()]),
+                    "asc_sign": asc_sign, "planet_summary": "\n".join([f"- {p}: {d['hindi_sign']} | Nak: {d['nak']} (P{d['pada']}) | Dignity: {d['dignity']} {'[Vargottama]' if d.get('vargottama') else ''}" for p, d in planets.items()]),
                     "planet_data": planets, "d9_planets": d9_planets, "asc_d9_sign": asc_d9_sign, "t_ctx": t_ctx, "logic_breakdown": logic_breakdown, "age": age, "name": name_str,
                     "d1_svg": generate_svg_chart(f"d1_{chat_id}_{int(time.time())}", "Rasi (D1)", asc_sign, planets),
                     "d9_svg": generate_svg_chart(f"d9_{chat_id}_{int(time.time())}", "Navamsha (D9)", asc_d9_sign, d9_planets),
@@ -504,12 +547,13 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
     
     system_msg = """You are a Forensic Astrological Diagnostician. You do not describe potentials; you diagnose hard realities based on the math. 
 [ABSOLUTE LAWS - VIOLATION = FAILURE]
-1. HARD DEDUCTIONS: If the data shows a crisis (e.g., Combust Saturn in 2nd, Debilitated Moon), you MUST state it bluntly. Do NOT use philosophical terms like "adaptable," "sociable," or "harmonious." The user is facing a massive financial crisis and severe depression; your report MUST explicitly reflect this brutal reality.
-2. NO HALLUCINATIONS: You are strictly forbidden from inventing planetary aspects. You may ONLY mention an aspect if it is explicitly listed in the [FACT BLOCK]. If the Fact Block says "Aspected by: None", you are forbidden from mentioning any aspects.
-3. HINDI MANDATORY: You MUST use the Hindi names provided for EVERY Zodiac Sign and Planet.
-4. PLAIN ENGLISH: Every time you state an astrological condition, you MUST immediately explain what it means in real-world terms.
-5. NO FLUFF: Be clinical, tactical, and direct. Words like 'interplay' or 'energies' are FORBIDDEN.
-6. ACTIONABLE REMEDIES: Do NOT use vague phrases like "manage stress". Remedies must be hyper-specific physical actions, donations, gemstones, or mantras.
+1. NEUROLOGICAL SYNTHESIS: Do not separate psychology from astrology. Explain the exact neurological mechanism (e.g., "Debilitated Moon causes Vata aggravation, which hijacks the amygdala, resulting in panic attacks and insomnia").
+2. HARD DEDUCTIONS: If the data shows a crisis, you MUST state it bluntly. 
+3. ZERO TOLERANCE FOR HEDGING: Do not use words like "Assuming", "Potentially", "may indicate", or "possibly". Make definitive diagnostic statements.
+4. NO HALLUCINATIONS: You are strictly forbidden from inventing planetary aspects. You may ONLY mention an aspect if it is explicitly listed in the [GLOBAL INTERCONNECTION MATRIX]. 
+5. HINDI MANDATORY: You MUST use the Hindi names provided for EVERY Zodiac Sign and Planet.
+6. PLAIN ENGLISH: Every time you state an astrological condition, you MUST immediately explain what it means in real-world terms.
+7. ACTIONABLE REMEDIES: Do NOT use vague phrases like "manage stress". Remedies must be hyper-specific physical actions, donations, gemstones, or mantras.
 """
 
     logic = session['logic_breakdown']
@@ -539,11 +583,12 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
    - Detail specific remedies to mitigate friction in the relationship.
 """
 
+    aspect_firewall = "CRITICAL RULE: If the Fact Block says 'Aspected by: None', you MUST explicitly state: 'This house receives no planetary aspects.' You are strictly forbidden from mentioning Mars, Jupiter, Rahu, or Ketu in this house unless they are explicitly listed in the Fact Block. A post-generation Python firewall will redact any hallucinated aspects."
+
     user_msg = f"""[INPUT DATA]
 - Baseline Date: {session['t_ctx']['current_date']}
-- Exact Past Antardasha (1 year ago): {session['t_ctx']['past_ad']}
-- Exact Present Antardasha (Active now): {session['t_ctx']['present_ad']}
-- Exact Future Antardasha (1 year from now): {session['t_ctx']['future_ad']}
+- Ascendant Nakshatra: {session['t_ctx']['asc_nakshatra']}
+- Exact Dasha Timeline: {session['t_ctx']['dasha_timeline']}
 {session['logic_breakdown']}
 
 [USER FOCUS AREAS]: {session['focus_areas']}
@@ -568,36 +613,36 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
 # PART 1: ASTROLOGICAL OVERVIEW
 1. **Nakshatra & Planetary Brief**
    - Explicitly state the Ascendant Nakshatra and Moon Nakshatra. Explain exactly what psychological traits they grant the user. 
-   - List Lagna, Lagna Lord, Active Dasha, and the 5 core planets with their Hindi Sign and Dignity. Explain what the dignity means (e.g., "Combust Saturn means financial actions are completely burned up and failing").
+   - List Lagna, Lagna Lord, Active Dasha (including Pratyantardasha), and the 5 core planets with their Hindi Sign and Dignity. Explain what the dignity means. Explicitly mention Vargottama status if present.
 
 # PART 2: COMPREHENSIVE PREDICTIONS
-2. **Timeline & Life Stage Context (1-Year Windows)**
-   - *Past (Last 1 Year)*: Based on the Exact Past Antardasha, describe the psychological and situational impact of that period.
-   - *Present (Current)*: Based on the Exact Present Antardasha, synthesize the current state. Explicitly mention the financial crisis, lack of business returns, and severe depression if indicated by the [HARD DEDUCTIVE INFERENCES].
-   - *Future (Next 1 Year)*: Based on the Exact Future Antardasha, describe the expected shift or continuation of themes.
+2. **Timeline & Life Stage Context (Distinct Sub-Periods)**
+   - *Past*: Based on the "Past Antardasha", describe the psychological and situational impact.
+   - *Present*: Based on the "Current Antardasha" and "Current Pratyantardasha", synthesize the current state. Explicitly mention the financial crisis, lack of business returns, and severe depression if indicated by the [HARD DEDUCTIVE INFERENCES].
+   - *Future*: Based on the "Future Antardasha", describe the expected shift or continuation of themes.
 3. **Career & Professional Trajectory**
    - [FACT BLOCK FOR 10TH HOUSE]: {h10_facts}
-   - Directive: First, list 2-3 career models most suitable according to the 10th Lord and Nakshatra placement. Then, write 2 paragraphs providing a SITUATIONAL ANALYSIS of the current state of their career (e.g., business shutdown, job loss). DO NOT mention any aspects not listed in the Fact Block.
+   - Directive: First, list 2-3 career models most suitable according to the 10th Lord and Nakshatra placement. Then, write 2 paragraphs providing a SITUATIONAL ANALYSIS of the current state of their career. Acknowledge any Pre-Calculated Yogas. {aspect_firewall}
 4. **Wealth & Financial Assets**
    - [FACT BLOCK FOR 2ND HOUSE]: {h2_facts}
    - [FACT BLOCK FOR 11TH HOUSE]: {h11_facts}
-   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of their financial life. Explicitly diagnose the current massive financial crisis and liquidity freeze based on the Combust Saturn. DO NOT mention any aspects not listed.
+   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of their financial life. Explicitly diagnose the current massive financial crisis and acknowledge Daridra Yoga if listed. {aspect_firewall}
 5. **Marriage & Relationship Dynamics**
    - [FACT BLOCK FOR 7TH HOUSE]: {h7_facts}
-   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of their marriage/partnerships. Focus on the psychological friction and emotional distance. DO NOT mention any aspects not listed.
+   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of their marriage/partnerships. Focus on the psychological friction. {aspect_firewall}
 6. **Health & Legal Risk Vectors**
    - [FACT BLOCK FOR 6TH HOUSE]: {h6_facts}
    - [FACT BLOCK FOR 8TH HOUSE]: {h8_facts}
    - [FACT BLOCK FOR 12TH HOUSE]: {h12_facts}
-   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of health/legal vulnerabilities. Explicitly state the severe clinical depression, anxiety, and nervous system burnout indicated by the [HARD DEDUCTIVE INFERENCES]. DO NOT mention any aspects not listed.
+   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of health/legal vulnerabilities. Explicitly state the severe clinical depression and anxiety. {aspect_firewall}
 7. **Ayurvedic Baseline & Constitution**
-   - Detail Dosha and explain exactly how it physically manifests the severe psychological stress (e.g., Vata imbalance causing panic attacks and insomnia). Provide specific dietary advice to stabilize the nervous system.
+   - Detail Dosha and explain exactly how it physically manifests the severe psychological stress (e.g., Vata imbalance directly causes panic attacks and insomnia). Provide specific dietary advice to stabilize the nervous system.
 8. **Remediation Protocols (Upaayas)**
-   - *Immediate First Aid*: 1-2 urgent, specific actions targeting the most critical threat vector (Financial/Depression).
-   - *Lal Kitab Remedies*: Provide 2-3 highly specific Lal Kitab remedies for the afflicted planets (e.g., feeding specific animals, burying specific items).
-   - *Ayurvedic/Behavioral*: Specific lifestyle/dietary shifts for their exact Dosha to cure the anxiety.
-   - *Gemstone Enhancement*: Recommend 1-2 specific gemstones for beneficial planets. Include the exact metal to set it in, the finger to wear it on, and the day to activate it.
-   - *Mantra/Long-Term Alignment*: Specific mantras for the Lagna Lord or afflicted planets to rebuild self-worth and financial stability.
+   - *Immediate First Aid*: 1-2 urgent, specific actions targeting the most critical threat vector.
+   - *Lal Kitab Remedies*: Provide 2-3 highly specific Lal Kitab remedies for the afflicted planets.
+   - *Ayurvedic/Behavioral*: Specific lifestyle/dietary shifts for their exact Dosha.
+   - *Gemstone Enhancement*: Recommend 1-2 specific gemstones for beneficial planets. Include the exact metal, finger, and day to activate it.
+   - *Mantra/Long-Term Alignment*: Specific mantras for the Lagna Lord or afflicted planets.
    (FORBIDDEN WORDS: "manage stress", "practice mindfulness", "seek balance", "self-care". Be hyper-specific and actionable).
 {synastry_block}
 """
@@ -608,6 +653,10 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
     
     if res.status_code == 200:
         final_text = res.json()['choices'][0]['message']['content']
+        
+        # POST-GENERATION PYTHON FIREWALL
+        final_text = llm_output_firewall(final_text, logic)
+        
         file_tag = str(int(time.time()))
         pdf_path = f"/tmp/Astrological_Audit_{file_tag}.pdf"
         pdf_success = generate_master_pdf(final_text, pdf_path, session["birth_str"], session["name"], session["planet_data"], session["asc_sign"], session["d9_planets"], session["asc_d9_sign"])
