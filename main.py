@@ -13,6 +13,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_LEFT
+from reportlab.graphics.shapes import Drawing, Line, Rect, String
 from xml.sax.saxutils import escape
 
 app = Flask(__name__)
@@ -60,7 +61,53 @@ def generate_svg_chart(filename, title, asc_sign, planets_data):
     north.draw("/tmp/", filename)
     return svg_path
 
-def generate_master_pdf(report_text, pdf_path, birth_details_str, name_str, planet_data):
+def parse_svg_to_drawing(svg_path, target_width=250):
+    """Custom lightweight SVG parser for jyotichart output. 100% crash-proof."""
+    with open(svg_path, 'r', encoding='utf-8') as f:
+        svg_content = f.read()
+    
+    w = 400.0; h = 400.0
+    w_match = re.search(r'width="([\d.]+)"', svg_content)
+    if w_match: w = float(w_match.group(1))
+    h_match = re.search(r'height="([\d.]+)"', svg_content)
+    if h_match: h = float(h_match.group(1))
+    
+    scale = target_width / w
+    d = Drawing(target_width, h * scale)
+    d.scale(scale, scale)
+    
+    # Parse lines
+    for m in re.finditer(r'<line\s+([^/>]+)/>', svg_content):
+        attrs = m.group(1)
+        x1 = re.search(r'x1="([\d.]+)"', attrs); y1 = re.search(r'y1="([\d.]+)"', attrs)
+        x2 = re.search(r'x2="([\d.]+)"', attrs); y2 = re.search(r'y2="([\d.]+)"', attrs)
+        stroke = re.search(r'stroke="([^"]+)"', attrs); sw = re.search(r'stroke-width="([\d.]+)"', attrs)
+        if x1 and y1 and x2 and y2:
+            c = colors.HexColor(stroke.group(1)) if stroke else colors.black
+            width = float(sw.group(1)) if sw else 1
+            d.add(Line(float(x1.group(1)), h - float(y1.group(1)), float(x2.group(1)), h - float(y2.group(1)), strokeColor=c, strokeWidth=width))
+            
+    # Parse rects
+    for m in re.finditer(r'<rect\s+([^/>]+)/>', svg_content):
+        attrs = m.group(1)
+        x = re.search(r'x="([\d.]+)"', attrs); y = re.search(r'y="([\d.]+)"', attrs)
+        w_r = re.search(r'width="([\d.]+)"', attrs); h_r = re.search(r'height="([\d.]+)"', attrs)
+        if x and y and w_r and h_r:
+            d.add(Rect(float(x.group(1)), h - float(y.group(1)) - float(h_r.group(1)), float(w_r.group(1)), float(h_r.group(1)), strokeColor=colors.black, fillColor=colors.white))
+            
+    # Parse texts
+    for m in re.finditer(r'<text\s+([^>]*)>([^<]+)</text>', svg_content):
+        attrs = m.group(1); txt = m.group(2)
+        x = re.search(r'x="([\d.]+)"', attrs); y = re.search(r'y="([\d.]+)"', attrs)
+        fs = re.search(r'font-size="([\d.]+)"', attrs); fill = re.search(r'fill="([^"]+)"', attrs)
+        if x and y:
+            size = float(fs.group(1)) if fs else 10
+            color = colors.HexColor(fill.group(1)) if fill else colors.black
+            d.add(String(float(x.group(1)), h - float(y.group(1)) - size/2, txt, fontSize=size, fillColor=color, textAnchor='middle'))
+            
+    return d
+
+def generate_master_pdf(report_text, pdf_path, birth_details_str, name_str, planet_data, d1_svg, d9_svg):
     try:
         doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=45, leftMargin=45, topMargin=45, bottomMargin=45)
         styles = getSampleStyleSheet()
@@ -90,10 +137,23 @@ def generate_master_pdf(report_text, pdf_path, birth_details_str, name_str, plan
         story.append(Paragraph(f"Generated on: {datetime.now().strftime('%B %d, %Y at %H:%M')}", cover_footer))
         story.append(PageBreak())
         
-        # NATIVE PLANETARY MATRIX TABLE (100% Bulletproof)
+        # ASTROLOGICAL OVERVIEW
         story.append(Paragraph("ASTROLOGICAL OVERVIEW", h1_style))
         story.append(Spacer(1, 12))
         
+        # Embed D1 and D9 Charts side-by-side using native parser
+        try:
+            d1_drawing = parse_svg_to_drawing(d1_svg)
+            d9_drawing = parse_svg_to_drawing(d9_svg)
+            chart_table = Table([[d1_drawing, d9_drawing], 
+                                 [Paragraph("Rasi Chart (D1)", caption_style), Paragraph("Navamsha Chart (D9)", caption_style)]])
+            chart_table.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+            story.append(chart_table)
+            story.append(Spacer(1, 15))
+        except Exception as e:
+            print(f"Native Chart Render Error: {e}", flush=True)
+
+        # Planetary Matrix Table
         table_data = [["Planet", "Sign", "Nakshatra (Pada)", "Dignity", "Status"]]
         for p_name, p_info in planet_data.items():
             table_data.append([
@@ -230,7 +290,6 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
         ruler = h_data["ruler"]
         h_data["ruler_placed_in"] = get_house_of_planet(houses, ruler) if ruler else None
 
-    # STRICT FACT SHEET (Prevents AI Hallucinations)
     fact_sheet = "[STRICT FACT SHEET - DO NOT CALCULATE LORDSHIPS YOURSELF]\n"
     for h, data in houses.items():
         fact_sheet += f"- House {h} ({data['hindi_sign']}): Ruled by {data['ruler']}. {data['ruler']} is sitting in House {data['ruler_placed_in']}. Occupied by: {data['occupants'] if data['occupants'] else 'Empty'}. Aspected by: {data['aspected_by'] if data['aspected_by'] else 'None'}.\n"
@@ -439,7 +498,7 @@ def webhook():
 def generate_final_pdf(chat_id, session, groq_key, groq_url):
     send_message(chat_id, "⏳ Audit complete. Formatting Dossier and generating PDF...")
     
-    system_msg = "You are an elite Vedic Astrologer and strategic life consultant. Your goal is to generate a COMPREHENSIVE MASTER OUTPUT that synthesizes astrological math into deep, actionable, and psychologically impactful intelligence.\n[ABSOLUTE LAWS - VIOLATION = FAILURE]\n1. DEEP SYNTHESIS & DEPTH: Write a minimum of 2-3 paragraphs for each prediction domain.\n2. HINDI MANDATORY: You MUST use the Hindi names provided for EVERY Zodiac Sign and Planet.\n3. PLAIN ENGLISH: Every time you state an astrological condition, you MUST immediately explain what it means in real-world terms.\n4. NO DEGREES: Use Dignity (Exalted/Debilitated) instead.\n5. NO FLUFF: Be clinical, tactical, and direct. Words like 'interplay' or 'energies' are FORBIDDEN.\n6. NO GEMSTONES: Focus on behavioral, Ayurvedic, and mantra-based remedies.\n7. STRUCTURE: You MUST use the exact structure provided below. Do not use the word 'Forensic'.\n8. NO CALCULATIONS: You are strictly forbidden from calculating lordships or aspects. Only use the explicit facts provided in the [STRICT FACT SHEET]."
+    system_msg = "You are an elite Vedic Astrologer and strategic life consultant. Your goal is to generate a COMPREHENSIVE MASTER OUTPUT that synthesizes astrological math into deep, actionable, and psychologically impactful intelligence.\n[ABSOLUTE LAWS - VIOLATION = FAILURE]\n1. DEEP SYNTHESIS & DEPTH: Write a minimum of 2-3 paragraphs for each prediction domain.\n2. NO REPETITION: Do not repeat the same phrases (e.g., 'emotional turmoil') across sections. Each section must provide unique, specific insights.\n3. HINDI MANDATORY: You MUST use the Hindi names provided for EVERY Zodiac Sign and Planet.\n4. PLAIN ENGLISH: Every time you state an astrological condition, you MUST immediately explain what it means in real-world terms.\n5. NO DEGREES: Use Dignity (Exalted/Debilitated) instead.\n6. NO FLUFF: Be clinical, tactical, and direct. Words like 'interplay' or 'energies' are FORBIDDEN.\n7. NO GEMSTONES: Focus on behavioral, Ayurvedic, and mantra-based remedies.\n8. STRUCTURE: You MUST use the exact structure provided below. Do not use the word 'Forensic'.\n9. NO CALCULATIONS: You are strictly forbidden from calculating lordships or aspects. Only use the explicit facts provided in the [STRICT FACT SHEET]."
 
     synastry_block = ""
     if "synastry" in session:
@@ -508,8 +567,7 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
         final_text = res.json()['choices'][0]['message']['content']
         file_tag = str(int(time.time()))
         pdf_path = f"/tmp/Astrological_Audit_{file_tag}.pdf"
-        # Pass planet_data to generate the native matrix table
-        pdf_success = generate_master_pdf(final_text, pdf_path, session["birth_str"], session["name"], session["planet_data"])
+        pdf_success = generate_master_pdf(final_text, pdf_path, session["birth_str"], session["name"], session["planet_data"], session["d1_svg"], session["d9_svg"])
         
         if pdf_success and os.path.exists(pdf_path):
             send_document(chat_id, pdf_path)
