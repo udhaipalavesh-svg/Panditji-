@@ -1,9 +1,7 @@
 Flask
 requests
-pysweph
 jyotichart
 gunicorn
-svglib
 pillow
 reportlab
 swisseph
