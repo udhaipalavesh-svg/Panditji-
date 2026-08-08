@@ -134,11 +134,9 @@ def generate_master_pdf(report_text, pdf_path, birth_details_str, name_str, plan
         story.append(Paragraph(f"Generated on: {datetime.now().strftime('%B %d, %Y at %H:%M')}", cover_footer))
         story.append(PageBreak())
         
-        # ASTROLOGICAL OVERVIEW
         story.append(Paragraph("ASTROLOGICAL OVERVIEW", h1_style))
         story.append(Spacer(1, 12))
         
-        # Embed D1 and D9 Charts side-by-side using native parser
         try:
             d1_drawing = parse_svg_to_drawing(d1_svg)
             d9_drawing = parse_svg_to_drawing(d9_svg)
@@ -150,7 +148,6 @@ def generate_master_pdf(report_text, pdf_path, birth_details_str, name_str, plan
         except Exception as e:
             print(f"Native Chart Render Error: {e}", flush=True)
 
-        # Planetary Matrix Table
         table_data = [["Planet", "Sign", "Nakshatra (Pada)", "Dignity", "Status"]]
         for p_name, p_info in planet_data.items():
             table_data.append([
@@ -220,26 +217,40 @@ def get_nakshatra_info(lon):
     pada = int(rem / (nak_span / 4.0)) + 1
     return nak_idx, NAKSHATRAS[nak_idx], pada, rem
 
-def calculate_vimshottari_dasha(moon_lon, birth_dt, target_dt):
+def get_dasha_sequence(moon_lon, birth_dt, target_dt):
+    """Calculates current, previous, and next Mahadasha lords."""
     nak_span = 360.0 / 27.0
     nak_idx, _, _, rem = get_nakshatra_info(moon_lon)
     lord_idx = (nak_idx // 3) % 9
     dasha_lord, total_years = DASHA_LORDS[lord_idx]
+    
     fraction_remaining = 1.0 - (rem / nak_span)
     years_remaining = fraction_remaining * total_years
+    
     current_jd = swe.julday(target_dt.year, target_dt.month, target_dt.day)
     birth_jd = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day)
     years_passed = (current_jd - birth_jd) / 365.25
+    
     current_lord_idx = lord_idx
-    if years_passed <= years_remaining: return f"{dasha_lord} Mahadasha (Balance: {years_remaining - years_passed:.1f}y)"
-    years_passed_after_balance = years_passed - years_remaining
-    current_lord_idx = (current_lord_idx + 1) % 9
-    while years_passed_after_balance > 0:
-        lord, span = DASHA_LORDS[current_lord_idx]
-        if years_passed_after_balance <= span: return f"{lord} Mahadasha (Active)"
-        years_passed_after_balance -= span
+    if years_passed <= years_remaining:
+        # Currently in the first dasha of life
+        prev_lord = "N/A (Birth Dasha)"
+        current_lord = f"{dasha_lord} Mahadasha (Balance: {years_remaining - years_passed:.1f}y)"
+        next_lord = DASHA_LORDS[(current_lord_idx + 1) % 9][0]
+    else:
+        years_passed_after_balance = years_passed - years_remaining
         current_lord_idx = (current_lord_idx + 1) % 9
-    return f"{DASHA_LORDS[current_lord_idx][0]} Mahadasha"
+        while years_passed_after_balance > 0:
+            lord, span = DASHA_LORDS[current_lord_idx]
+            if years_passed_after_balance <= span:
+                prev_lord = DASHA_LORDS[(current_lord_idx - 1) % 9][0]
+                current_lord = f"{lord} Mahadasha (Active)"
+                next_lord = DASHA_LORDS[(current_lord_idx + 1) % 9][0]
+                break
+            years_passed_after_balance -= span
+            current_lord_idx = (current_lord_idx + 1) % 9
+
+    return f"Past Dasha: {prev_lord} | Current Dasha: {current_lord} | Future Dasha: {next_lord}"
 
 def get_planet_dignity(planet, sign):
     if EXALTATION.get(planet) == sign: return "Exalted (Uchcha) - Planet is at maximum strength"
@@ -382,8 +393,9 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     except: asc_lon = 0.0
     asc_sign = ZODIAC_SIGNS[int(asc_lon / 30) % 12]; _, asc_nak, asc_pada, _ = get_nakshatra_info(asc_lon)
     asc_d9_sign_idx = int((asc_lon % (30/9)) / (30/9)) + (ZODIAC_SIGNS.index(asc_sign) * 9); asc_d9_sign = ZODIAC_SIGNS[asc_d9_sign_idx % 12]
-    now_dt = datetime.now(); active_dasha = calculate_vimshottari_dasha(moon_lon, dt_ist, now_dt)
-    t_ctx = {"current_date": now_dt.strftime("%B %d, %Y"), "dasha_now": active_dasha, "dasha_5y": calculate_vimshottari_dasha(moon_lon, dt_ist, now_dt + timedelta(days=365 * 5))}
+    now_dt = datetime.now()
+    dasha_seq = get_dasha_sequence(moon_lon, dt_ist, now_dt)
+    t_ctx = {"current_date": now_dt.strftime("%B %d, %Y"), "dasha_sequence": dasha_seq, "dasha_5y": get_dasha_sequence(moon_lon, dt_ist, now_dt + timedelta(days=365 * 5))}
     logic_breakdown, age = calculate_chart_logic(asc_sign, positions, dt_ist)
     return asc_sign, asc_nak, asc_pada, positions, d9_positions, asc_d9_sign, t_ctx, logic_breakdown, age
 
@@ -477,7 +489,7 @@ def webhook():
                 session = USER_SESSIONS[chat_id]
                 send_message(chat_id, "Running follow-up analysis...")
                 q_prompt = f"""[SYSTEM ROLE]\nYou are an elite Vedic Astrologer. Today's date is {session['t_ctx']['current_date']}.\n[MANDATORY RULES]\n- Give an uncompromising, direct, fact-based response. Synthesize the data, don't just rephrase it.\n- ALWAYS use Hindi names for planets and zodiac signs.\n- USE PROVIDED FACTS ONLY. Do not invent aspects or yogas not listed below.\n\n[CALCULATED LOGIC & CONTEXT]\n{session['logic_breakdown']}\n- Planetary Array:\n{session['planet_summary']}\n\n[USER'S SPECIFIC QUESTION]\n"{user_text}"\n\n[OUTPUT DIRECTIVE]\nProvide an unvarnished response. Explicitly state the astrological trigger, the exact timeline of impact, and precise preventative measures."""
-                payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": q_prompt}], "temperature": 0.1}
+                payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": q_prompt}], "temperature": 0.3}
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
                 res = requests.post(groq_url, headers=headers, json=payload, timeout=90)
                 if res.status_code == 200:
@@ -497,15 +509,15 @@ def webhook():
 def generate_final_pdf(chat_id, session, groq_key, groq_url):
     send_message(chat_id, "⏳ Audit complete. Formatting Dossier and generating PDF...")
     
-    system_msg = """You are a Technical Writer translating a rigid astrological data sheet into professional prose. 
+    system_msg = """You are an Elite Vedic Astrologer and Strategic Life Consultant. Your goal is to translate astrological math into relatable, actionable, and situational intelligence.
 [ABSOLUTE LAWS - VIOLATION = FAILURE]
-1. NO HALLUCINATIONS: You are strictly forbidden from calculating or inventing planetary aspects. You may ONLY mention an aspect if it is explicitly listed in the [FACT BLOCK]. If the Fact Block says "Aspected by: None", you are forbidden from mentioning any aspects. 
-2. NO REPETITION: Do not repeat the same phrases across sections. Use a highly varied, professional vocabulary.
-3. HINDI MANDATORY: You MUST use the Hindi names provided for EVERY Zodiac Sign and Planet.
-4. PLAIN ENGLISH: Every time you state an astrological condition (e.g., Combust, Debilitated), you MUST immediately explain what it means in real-world terms.
-5. NO FLUFF: Be clinical, tactical, and direct. Words like 'interplay' or 'energies' are FORBIDDEN.
-6. NO GEMSTONES: Focus on behavioral, Lal Kitab, Ayurvedic, and mantra-based remedies.
-7. ACTIONABLE REMEDIES: Do NOT use vague phrases like "manage stress," "practice mindfulness," or "seek balance." Remedies must be hyper-specific physical actions, donations, or mantras tied to the exact afflicted planets.
+1. SITUATIONAL SYNTHESIS: Do NOT just list the facts. Translate the math into a real-world scenario. Tell the user exactly what kind of situations they will face in their life/career/marriage because of these placements.
+2. NO HALLUCINATIONS: You are strictly forbidden from inventing planetary aspects. You may ONLY mention an aspect if it is explicitly listed in the [FACT BLOCK]. If the Fact Block says "Aspected by: None", you are forbidden from mentioning any aspects.
+3. NO REPETITION: Do not repeat the same phrases across sections. Use a highly varied, professional vocabulary.
+4. HINDI MANDATORY: You MUST use the Hindi names provided for EVERY Zodiac Sign and Planet.
+5. PLAIN ENGLISH: Every time you state an astrological condition (e.g., Combust, Debilitated), you MUST immediately explain what it means in real-world terms.
+6. NO FLUFF: Be clinical, tactical, and direct. Words like 'interplay' or 'energies' are FORBIDDEN.
+7. ACTIONABLE REMEDIES: Do NOT use vague phrases like "manage stress," "practice mindfulness," or "seek balance." Remedies must be hyper-specific physical actions, donations, gemstones, or mantras tied to the exact afflicted planets.
 """
 
     logic = session['logic_breakdown']
@@ -537,7 +549,7 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
 
     user_msg = f"""[INPUT DATA]
 - Baseline Date: {session['t_ctx']['current_date']}
-- Current Dasha: {session['t_ctx']['dasha_now']}
+- Exact Dasha Sequence: {session['t_ctx']['dasha_sequence']}
 - 5-Year Dasha: {session['t_ctx']['dasha_5y']}
 {session['logic_breakdown']}
 
@@ -562,41 +574,41 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
 
 # PART 1: ASTROLOGICAL OVERVIEW
 1. **Nakshatra & Planetary Brief**
-   - Explicitly state the Ascendant Nakshatra and Moon Nakshatra (extract from the [PLANETARY ARRAY] above).
-   - List Lagna, Lagna Lord, Active Dasha, and the 5 core planets with their Hindi Sign and Dignity.
+   - Explicitly state the Ascendant Nakshatra and Moon Nakshatra. Explain what psychological traits they grant the user.
+   - List Lagna, Lagna Lord, Active Dasha, and the 5 core planets with their Hindi Sign and Dignity (explain what the dignity means).
 
 # PART 2: COMPREHENSIVE PREDICTIONS
 2. **Timeline & Life Stage Context**
-   - *Past*: Name the Dasha that immediately preceded the current one (e.g., if current is Saturn, past was likely Rahu or Jupiter) and describe its theme.
-   - *Present*: What the current Dasha is activating right now.
-   - *Future*: Name the Dasha that immediately follows the current one and describe its expected theme.
+   - *Past*: Based on the Exact Dasha Sequence provided, name the Past Dasha and describe its theme.
+   - *Present*: What the Current Dasha is activating right now.
+   - *Future*: Based on the Exact Dasha Sequence provided, name the Future Dasha and describe its expected theme.
 3. **Career & Professional Trajectory**
    - [FACT BLOCK FOR 10TH HOUSE]: {h10_facts}
-   - Directive: Write 2 paragraphs explaining the real-world career impact based STRICTLY on the Fact Block above. Mention Combustion or Debilitation if present. DO NOT mention any aspects not listed in the Fact Block.
+   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS. Describe the exact career scenarios this configuration creates (e.g., "You will likely face sudden structural changes..."). Mention Combustion or Debilitation if present. DO NOT mention any aspects not listed in the Fact Block.
 4. **Wealth & Financial Assets**
    - [FACT BLOCK FOR 2ND HOUSE]: {h2_facts}
    - [FACT BLOCK FOR 11TH HOUSE]: {h11_facts}
-   - Directive: Write 2 paragraphs explaining wealth capacity and risks based STRICTLY on the Fact Blocks above. DO NOT mention any aspects not listed.
+   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of their financial life. DO NOT mention any aspects not listed.
 5. **Marriage & Relationship Dynamics**
    - [FACT BLOCK FOR 7TH HOUSE]: {h7_facts}
-   - Directive: Write 2 paragraphs explaining the psychological dynamics of partnerships based STRICTLY on the Fact Block above. DO NOT mention any aspects not listed.
+   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of their marriage/partnerships. DO NOT mention any aspects not listed.
 6. **Health & Legal Risk Vectors**
    - [FACT BLOCK FOR 6TH HOUSE]: {h6_facts}
    - [FACT BLOCK FOR 8TH HOUSE]: {h8_facts}
    - [FACT BLOCK FOR 12TH HOUSE]: {h12_facts}
-   - Directive: Write 2 paragraphs explaining health/legal vulnerabilities based STRICTLY on the Fact Blocks above. DO NOT mention any aspects not listed.
+   - Directive: Write 2 paragraphs providing a SITUATIONAL ANALYSIS of health/legal vulnerabilities. DO NOT mention any aspects not listed.
 7. **Ayurvedic Baseline & Constitution**
    - Detail Dosha and explain exactly how it physically manifests psychological stress. Provide specific dietary advice.
 8. **Remediation Protocols (Upaayas)**
    - *Immediate First Aid*: 1-2 urgent, specific actions targeting the most critical threat vector.
-   - *Lal Kitab Remedies*: Provide 2-3 highly specific Lal Kitab remedies for the afflicted planets (e.g., feeding specific animals, burying specific items, specific daily habits). 
-   - *Ayurvedic/Behavioral*: Specific lifestyle/dietary shifts for their exact Dosha.
+   - *Lal Kitab Remedies*: Provide 2-3 highly specific Lal Kitab remedies for the afflicted planets (e.g., feeding specific animals, burying specific items, specific daily habits).
+   - *Gemstone Enhancement*: Recommend 1-2 specific gemstones for beneficial planets. Include the exact metal to set it in, the finger to wear it on, and the day to activate it.
    - *Mantra/Long-Term Alignment*: Specific mantras for the Lagna Lord or afflicted planets.
    (FORBIDDEN WORDS: "manage stress", "practice mindfulness", "seek balance", "self-care". Be hyper-specific and actionable).
 {synastry_block}
 """
 
-    payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": system_msg}, {"role": "user", "content": user_msg}], "temperature": 0.1}
+    payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": system_msg}, {"role": "user", "content": user_msg}], "temperature": 0.3}
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
     res = requests.post(groq_url, headers=headers, json=payload, timeout=120)
     
