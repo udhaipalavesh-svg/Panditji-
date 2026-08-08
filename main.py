@@ -7,10 +7,6 @@ from datetime import datetime, timedelta
 import swisseph as swe
 import jyotichart as chart
 
-# Import the new Engines
-from yoga_engine import detect_yogas
-from lal_kitab_remedies import get_lal_kitab_remedy
-
 # ReportLab imports for PDF generation
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle, HRFlowable
@@ -38,6 +34,103 @@ COMBUSTION_ORB = {"Moon (Chandra)": 12, "Mars (Mangal)": 17, "Mercury (Budh)": 1
 MALEFICS = ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]
 DOSHA_MAP = {"Aries": "Pitta", "Taurus": "Kapha", "Gemini": "Vata", "Cancer": "Kapha", "Leo": "Pitta", "Virgo": "Vata", "Libra": "Vata", "Scorpio": "Kapha", "Sagittarius": "Pitta", "Capricorn": "Vata", "Aquarius": "Vata", "Pisces": "Kapha"}
 
+# ==========================================
+# YOGA ENGINE INTEGRATED
+# ==========================================
+def detect_yogas(houses_dict, planets_dict):
+    yogas = []
+    def get_house(planet_name):
+        for h_num, h_data in houses_dict.items():
+            if planet_name in h_data["occupants"]: return h_num
+        return None
+
+    moon_house = get_house("Moon (Chandra)")
+    jup_house = get_house("Jupiter (Guru)")
+    mars_house = get_house("Mars (Mangal)")
+    sat_house = get_house("Saturn (Shani)")
+    rahu_house = get_house("Rahu")
+
+    if moon_house:
+        h2_moon = (moon_house % 12) + 1
+        h12_moon = (moon_house - 2) % 12 + 1
+        invalid_planets = ["Sun (Surya)", "Rahu", "Ketu", "Moon (Chandra)"]
+        adj_planets = houses_dict[moon_house]["occupants"] + houses_dict[h2_moon]["occupants"] + houses_dict[h12_moon]["occupants"]
+        valid_adj = [p for p in adj_planets if p not in invalid_planets]
+        
+        if not valid_adj:
+            kendra_planets = houses_dict[1]["occupants"] + houses_dict[4]["occupants"] + houses_dict[7]["occupants"] + houses_dict[10]["occupants"]
+            valid_kendra = [p for p in kendra_planets if p not in invalid_planets]
+            if not valid_kendra:
+                yogas.append("Kemadruma Yoga (No valid planets in 2nd/12th from Moon, no Bhanga cancellation in Kendras): Strict classical result indicates severe psychological isolation, mental anguish, and financial struggles in early life. If Moon is strong, it grants immense self-reliance.")
+
+    if moon_house and jup_house:
+        diff = abs(jup_house - moon_house)
+        if diff in [0, 3, 6, 9]: 
+            yogas.append("Gaja Kesari Yoga (Jupiter in Kendra from Moon): Strict classical result grants high intelligence, fame, wealth, strong moral character, and the ability to influence masses.")
+
+    if jup_house and rahu_house:
+        if jup_house == rahu_house:
+            yogas.append("Guru Chandal Yoga (Jupiter conjunct Rahu): Strict classical result indicates distortion of wisdom, unethical associations, and karmic tests of integrity.")
+
+    if sat_house and mars_house:
+        if sat_house == mars_house:
+            yogas.append("Shani-Mangal Dosha (Saturn conjunct Mars): Strict classical result indicates intense frustration, structural conflicts, property disputes, and a high risk of accidents or surgical interventions.")
+    return yogas
+
+# ==========================================
+# LAL KITAB ENGINE INTEGRATED
+# ==========================================
+LAL_KITAB_DICT = {
+    "Saturn (Shani)_Combust": "Donate black sesame oil on Saturday. Keep a square piece of silver in wallet to prevent liquid cash evaporation.",
+    "Mars (Mangal)_Combust": "Donate red masoor dal on Tuesday. Avoid keeping iron tools under the bed to prevent surgical interventions.",
+    "Jupiter (Guru)_Combust": "Donate turmeric and chana dal on Thursday. Apply a tilak of saffron on the forehead to stabilize intellect.",
+    "Venus (Shukra)_Combust": "Donate pure ghee to a temple on Friday. Feed wheat dough to a cow to stabilize marital harmony.",
+    "Mercury (Budh)_Combust": "Donate green moong dal on Wednesday. Clean teeth with fitkari (alum) daily to prevent nervous system burnout.",
+    "Mars (Mangal)_Debilitated": "Float a piece of red copper in a flowing river on Tuesday. Sleep on a white bedsheet to calm aggressive impulses.",
+    "Sun (Surya)_Debilitated": "Donate wheat and jaggery on Sunday. Offer water to the Sun (Surya Arghya) with a pinch of red sandalwood to rebuild self-worth.",
+    "Moon (Chandra)_Debilitated": "Immerse a square piece of silver in a flowing river on Monday. Feed wheat flour balls to fish to cure clinical anxiety.",
+    "Venus (Shukra)_Debilitated": "Donate white sweets to young girls on Friday. Keep a silver glass for drinking water to restore relationship balance.",
+    "Jupiter (Guru)_Debilitated": "Water a peepal tree on Thursday. Donate yellow clothes or books to a priest or student to clear karmic debts.",
+    "Saturn (Shani)_Debilitated": "Serve food to lepers or disabled people. Feed black dogs on Saturday to remove chronic structural obstacles.",
+    "Saturn (Shani)_6": "Float a black mustard oil-filled bottle in a river on Saturday. Serve food to disabled people to ward off chronic debts and prolonged illnesses.",
+    "Mars (Mangal)_6": "Donate red masoor dal and batasha (sweet) on Tuesday. Feed a monkey or a red dog to neutralize enemies and prevent aggressive litigation.",
+    "Rahu_6": "Float a piece of lead or a black sesame oil bottle in running water on Saturday. Keep a solid silver square in the pocket to avoid deceptive litigation and maternal disputes.",
+    "Ketu_6": "Donate a black and white blanket on Tuesday. Feed street dogs regularly to prevent mysterious health ailments and disputes with maternal uncles.",
+    "Sun (Surya)_6": "Offer jaggery and wheat to a red cow on Sunday. Donate medicines to a hospital to prevent chronic health issues and conflicts with authorities.",
+    "Saturn (Shani)_8": "Do not build a house before age 48. Drop 8 kilograms of raw coal in running water on a Saturday to prevent hospitalization.",
+    "Mars (Mangal)_8": "Feed sweet bread (roti) to a red dog on Tuesday. Keep a square piece of red copper in the house to prevent sudden trauma.",
+    "Rahu_8": "Keep a solid silver square piece in the pocket. Float four coconuts in a river on Saturday to mitigate sudden litigation.",
+    "Ketu_8": "Donate a black and white blanket. Feed street dogs regularly to prevent genetic health complications.",
+    "Sun (Surya)_8": "Offer jaggery and wheat to a red cow on Sunday. Keep a copper pot filled with water in the bedroom at night and pour it into a plant in the morning.",
+    "Saturn (Shani)_12": "Keep a square piece of silver in pocket. Do not consume alcohol or non-vegetarian food on Saturdays to prevent insomnia.",
+    "Mars (Mangal)_12": "Float a piece of red copper in flowing water on Tuesday. Do not keep weapons in the bedroom to prevent night terrors.",
+    "Rahu_12": "Donate a black blanket to a homeless person. Keep a dog as a pet to absorb environmental malefic energy.",
+    "Ketu_12": "Bury a pair of ivory pieces in a graveyard or at a crossroad. Avoid wearing fragmented or broken jewelry.",
+    "Sun (Surya)_12": "Keep a copper coin in a visible spot in the house. Do not consume salt on Sundays to prevent immune system collapse."
+}
+
+def get_lal_kitab_remedy(houses_dict, planets_dict):
+    remedies = []
+    for p_name, p_data in planets_dict.items():
+        if p_data.get("combust"):
+            key = f"{p_name}_Combust"
+            if key in LAL_KITAB_DICT: remedies.append(f"{p_name} is Combust: {LAL_KITAB_DICT[key]}")
+        if p_data.get("dignity", "").startswith("Debilitated"):
+            key = f"{p_name}_Debilitated"
+            if key in LAL_KITAB_DICT: remedies.append(f"{p_name} is Debilitated: {LAL_KITAB_DICT[key]}")
+                    
+    for h_num in [6, 8, 12]:
+        for p_name in houses_dict[h_num]["occupants"]:
+            if p_name in ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]:
+                key = f"{p_name}_{h_num}"
+                if key in LAL_KITAB_DICT: remedies.append(f"{p_name} in House {h_num}: {LAL_KITAB_DICT[key]}")
+                        
+    unique_remedies = list(dict.fromkeys(remedies))
+    return unique_remedies[:2]
+
+# ==========================================
+# CORE BOT FUNCTIONS
+# ==========================================
 def send_message(chat_id, text):
     url = f"{TELEGRAM_API_URL}/sendMessage"
     def attempt_send(parse_mode=None):
@@ -287,7 +380,6 @@ def get_aspects(planet, house):
     elif planet == "Jupiter (Guru)": aspects.extend([5, 9])
     elif planet == "Saturn (Shani)": aspects.extend([3, 10])
     elif planet in ["Rahu", "Ketu"]: aspects.extend([5, 9])
-    # FIXED ASPECT MATH: (house + aspect - 2) % 12 + 1
     return [((house + a - 2) % 12) + 1 for a in aspects]
 
 def get_house_of_planet(houses, planet_name):
@@ -330,7 +422,6 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     
     logic_summary = f"[LIFE STAGE FILTER - MANDATORY]: {life_stage}\n{fact_sheet}"
     
-    # DECOUPLED CONFIRMATION BIAS - STRUCTURAL RISK FLAGS ONLY
     inferences = []
     asc_lord = sign_lords.get(asc_sign)
     asc_lord_dignity = planets_full.get(asc_lord, {}).get("dignity", "Neutral")
@@ -344,7 +435,6 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     if houses[10]["ruler_placed_in"] in [8, 12]:
         inferences.append("High Risk of Career Collapse: 10th Lord is in the 8th or 12th House, indicating sudden career termination or structural instability.")
 
-    # --- DYNAMIC YOGA ENGINE INTEGRATION ---
     yogas = detect_yogas(houses, planets_full)
 
     if houses[2]["ruler_placed_in"] in [6, 8, 12] or houses[11]["ruler_placed_in"] in [6, 8, 12]:
@@ -357,7 +447,6 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
             if p_house in [1, 4, 7, 10] and ("Own Sign" in p_dignity or "Exalted" in p_dignity):
                 yogas.append(f"Panch Mahapurusha Yoga ({p_name.split(' ')[0]} in Kendra): Exceptional potential in its domain, but requires harnessing amidst the current crisis.")
 
-    # --- LAL KITAB REMEDY INTEGRATION ---
     lal_kitab_rules = get_lal_kitab_remedy(houses, planets_full)
     
     logic_summary += f"\n[PRE-CALCULATED YOGAS]:\n - " + "\n - ".join(yogas) if yogas else "\n[PRE-CALCULATED YOGAS]: None."
@@ -440,9 +529,7 @@ def calculate_synastry(p1_data, p2_data):
     return summary.strip()
 
 def llm_output_firewall(text, logic_summary):
-    """Post-generation validation that strips hallucinated aspects."""
     none_houses = re.findall(r"House (\d+).*?Aspected by: none\.", logic_summary, re.IGNORECASE)
-    
     clean_text = text
     for h_num in none_houses:
         pattern = rf'(?i)([^.]*aspect[^.]*House {h_num}[^.]*\.)|([^.]House {h_num}[^.]*aspect[^.]*\.)'
@@ -450,9 +537,7 @@ def llm_output_firewall(text, logic_summary):
             if "no planetary" in match.group(0).lower() or "none" in match.group(0).lower():
                 return match.group(0)
             return " [REDACTED BY SYSTEM GUARD: HALLUCINATED ASPECT] "
-            
         clean_text = re.sub(pattern, replace_func, clean_text)
-        
     return clean_text
 
 @app.route('/', methods=['POST', 'GET'])
@@ -656,8 +741,6 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
     
     if res.status_code == 200:
         final_text = res.json()['choices'][0]['message']['content']
-        
-        # POST-GENERATION PYTHON FIREWALL
         final_text = llm_output_firewall(final_text, logic)
         
         file_tag = str(int(time.time()))
