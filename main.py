@@ -289,7 +289,9 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
 
     fact_sheet = "[STRICT FACT SHEET - DO NOT CALCULATE LORDSHIPS YOURSELF]\n"
     for h, data in houses.items():
-        fact_sheet += f"- House {h} ({data['hindi_sign']}): Ruled by {data['ruler']}. {data['ruler']} is sitting in House {data['ruler_placed_in']}. Occupied by: {data['occupants'] if data['occupants'] else 'Empty'}. Aspected by: {data['aspected_by'] if data['aspected_by'] else 'None'}.\n"
+        occ_str = ', '.join(data['occupants']) if data['occupants'] else 'Empty'
+        asp_str = ', '.join(data['aspected_by']) if data['aspected_by'] else 'None'
+        fact_sheet += f"- House {h} ({data['hindi_sign']}): Ruled by {data['ruler']}. {data['ruler']} is sitting in House {data['ruler_placed_in']}. Occupied by: {occ_str}. Aspected by: {asp_str}.\n"
     
     logic_summary = f"[LIFE STAGE FILTER - MANDATORY]: {life_stage}\n{fact_sheet}"
     
@@ -475,7 +477,7 @@ def webhook():
                 session = USER_SESSIONS[chat_id]
                 send_message(chat_id, "Running follow-up analysis...")
                 q_prompt = f"""[SYSTEM ROLE]\nYou are an elite Vedic Astrologer. Today's date is {session['t_ctx']['current_date']}.\n[MANDATORY RULES]\n- Give an uncompromising, direct, fact-based response. Synthesize the data, don't just rephrase it.\n- ALWAYS use Hindi names for planets and zodiac signs.\n- USE PROVIDED FACTS ONLY. Do not invent aspects or yogas not listed below.\n\n[CALCULATED LOGIC & CONTEXT]\n{session['logic_breakdown']}\n- Planetary Array:\n{session['planet_summary']}\n\n[USER'S SPECIFIC QUESTION]\n"{user_text}"\n\n[OUTPUT DIRECTIVE]\nProvide an unvarnished response. Explicitly state the astrological trigger, the exact timeline of impact, and precise preventative measures."""
-                payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": q_prompt}], "temperature": 0.15}
+                payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": q_prompt}], "temperature": 0.1}
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
                 res = requests.post(groq_url, headers=headers, json=payload, timeout=90)
                 if res.status_code == 200:
@@ -495,16 +497,15 @@ def webhook():
 def generate_final_pdf(chat_id, session, groq_key, groq_url):
     send_message(chat_id, "⏳ Audit complete. Formatting Dossier and generating PDF...")
     
-    system_msg = """You are an elite strategic writer translating Vedic Astrological math into professional prose. 
+    system_msg = """You are a Technical Writer translating a rigid astrological data sheet into professional prose. 
 [ABSOLUTE LAWS - VIOLATION = FAILURE]
-1. NO HALLUCINATIONS: You are strictly forbidden from calculating or inventing planetary aspects. ONLY use the exact aspects provided in the [FACT BLOCK] for each section.
+1. NO HALLUCINATIONS: You are strictly forbidden from calculating or inventing planetary aspects. You may ONLY mention an aspect if it is explicitly listed in the [FACT BLOCK]. If the Fact Block says "Aspected by: None", you are forbidden from mentioning any aspects. 
 2. NO REPETITION: Do not repeat the same phrases across sections. Use a highly varied, professional vocabulary.
 3. HINDI MANDATORY: You MUST use the Hindi names provided for EVERY Zodiac Sign and Planet.
 4. PLAIN ENGLISH: Every time you state an astrological condition (e.g., Combust, Debilitated), you MUST immediately explain what it means in real-world terms.
 5. NO FLUFF: Be clinical, tactical, and direct. Words like 'interplay' or 'energies' are FORBIDDEN.
 6. NO GEMSTONES: Focus on behavioral, Lal Kitab, Ayurvedic, and mantra-based remedies.
-7. TEMPLATE ADHERENCE: You MUST follow the exact structure provided. Do not add planets to a house that are not listed in its [FACT BLOCK].
-8. ACTIONABLE REMEDIES: Do NOT use vague phrases like "manage stress," "practice mindfulness," or "seek balance." Remedies must be hyper-specific physical actions, donations, or mantras tied to the exact afflicted planets.
+7. ACTIONABLE REMEDIES: Do NOT use vague phrases like "manage stress," "practice mindfulness," or "seek balance." Remedies must be hyper-specific physical actions, donations, or mantras tied to the exact afflicted planets.
 """
 
     logic = session['logic_breakdown']
@@ -561,27 +562,29 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
 
 # PART 1: ASTROLOGICAL OVERVIEW
 1. **Nakshatra & Planetary Brief**
-   - Explain the significance of the Ascendant Nakshatra and Moon Nakshatra.
+   - Explicitly state the Ascendant Nakshatra and Moon Nakshatra (extract from the [PLANETARY ARRAY] above).
    - List Lagna, Lagna Lord, Active Dasha, and the 5 core planets with their Hindi Sign and Dignity.
 
 # PART 2: COMPREHENSIVE PREDICTIONS
 2. **Timeline & Life Stage Context**
-   - *Past*, *Present*, and *Future* Dasha themes.
+   - *Past*: Name the Dasha that immediately preceded the current one (e.g., if current is Saturn, past was likely Rahu or Jupiter) and describe its theme.
+   - *Present*: What the current Dasha is activating right now.
+   - *Future*: Name the Dasha that immediately follows the current one and describe its expected theme.
 3. **Career & Professional Trajectory**
    - [FACT BLOCK FOR 10TH HOUSE]: {h10_facts}
-   - Directive: Write 2 paragraphs explaining the real-world career impact based STRICTLY on the Fact Block above. Mention Combustion or Debilitation if present. Do not invent aspects.
+   - Directive: Write 2 paragraphs explaining the real-world career impact based STRICTLY on the Fact Block above. Mention Combustion or Debilitation if present. DO NOT mention any aspects not listed in the Fact Block.
 4. **Wealth & Financial Assets**
    - [FACT BLOCK FOR 2ND HOUSE]: {h2_facts}
    - [FACT BLOCK FOR 11TH HOUSE]: {h11_facts}
-   - Directive: Write 2 paragraphs explaining wealth capacity and risks based STRICTLY on the Fact Blocks above. 
+   - Directive: Write 2 paragraphs explaining wealth capacity and risks based STRICTLY on the Fact Blocks above. DO NOT mention any aspects not listed.
 5. **Marriage & Relationship Dynamics**
    - [FACT BLOCK FOR 7TH HOUSE]: {h7_facts}
-   - Directive: Write 2 paragraphs explaining the psychological dynamics of partnerships based STRICTLY on the Fact Block above.
+   - Directive: Write 2 paragraphs explaining the psychological dynamics of partnerships based STRICTLY on the Fact Block above. DO NOT mention any aspects not listed.
 6. **Health & Legal Risk Vectors**
    - [FACT BLOCK FOR 6TH HOUSE]: {h6_facts}
    - [FACT BLOCK FOR 8TH HOUSE]: {h8_facts}
    - [FACT BLOCK FOR 12TH HOUSE]: {h12_facts}
-   - Directive: Write 2 paragraphs explaining health/legal vulnerabilities based STRICTLY on the Fact Blocks above.
+   - Directive: Write 2 paragraphs explaining health/legal vulnerabilities based STRICTLY on the Fact Blocks above. DO NOT mention any aspects not listed.
 7. **Ayurvedic Baseline & Constitution**
    - Detail Dosha and explain exactly how it physically manifests psychological stress. Provide specific dietary advice.
 8. **Remediation Protocols (Upaayas)**
@@ -593,7 +596,7 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
 {synastry_block}
 """
 
-    payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": system_msg}, {"role": "user", "content": user_msg}], "temperature": 0.15}
+    payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": system_msg}, {"role": "user", "content": user_msg}], "temperature": 0.1}
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
     res = requests.post(groq_url, headers=headers, json=payload, timeout=120)
     
