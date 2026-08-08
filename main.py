@@ -2,6 +2,8 @@ import os
 import requests
 import re
 import time
+import concurrent.futures
+import urllib.request
 from flask import Flask, request, jsonify
 from datetime import datetime, timedelta
 import swisseph as swe
@@ -14,6 +16,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_LEFT
 from reportlab.graphics.shapes import Drawing, Line, Rect, String
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from xml.sax.saxutils import escape
 
 app = Flask(__name__)
@@ -34,16 +38,136 @@ COMBUSTION_ORB = {"Moon (Chandra)": 12, "Mars (Mangal)": 17, "Mercury (Budh)": 1
 MALEFICS = ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]
 DOSHA_MAP = {"Aries": "Pitta", "Taurus": "Kapha", "Gemini": "Vata", "Cancer": "Kapha", "Leo": "Pitta", "Virgo": "Vata", "Libra": "Vata", "Scorpio": "Kapha", "Sagittarius": "Pitta", "Capricorn": "Vata", "Aquarius": "Vata", "Pisces": "Kapha"}
 
-# Nakshatra Lords Mapping
 NAK_LORDS = ["Ketu", "Venus (Shukra)", "Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Rahu", "Jupiter (Guru)", "Saturn (Shani)", "Mercury (Budh)"]
 
-def get_nakshatra_lord(nak_idx):
-    return NAK_LORDS[nak_idx % 9]
+NAK_PADA_TRAITS = {
+    "Ashwini": ["Pioneering & Aggressive", "Stable & Patient", "Analytical & Critical", "Philosophical & Expansive"],
+    "Bharani": ["Creative & Stubborn", "Emotional & Nurturing", "Intellectual & Ambitious", "Disciplined & Structured"],
+    "Krittika": ["Authoritative & Sharp", "Sensitive & Protective", "Communicative & Restless", "Spiritual & Detached"],
+    "Rohini": ["Materialistic & Magnetic", "Artistic & Emotional", "Intellectual & Curious", "Practical & Grounded"],
+    "Mrigashira": ["Restless & Searching", "Stable & Accumulating", "Dual-minded & Anxious", "Philosophical & Questing"],
+    "Ardra": ["Stormy & Disruptive", "Emotional & Sensitive", "Intellectual & Analytical", "Detached & Rebellious"],
+    "Punarvasu": ["Expansive & Optimistic", "Nurturing & Reflective", "Intellectual & Restless", "Structured & Disciplined"],
+    "Pushya": ["Protective & Nurturing", "Artistic & Stubborn", "Communicative & Clever", "Spiritual & Traditional"],
+    "Ashlesha": ["Cunning & Intense", "Emotional & Possessive", "Intellectual & Strategic", "Detached & Mysterious"],
+    "Magha": ["Proud & Traditional", "Stable & Accumulating", "Ambitious & Active", "Philosophical & Detached"],
+    "Purva Phalguni": ["Lazy & Luxurious", "Creative & Emotional", "Intellectual & Playful", "Disciplined & Strict"],
+    "Uttara Phalguni": ["Helpful & Proud", "Nurturing & Stubborn", "Communicative & Friendly", "Organized & Structured"],
+    "Hasta": ["Resourceful & Clever", "Emotional & Sensitive", "Intellectual & Witty", "Practical & Disciplined"],
+    "Chitra": ["Brilliant & Flashy", "Artistic & Stubborn", "Intellectual & Crafty", "Spiritual & Mystical"],
+    "Swati": ["Restless & Independent", "Nurturing & Diplomatic", "Intellectual & Social", "Detached & Philosophical"],
+    "Vishakha": ["Driven & Fiery", "Emotional & Jealous", "Intellectual & Goal-oriented", "Spiritual & Disciplined"],
+    "Anuradha": ["Friendly & Disciplined", "Nurturing & Stubborn", "Communicative & Strategic", "Mystical & Detached"],
+    "Jyeshtha": ["Authoritative & Protective", "Emotional & Secretive", "Intellectual & Cynical", "Philosophical & Detached"],
+    "Mula": ["Investigative & Destructive", "Stable & Patient", "Intellectual & Philosophical", "Spiritual & Detached"],
+    "Purva Ashadha": ["Proud & Invincible", "Creative & Emotional", "Intellectual & Persuasive", "Disciplined & Traditional"],
+    "Uttara Ashadha": ["Victorious & Righteous", "Nurturing & Stubborn", "Communicative & Honest", "Disciplined & Structured"],
+    "Shravana": ["Listening & Traditional", "Nurturing & Sentimental", "Intellectual & Inquisitive", "Spiritual & Detached"],
+    "Dhanishta": ["Rhythmic & Wealthy", "Artistic & Stubborn", "Intellectual & Scientific", "Philosophical & Detached"],
+    "Shatabhisha": ["Healing & Secretive", "Emotional & Sensitive", "Intellectual & Analytical", "Mystical & Detached"],
+    "Purva Bhadrapada": ["Intense & Restless", "Emotional & Anxious", "Intellectual & Pessimistic", "Spiritual & Detached"],
+    "Uttara Bhadrapada": ["Calm & Wise", "Nurturing & Patient", "Intellectual & Deep", "Mystical & Cosmic"],
+    "Revati": ["Nurturing & Wealthy", "Artistic & Stubborn", "Intellectual & Friendly", "Spiritual & Detached"]
+}
+
+def get_nakshatra_lord(nak_idx): return NAK_LORDS[nak_idx % 9]
+
+def get_nak_pada_trait(nak_name, pada):
+    if nak_name in NAK_PADA_TRAITS and 1 <= pada <= 4: return NAK_PADA_TRAITS[nak_name][pada - 1]
+    return "Unknown"
 
 # ==========================================
-# YOGA ENGINE INTEGRATED
+# DIVISIONAL & SHADBALA ENGINE (Phase 1)
 # ==========================================
-def detect_yogas(houses_dict, planets_dict):
+def calculate_divisional_sign(lon_val, division, sign_idx):
+    deg_in_sign = lon_val % 30
+    if division == 9:
+        d_idx = int(deg_in_sign / (30/9))
+        return (sign_idx * 9 + d_idx) % 12
+    elif division == 7:
+        d_idx = int(deg_in_sign / (30/7))
+        start_offset = 0 if sign_idx % 2 == 0 else 6
+        return (sign_idx + start_offset + d_idx) % 12
+    elif division == 10:
+        d_idx = int(deg_in_sign / 3)
+        start_offset = 0 if sign_idx % 2 == 0 else 8
+        return (sign_idx + start_offset + d_idx) % 12
+    return sign_idx
+
+def calculate_shadbala_lite(planet, sign, is_retro, is_combust, lon_val):
+    score = 0.0
+    if EXALTATION.get(planet) == sign: score += 1.0
+    if DEBILITATION.get(planet) == sign: score -= 1.0
+    if planet in OWN_SIGNS and sign in OWN_SIGNS[planet]: score += 0.5
+    if is_retro:
+        if planet in ["Saturn (Shani)", "Jupiter (Guru)", "Mars (Mangal)"]: score += 0.5
+        else: score += 0.2
+    if is_combust: score -= 1.5
+    if score >= 1.0: return "High Strength (Shadbala: >1.0)"
+    elif score <= -1.0: return "Severe Weakness (Shadbala: <-1.0)"
+    elif score < 0: return "Low Strength (Shadbala: <0)"
+    else: return "Moderate Strength (Shadbala: 0-1)"
+
+# ==========================================
+# MULTI-TRANSIT ENGINE (Phase 1)
+# ==========================================
+def calculate_multi_transits(natal_moon_sign, natal_asc_sign):
+    now_dt = datetime.now()
+    swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
+    dt_utc = now_dt - timedelta(hours=5, minutes=30)
+    utc_decimal = dt_utc.hour + (dt_utc.minute / 60.0)
+    jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, utc_decimal)
+    flags = swe.FLG_SWIEPH + swe.FLG_SPEED + swe.FLG_SIDEREAL
+    
+    t_sat = swe.calc_ut(jdut, swe.SATURN, flags); sat_lon = t_sat[0][0] if isinstance(t_sat[0], tuple) else t_sat[0]
+    t_jup = swe.calc_ut(jdut, swe.JUPITER, flags); jup_lon = t_jup[0][0] if isinstance(t_jup[0], tuple) else t_jup[0]
+    t_rahu = swe.calc_ut(jdut, swe.MEAN_NODE, flags); rahu_lon = t_rahu[0][0] if isinstance(t_rahu[0], tuple) else t_rahu[0]
+    ketu_lon = (rahu_lon + 180.0) % 360.0
+    
+    transit_sat_sign = ZODIAC_SIGNS[int(sat_lon / 30) % 12]
+    transit_jup_sign = ZODIAC_SIGNS[int(jup_lon / 30) % 12]
+    transit_rahu_sign = ZODIAC_SIGNS[int(rahu_lon / 30) % 12]
+    transit_ketu_sign = ZODIAC_SIGNS[int(ketu_lon / 30) % 12]
+    
+    moon_idx = ZODIAC_SIGNS.index(natal_moon_sign)
+    asc_idx = ZODIAC_SIGNS.index(natal_asc_sign)
+    
+    def get_transit_impacts(transit_idx, natal_idx):
+        diff = (transit_idx - natal_idx) % 12
+        impacts = []
+        if diff == 11: impacts.append("12th House (Loss/Expenses)")
+        elif diff == 0: impacts.append("1st House (Identity/Health)")
+        elif diff == 1: impacts.append("2nd House (Wealth/Family)")
+        elif diff == 3: impacts.append("4th House (Home/Peace)")
+        elif diff == 7: impacts.append("8th House (Trauma/Transformation)")
+        elif diff == 9: impacts.append("10th House (Career/Status)")
+        return diff, impacts
+
+    sat_diff_moon, sat_impacts_moon = get_transit_impacts(ZODIAC_SIGNS.index(transit_sat_sign), moon_idx)
+    sat_diff_asc, sat_impacts_asc = get_transit_impacts(ZODIAC_SIGNS.index(transit_sat_sign), asc_idx)
+    sade_sati = "Inactive"
+    if sat_diff_moon == 11: sade_sati = "Active - Phase 1 (Rising/12th from Moon)"
+    elif sat_diff_moon == 0: sade_sati = "Active - Phase 2 (Peak/1st House Moon)"
+    elif sat_diff_moon == 1: sade_sati = "Active - Phase 3 (Setting/2nd from Moon)"
+    sat_report = f"Saturn in {HINDI_SIGNS[transit_sat_sign]} | Sade Sati: {sade_sati} | Over Moon: {', '.join(sat_impacts_moon) if sat_impacts_moon else 'Neutral'} | Over Lagna: {', '.join(sat_impacts_asc) if sat_impacts_asc else 'Neutral'}"
+
+    jup_diff_moon, jup_impacts_moon = get_transit_impacts(ZODIAC_SIGNS.index(transit_jup_sign), moon_idx)
+    jup_diff_asc, jup_impacts_asc = get_transit_impacts(ZODIAC_SIGNS.index(transit_jup_sign), asc_idx)
+    jup_relief = "No direct relief aspect on Moon or Lagna."
+    if jup_diff_moon in [0, 1, 4, 7, 8, 9]: jup_relief = f"Active relief/expansion over Moon's {', '.join(jup_impacts_moon)}."
+    elif jup_diff_asc in [0, 1, 4, 7, 8, 9]: jup_relief = f"Active relief/expansion over Lagna's {', '.join(jup_impacts_asc)}."
+    jup_report = f"Jupiter in {HINDI_SIGNS[transit_jup_sign]} | Relief Vector: {jup_relief}"
+
+    rahu_diff_moon, rahu_impacts_moon = get_transit_impacts(ZODIAC_SIGNS.index(transit_rahu_sign), moon_idx)
+    ketu_diff_moon, ketu_impacts_moon = get_transit_impacts(ZODIAC_SIGNS.index(transit_ketu_sign), moon_idx)
+    node_report = f"Rahu in {HINDI_SIGNS[transit_rahu_sign]} (Disrupting {', '.join(rahu_impacts_moon) if rahu_impacts_moon else 'Neutral'}) | Ketu in {HINDI_SIGNS[transit_ketu_sign]} (Severing {', '.join(ketu_impacts_moon) if ketu_impacts_moon else 'Neutral'})"
+
+    return f"{sat_report}\n{jup_report}\n{node_report}"
+
+# ==========================================
+# ADVANCED YOGA ENGINE (Phase 2)
+# ==========================================
+def detect_yogas(houses_dict, planets_dict, sign_lords):
     yogas = []
     def get_house(planet_name):
         for h_num, h_data in houses_dict.items():
@@ -52,8 +176,8 @@ def detect_yogas(houses_dict, planets_dict):
 
     moon_house = get_house("Moon (Chandra)")
     jup_house = get_house("Jupiter (Guru)")
-    mars_house = get_house("Mars (Mangal)")
     sat_house = get_house("Saturn (Shani)")
+    mars_house = get_house("Mars (Mangal)")
     rahu_house = get_house("Rahu")
 
     if moon_house:
@@ -67,24 +191,46 @@ def detect_yogas(houses_dict, planets_dict):
             kendra_planets = houses_dict[1]["occupants"] + houses_dict[4]["occupants"] + houses_dict[7]["occupants"] + houses_dict[10]["occupants"]
             valid_kendra = [p for p in kendra_planets if p not in invalid_planets]
             if not valid_kendra:
-                yogas.append("Kemadruma Yoga (No valid planets in 2nd/12th from Moon, no Bhanga cancellation in Kendras): Strict classical result indicates severe psychological isolation, mental anguish, and financial struggles in early life. If Moon is strong, it grants immense self-reliance.")
+                yogas.append("Kemadruma Yoga (No valid planets in 2nd/12th from Moon, no Bhanga cancellation in Kendras): Severe psychological isolation, mental anguish, and financial struggles in early life.")
 
     if moon_house and jup_house:
         diff = abs(jup_house - moon_house)
         if diff in [0, 3, 6, 9]: 
-            yogas.append("Gaja Kesari Yoga (Jupiter in Kendra from Moon): Strict classical result grants high intelligence, fame, wealth, strong moral character, and the ability to influence masses.")
+            yogas.append("Gaja Kesari Yoga (Jupiter in Kendra from Moon): Grants high intelligence, fame, wealth, strong moral character.")
 
-    if jup_house and rahu_house:
-        if jup_house == rahu_house:
-            yogas.append("Guru Chandal Yoga (Jupiter conjunct Rahu): Strict classical result indicates distortion of wisdom, unethical associations, and karmic tests of integrity.")
+    if jup_house and rahu_house and jup_house == rahu_house:
+        yogas.append("Guru Chandal Yoga (Jupiter conjunct Rahu): Distortion of wisdom, unethical associations.")
+    if sat_house and mars_house and sat_house == mars_house:
+        yogas.append("Shani-Mangal Dosha (Saturn conjunct Mars): Intense frustration, structural conflicts, high risk of accidents.")
 
-    if sat_house and mars_house:
-        if sat_house == mars_house:
-            yogas.append("Shani-Mangal Dosha (Saturn conjunct Mars): Strict classical result indicates intense frustration, structural conflicts, property disputes, and a high risk of accidents or surgical interventions.")
+    for p_name, p_data in planets_dict.items():
+        if p_data.get("dignity", "").startswith("Debilitated"):
+            deb_sign = p_data["sign"]
+            exalt_lord = sign_lords.get(EXALTATION.get(p_name, ""))
+            deb_lord = sign_lords.get(deb_sign, "")
+            for lord in [exalt_lord, deb_lord]:
+                if lord:
+                    lord_house = get_house(lord)
+                    if lord_house in [1, 4, 7, 10]:
+                        yogas.append(f"Neecha Bhanga Raja Yoga for {p_name}: Debilitation canceled by {lord} in Kendra. The initial weakness transforms into immense late-life power and success.")
+                        break
+
+    kendra_houses = [1, 4, 7, 10]
+    trikona_houses = [1, 5, 9]
+    kendra_lords = [sign_lords.get(houses_dict[h]["sign"], "") for h in kendra_houses]
+    trikona_lords = [sign_lords.get(houses_dict[h]["sign"], "") for h in trikona_houses]
+    
+    for h_num in range(1, 13):
+        occupants = houses_dict[h_num]["occupants"]
+        for k_lord in kendra_lords:
+            for t_lord in trikona_lords:
+                if k_lord and t_lord and k_lord != t_lord:
+                    if k_lord in occupants and t_lord in occupants:
+                        yogas.append(f"Raja Yoga ({k_lord} conjunct {t_lord} in House {h_num}): Grants sudden elevation in status, power, and financial capacity.")
     return yogas
 
 # ==========================================
-# LAL KITAB ENGINE INTEGRATED
+# LAL KITAB ENGINE (Phase 2 - Conjunction Aware)
 # ==========================================
 LAL_KITAB_DICT = {
     "Saturn (Shani)_Combust": "Donate black sesame oil on Saturday. Keep a square piece of silver in wallet to prevent liquid cash evaporation.",
@@ -126,46 +272,18 @@ def get_lal_kitab_remedy(houses_dict, planets_dict):
             if key in LAL_KITAB_DICT: remedies.append(f"{p_name} is Debilitated: {LAL_KITAB_DICT[key]}")
                     
     for h_num in [6, 8, 12]:
-        for p_name in houses_dict[h_num]["occupants"]:
-            if p_name in ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]:
-                key = f"{p_name}_{h_num}"
-                if key in LAL_KITAB_DICT: remedies.append(f"{p_name} in House {h_num}: {LAL_KITAB_DICT[key]}")
+        occ = houses_dict[h_num]["occupants"]
+        malefics_in_house = [p for p in occ if p in ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]]
+        for p_name in malefics_in_house:
+            key = f"{p_name}_{h_num}"
+            if key in LAL_KITAB_DICT: 
+                remedy_text = LAL_KITAB_DICT[key]
+                if len(malefics_in_house) > 1:
+                    remedy_text += " (Warning: Malefic conjunction detected. Do not perform gemstone therapy for these planets.)"
+                remedies.append(f"{p_name} in House {h_num}: {remedy_text}")
                         
     unique_remedies = list(dict.fromkeys(remedies))
-    return unique_remedies[:2]
-
-# ==========================================
-# LIVE TRANSIT ENGINE (Vector 8 Calculation)
-# ==========================================
-def calculate_live_transits(natal_moon_sign):
-    now_dt = datetime.now()
-    swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
-    dt_utc = now_dt - timedelta(hours=5, minutes=30)
-    utc_decimal = dt_utc.hour + (dt_utc.minute / 60.0)
-    jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, utc_decimal)
-    flags = swe.FLG_SWIEPH + swe.FLG_SPEED + swe.FLG_SIDEREAL
-    
-    calc = swe.calc_ut(jdut, swe.SATURN, flags)
-    sat_lon = calc[0][0] if isinstance(calc[0], tuple) else calc[0]
-    transit_sat_sign = ZODIAC_SIGNS[int(sat_lon / 30) % 12]
-    
-    natal_idx = ZODIAC_SIGNS.index(natal_moon_sign)
-    transit_idx = ZODIAC_SIGNS.index(transit_sat_sign)
-    diff = (transit_idx - natal_idx) % 12
-    
-    sade_sati_status = "Inactive"
-    if diff == 11:
-        sade_sati_status = "Active - Phase 1 (Rising Phase / 12th from Moon): Financial pressure & mental anxiety"
-    elif diff == 0:
-        sade_sati_status = "Active - Phase 2 (Peak Phase / 1st House Moon): Core psychological pressure & identity shift"
-    elif diff == 1:
-        sade_sati_status = "Active - Phase 3 (Setting Phase / 2nd from Moon): Liquidity strain & family asset realignment"
-    elif diff == 3:
-        sade_sati_status = "Kantaka Shani (Saturn in 4th from Moon): Domestic instability & career friction"
-    elif diff == 7:
-        sade_sati_status = "Ashtama Shani (Saturn in 8th from Moon): Severe transformation, sudden delays & legal/health vulnerability"
-        
-    return f"Transit Saturn in {HINDI_SIGNS[transit_sat_sign]} | Sade Sati / Shani Transit Status: {sade_sati_status}"
+    return unique_remedies[:3]
 
 # ==========================================
 # CORE BOT FUNCTIONS
@@ -230,6 +348,18 @@ def draw_north_chart_drawing(asc_sign, planets_data, title="Chart"):
 
 def generate_master_pdf(report_text, pdf_path, birth_details_str, name_str, planet_data, asc_sign, d9_planets, d9_asc_sign):
     try:
+        # Register Devanagari Font for Hindi Translation
+        hindi_font_available = False
+        try:
+            font_path = "/tmp/NotoSansDevanagari.ttf"
+            if not os.path.exists(font_path):
+                font_url = "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansdevanagari/NotoSansDevanagari%5Bwdth%2Cwght%5D.ttf"
+                urllib.request.urlretrieve(font_url, font_path)
+            pdfmetrics.registerFont(TTFont('NotoDevanagari', font_path))
+            hindi_font_available = True
+        except Exception as e:
+            print(f"Hindi Font Registration Failed: {e}", flush=True)
+
         doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=45, leftMargin=45, topMargin=45, bottomMargin=45)
         styles = getSampleStyleSheet()
         
@@ -295,6 +425,7 @@ def generate_master_pdf(report_text, pdf_path, birth_details_str, name_str, plan
         story.append(planet_table)
         story.append(Spacer(1, 15))
 
+        is_hindi_section = False
         for line in report_text.split('\n'):
             line = line.strip()
             if not line: continue
@@ -304,23 +435,35 @@ def generate_master_pdf(report_text, pdf_path, birth_details_str, name_str, plan
             safe_line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', safe_line)
             safe_line = re.sub(r'\*(.*?)\*', r'<i>\1</i>', safe_line)
             
-            if safe_line.startswith("# I.") or safe_line.startswith("# II.") or safe_line.startswith("# III.") or safe_line.startswith("# IV."):
-                if not safe_line.startswith("# I."): story.append(PageBreak())
-                story.append(Paragraph(safe_line.replace("# ", ""), h1_style))
+            if safe_line.startswith("# PART 2"):
+                is_hindi_section = True
+                
+            # Use Devanagari font for Hindi section if available
+            act_h1, act_h2, act_h3, act_body, act_bullet = h1_style, h2_style, h3_style, body_style, bullet_style
+            if is_hindi_section and hindi_font_available:
+                act_h1 = ParagraphStyle('HH1', parent=h1_style, fontName='NotoDevanagari')
+                act_h2 = ParagraphStyle('HH2', parent=h2_style, fontName='NotoDevanagari')
+                act_h3 = ParagraphStyle('HH3', parent=h3_style, fontName='NotoDevanagari')
+                act_body = ParagraphStyle('HBody', parent=body_style, fontName='NotoDevanagari')
+                act_bullet = ParagraphStyle('HBullet', parent=bullet_style, fontName='NotoDevanagari')
+            
+            if safe_line.startswith("# I.") or safe_line.startswith("# II.") or safe_line.startswith("# III.") or safe_line.startswith("# IV.") or safe_line.startswith("# PART 2"):
+                if not (safe_line.startswith("# I.") or safe_line.startswith("# PART 2")): story.append(PageBreak())
+                story.append(Paragraph(safe_line.replace("# ", ""), act_h1))
                 story.append(Spacer(1, 12))
-            elif safe_line.startswith("# PART 3"): story.append(PageBreak()); story.append(Paragraph("COMPATIBILITY & SYNESTRY ANALYSIS", h1_style)); story.append(Spacer(1, 12))
+            elif safe_line.startswith("# PART 3"): story.append(PageBreak()); story.append(Paragraph("COMPATIBILITY & SYNESTRY ANALYSIS", act_h1)); story.append(Spacer(1, 12))
             elif safe_line.startswith("*Disclaimer:"):
                 story.append(Spacer(1, 6)); story.append(Paragraph(safe_line, disclaimer_style)); story.append(Spacer(1, 10))
-            elif safe_line.startswith("### "): story.append(Paragraph(safe_line.replace("### ", ""), h3_style))
+            elif safe_line.startswith("### "): story.append(Paragraph(safe_line.replace("### ", ""), act_h3))
             elif re.match(r'^\d+\.\s+', safe_line):
-                story.append(Paragraph(re.sub(r'^\d+\.\s+', '', safe_line), h2_style))
+                story.append(Paragraph(re.sub(r'^\d+\.\s+', '', safe_line), act_h2))
                 story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#CCCCCC'), spaceBefore=2, spaceAfter=6))
             elif safe_line.startswith("  - ") or safe_line.startswith("   - "):
-                story.append(Paragraph(safe_line.replace("- ", "", 1), bullet_style, bulletText='◦'))
+                story.append(Paragraph(safe_line.replace("- ", "", 1), act_bullet, bulletText='◦'))
             elif safe_line.startswith("- "):
-                story.append(Paragraph(safe_line.replace("- ", "", 1), bullet_style, bulletText='•'))
+                story.append(Paragraph(safe_line.replace("- ", "", 1), act_bullet, bulletText='•'))
             else:
-                story.append(Paragraph(safe_line, body_style))
+                story.append(Paragraph(safe_line, act_body))
 
         doc.build(story)
         return True
@@ -476,7 +619,7 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     if houses[10]["ruler_placed_in"] in [8, 12]:
         inferences.append("High Risk of Career Collapse: 10th Lord is in the 8th or 12th House, indicating sudden career termination or structural instability.")
 
-    yogas = detect_yogas(houses, planets_full)
+    yogas = detect_yogas(houses, planets_full, sign_lords)
 
     if houses[2]["ruler_placed_in"] in [6, 8, 12] or houses[11]["ruler_placed_in"] in [6, 8, 12]:
         yogas.append("Daridra Yoga (Poverty Yoga): 2nd or 11th Lord is in a Dusthana (6/8/12). This confirms the structural root of the liquidity freeze and severe wealth erosion.")
@@ -488,15 +631,19 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
             if p_house in [1, 4, 7, 10] and ("Own Sign" in p_dignity or "Exalted" in p_dignity):
                 yogas.append(f"Panch Mahapurusha Yoga ({p_name.split(' ')[0]} in Kendra): Exceptional potential in its domain, but requires harnessing amidst the current crisis.")
 
+    moon_nak = planets_full["Moon (Chandra)"]["nak"]
+    moon_pada = planets_full["Moon (Chandra)"]["pada"]
+    moon_trait = get_nak_pada_trait(moon_nak, moon_pada)
+    logic_summary += f"\n[PSYCHOLOGICAL ARCHETYPE]: Moon in {moon_nak} Pada {moon_pada} grants a '{moon_trait}' core emotional nature."
+
     lal_kitab_rules = get_lal_kitab_remedy(houses, planets_full)
     
     logic_summary += f"\n[PRE-CALCULATED YOGAS]:\n - " + "\n - ".join(yogas) if yogas else "\n[PRE-CALCULATED YOGAS]: None."
     logic_summary += f"\n[HARD DEDUCTIVE INFERENCES]:\n - " + "\n - ".join(inferences) if inferences else "\n[HARD DEDUCTIVE INFERENCES]: None."
     logic_summary += f"\n[MANDATORY LAL KITAB REMEDY]:\n - " + "\n - ".join(lal_kitab_rules) if lal_kitab_rules else "\n[MANDATORY LAL KITAB REMEDY]: None."
 
-    # STEP 2: Inject Live Transits
-    transit_data = calculate_live_transits(planets_full["Moon (Chandra)"]["sign"])
-    logic_summary += f"\n[LIVE TRANSIT THREAT]: {transit_data}"
+    transit_data = calculate_multi_transits(planets_full["Moon (Chandra)"]["sign"], asc_sign)
+    logic_summary += f"\n[LIVE TRANSIT MATRIX]:\n{transit_data}"
 
     return logic_summary, age
 
@@ -537,14 +684,20 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
             if dist_to_sun > 180: dist_to_sun = 360 - dist_to_sun
             if dist_to_sun < COMBUSTION_ORB[name]: is_combust = True
             
-        d9_sign_idx = int((lon_val % (30/9)) / (30/9)) + (sign_idx * 9); d9_sign_name = ZODIAC_SIGNS[d9_sign_idx % 12]
+        d9_sign_idx = calculate_divisional_sign(lon_val, 9, sign_idx); d9_sign_name = ZODIAC_SIGNS[d9_sign_idx % 12]
+        d7_sign_idx = calculate_divisional_sign(lon_val, 7, sign_idx); d7_sign_name = ZODIAC_SIGNS[d7_sign_idx % 12]
+        d10_sign_idx = calculate_divisional_sign(lon_val, 10, sign_idx); d10_sign_name = ZODIAC_SIGNS[d10_sign_idx % 12]
+        
         is_vargottama = (sign_name == d9_sign_name)
+        shadbala = calculate_shadbala_lite(name, sign_name, is_retro, is_combust, lon_val)
         
         positions[name] = {
             "sign": sign_name, "hindi_sign": HINDI_SIGNS[sign_name], "lon": lon_val % 360.0, 
             "nak": nak_name, "nak_lord": nak_lord, "pada": pada, 
             "dignity": dignity, "retro": is_retro, "combust": is_combust, 
-            "vargottama": is_vargottama, "jaimini": ""
+            "vargottama": is_vargottama, "jaimini": "",
+            "d7_sign": d7_sign_name, "d10_sign": d10_sign_name, 
+            "shadbala": shadbala
         }
         d9_positions[name] = {"sign": d9_sign_name, "hindi_sign": HINDI_SIGNS[d9_sign_name]}
         
@@ -554,9 +707,8 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
         asc_lon = 0.0
         
     asc_sign = ZODIAC_SIGNS[int(asc_lon / 30) % 12]; _, asc_nak, asc_pada, _ = get_nakshatra_info(asc_lon)
-    asc_d9_sign_idx = int((asc_lon % (30/9)) / (30/9)) + (ZODIAC_SIGNS.index(asc_sign) * 9); asc_d9_sign = ZODIAC_SIGNS[asc_d9_sign_idx % 12]
+    asc_d9_sign_idx = calculate_divisional_sign(asc_lon, 9, ZODIAC_SIGNS.index(asc_sign)); asc_d9_sign = ZODIAC_SIGNS[asc_d9_sign_idx % 12]
     
-    # --- JAIMINI KARAKAS CALCULATION ---
     jaimini_planets = []
     for name in ["Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Mercury (Budh)", "Jupiter (Guru)", "Venus (Shukra)", "Saturn (Shani)"]:
         if name in positions:
@@ -602,7 +754,6 @@ def calculate_synastry(p1_data, p2_data):
     return summary.strip()
 
 def llm_output_firewall(text, logic_summary):
-    # 1. Aspect Hallucination Filter
     none_houses = re.findall(r"House (\d+).*?Aspected by: none\.", logic_summary, re.IGNORECASE)
     clean_text = text
     for h_num in none_houses:
@@ -613,7 +764,6 @@ def llm_output_firewall(text, logic_summary):
             return " [REDACTED: HALLUCINATED ASPECT] "
         clean_text = re.sub(pattern, replace_func, clean_text)
         
-    # 2. Fluff & Soft Language Obliterator
     forbidden_words = ["potentially", "possibly", "suggesting", "assuming", "self-care", "date nights", "yoga", "meditation", "mindfulness"]
     for word in forbidden_words:
         clean_text = re.compile(re.escape(word), re.IGNORECASE).sub("[CLINICAL REDACTION]", clean_text)
@@ -661,9 +811,9 @@ def webhook():
                 asc_sign, asc_nak, asc_pada, planets, d9_planets, asc_d9_sign, t_ctx, logic_breakdown, age = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
                 
                 planet_summary = "\n".join([
-                    f"- {p}: {d['hindi_sign']} | Nak: {d['nak']} (ruled by {d.get('nak_lord', 'Unknown')}) | Dignity: {d['dignity']} {'[Vargottama]' if d.get('vargottama') else ''} | {d['jaimini']}" 
+                    f"- {p}: {d['hindi_sign']} | Nak: {d['nak']} (ruled by {d.get('nak_lord', 'Unknown')}) | Dignity: {d['dignity']} | Shadbala: {d.get('shadbala', 'N/A')} {'[Vargottama]' if d.get('vargottama') else ''} | {d['jaimini']}" 
                     if d.get('jaimini') else 
-                    f"- {p}: {d['hindi_sign']} | Nak: {d['nak']} (ruled by {d.get('nak_lord', 'Unknown')}) | Dignity: {d['dignity']} {'[Vargottama]' if d.get('vargottama') else ''}" 
+                    f"- {p}: {d['hindi_sign']} | Nak: {d['nak']} (ruled by {d.get('nak_lord', 'Unknown')}) | Dignity: {d['dignity']} | Shadbala: {d.get('shadbala', 'N/A')} {'[Vargottama]' if d.get('vargottama') else ''}" 
                     for p, d in planets.items()
                 ])
                 
@@ -707,11 +857,24 @@ def webhook():
         except: pass
     return jsonify(status="success"), 200
 
+# ==========================================
+# PHASE 3: MULTI-AGENT LLM ORCHESTRATION
+# ==========================================
+def call_groq_agent(groq_url, groq_key, system_msg, user_msg):
+    payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": system_msg}, {"role": "user", "content": user_msg}], "temperature": 0.3}
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
+    try:
+        res = requests.post(groq_url, headers=headers, json=payload, timeout=120)
+        if res.status_code == 200:
+            return res.json()['choices'][0]['message']['content']
+        return f"[ERROR IN AGENT: {res.text[:100]}]"
+    except Exception as e:
+        return f"[AGENT TIMEOUT/ERROR: {str(e)}]"
+
 def generate_final_pdf(chat_id, session, groq_key, groq_url):
-    send_message(chat_id, "⏳ Audit complete. Formatting Dossier and generating PDF...")
+    send_message(chat_id, "⏳ Multi-Agent Audit initiated. Dispatching Diagnostician, Strategist, and Tactical Analyst in parallel...")
     
-    # STEP 3: Overhaul generate_final_pdf (All 8 Vectors)
-    system_msg = """You are an Elite Forensic Astrological Diagnostician writing an institutional 8-Vector Threat Matrix Dossier. 
+    base_system_msg = """You are an Elite Forensic Astrological Diagnostician writing an institutional 8-Vector Threat Matrix Dossier. 
 [ABSOLUTE LAWS - VIOLATION = FAILURE]
 1. FORBIDDEN CONCEPTS: Do not use words like 'potentially', 'possibly', 'suggesting', or 'assuming'. Do NOT prescribe generic couples therapy or generic wellness ('meditation', 'mindfulness', 'self-care'). Use blunt, definitive, clinical terminology only.
 2. CHAIN OF DEDUCTION: For every Threat Vector, you MUST output your analysis in this exact 4-part structure:
@@ -733,18 +896,10 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
             return f"House {house_num} is {sign}. Ruled by {lord}. Lord is in House {lord_house}. Occupied by: {occ}. Aspected by: {asp}."
         return f"Data for House {house_num} not found."
 
-    h1_facts = extract_house_facts(1)
-    h2_facts = extract_house_facts(2)
-    h3_facts = extract_house_facts(3)
-    h4_facts = extract_house_facts(4)
-    h5_facts = extract_house_facts(5)
-    h6_facts = extract_house_facts(6)
-    h7_facts = extract_house_facts(7)
-    h8_facts = extract_house_facts(8)
-    h9_facts = extract_house_facts(9)
-    h10_facts = extract_house_facts(10)
-    h11_facts = extract_house_facts(11)
-    h12_facts = extract_house_facts(12)
+    h1_facts = extract_house_facts(1); h2_facts = extract_house_facts(2); h3_facts = extract_house_facts(3)
+    h4_facts = extract_house_facts(4); h5_facts = extract_house_facts(5); h6_facts = extract_house_facts(6)
+    h7_facts = extract_house_facts(7); h8_facts = extract_house_facts(8); h9_facts = extract_house_facts(9)
+    h10_facts = extract_house_facts(10); h11_facts = extract_house_facts(11); h12_facts = extract_house_facts(12)
 
     synastry_block = ""
     if "synastry" in session:
@@ -756,7 +911,8 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
    - Detail specific remedies to mitigate friction in the relationship.
 """
 
-    user_msg = f"""[INPUT DATA]
+    # AGENT A: Diagnostician (Sections I, II, Vectors 1-3)
+    user_msg_a = f"""[INPUT DATA]
 - Baseline Date: {session['t_ctx']['current_date']}
 - Ascendant Nakshatra: {session['t_ctx']['asc_nakshatra']}
 - Exact Dasha Timeline: {session['t_ctx']['dasha_timeline']}
@@ -767,16 +923,14 @@ Ascendant (Lagna): {HINDI_SIGNS[session['asc_sign']]}
 {session['planet_summary']}
 
 [OUTPUT TEMPLATE - FOLLOW EXACTLY]
-Disclaimer: This audit maps karmic tendencies and probabilistic risk vectors based on planetary mathematics. Astrological indications are environmental influences, not absolute mandates.
+*Disclaimer: This audit maps karmic tendencies and probabilistic risk vectors based on planetary mathematics. Astrological indications are environmental influences, not absolute mandates.*
 
 # I. EXECUTIVE DIAGNOSIS (The Karmic Baseline)
 The Core Constraint (Atmakaraka): Explicitly name the Atmakaraka planet. Diagnose the native's primary karmic loop and psychological bottleneck based on this planet.
-
 The Structural Reality: Write a brutal synthesis of the [PRE-CALCULATED YOGAS] and [HARD DEDUCTIVE INFERENCES]. State the absolute truth of their current crisis.
 
 # II. THE TEMPORAL TRIGGER (Micro-Timing & Transits)
 Current Pratyantardasha Trigger: Analyze the Current Pratyantardasha and its Nakshatra Lord. Explain exactly why the specific collapse triggered right now.
-
 Live Transit Pressure (Gochar): Analyze the live Saturn transit / Sade Sati status from the logic summary. State how current real-time transits are exacerbating the active Dasha.
 
 # III. THE 8-VECTOR THREAT MATRIX & DEDUCTIVE TRIAGE
@@ -791,7 +945,7 @@ Live Transit Pressure (Gochar): Analyze the live Saturn transit / Sade Sati stat
 
 **Vector 2: Neurological & Psychological Baseline**
 - [FACT BLOCKS]: House 6: {h6_facts} | House 8: {h8_facts} | House 12: {h12_facts}
-- **Astronomical Root:** (State Moon dignity, Nakshatra Lord, and Dosha)
+- **Astronomical Root:** (State Moon dignity, Nakshatra Lord, Shadbala, and the exact [PSYCHOLOGICAL ARCHETYPE] from the Pada data)
 - **Systemic Vulnerability:** (Explain neurological breakdown, e.g., Vata/Pitta overload)
 - **Real-World Manifestation:** (Diagnose clinical anxiety, panic, or insomnia)
 - **Tactical Countermeasure:** (Full-Spectrum Protocol: Ayurvedic/dietary triage, daily behavioral routines to hack the nervous system, and targeted Mantric prescriptions)
@@ -802,6 +956,16 @@ Live Transit Pressure (Gochar): Analyze the live Saturn transit / Sade Sati stat
 - **Systemic Vulnerability:** (Explain psychological friction or emotional unavailability)
 - **Real-World Manifestation:** (State how this damages marriage or business partnerships)
 - **Tactical Countermeasure:** (Full-Spectrum Protocol: Clinical psychological adjustments, karmic offsets, and environmental corrections)
+"""
+
+    # AGENT B: Strategist (Vectors 4-7)
+    user_msg_b = f"""[INPUT DATA]
+{session['logic_breakdown']}
+[PLANETARY ARRAY]
+{session['planet_summary']}
+
+[OUTPUT TEMPLATE - FOLLOW EXACTLY]
+*(You are continuing the 8-Vector Threat Matrix. Do NOT output Sections I or II. Start immediately from Vector 4.)*
 
 **Vector 4: Property, Assets & Domestic Foundation**
 - [FACT BLOCKS]: House 4: {h4_facts}
@@ -824,15 +988,24 @@ Live Transit Pressure (Gochar): Analyze the live Saturn transit / Sade Sati stat
 - **Real-World Manifestation:** (Diagnose physical burnout, lack of initiative, or sibling/peer friction)
 - **Tactical Countermeasure:** (Full-Spectrum Protocol: Physical/Ayurvedic routines for vitality, communication strategies, and protective actions)
 
-**Vector 7: Subconscious Reality & Second-Half Trajectory (Navamsha D9)**
+**Vector 7: Subconscious Reality & Second-Half Trajectory (Navamsha D9 & Divisionals)**
 - [FACT BLOCKS]: Navamsha Lagna: {HINDI_SIGNS[session['asc_d9_sign']]} | Key D9 Placements
 - **Astronomical Root:** (Cross-reference D1 Lagna vs D9 Lagna, and evaluate planets with Vargottama or shifted dignities in D9)
 - **Systemic Vulnerability:** (Explain hidden subconscious patterns or shifts occurring in the second half of life)
 - **Real-World Manifestation:** (Diagnose internal emptiness despite external success, or late-life structural transformations)
 - **Tactical Countermeasure:** (Full-Spectrum Protocol: Spiritual realignment, long-term karmic adjustments, and D9-activating remedies)
+"""
+
+    # AGENT C: Tactical Analyst (Vector 8 & Section IV)
+    user_msg_c = f"""[INPUT DATA]
+- Baseline Date: {session['t_ctx']['current_date']}
+{session['logic_breakdown']}
+
+[OUTPUT TEMPLATE - FOLLOW EXACTLY]
+*(You are concluding the 8-Vector Threat Matrix. Do NOT output previous Sections. Start immediately from Vector 8.)*
 
 **Vector 8: Live Real-Time Transit Matrix (Gochar & Sade Sati)**
-- [FACT BLOCKS]: Live Transits: {calculate_live_transits(session['planet_data']['Moon (Chandra)']['sign'])}
+- [FACT BLOCKS]: Live Transits:\n{calculate_multi_transits(session['planet_data']['Moon (Chandra)']['sign'], session['asc_sign'])}
 - **Astronomical Root:** (Detail current position of transit Saturn relative to natal Moon and active transit pressure)
 - **Systemic Vulnerability:** (Explain real-time environmental friction or psychological compression caused by Gochar)
 - **Real-World Manifestation:** (Diagnose immediate real-time bottlenecks occurring this month/year)
@@ -843,28 +1016,43 @@ Detail specific Mantras for the Lagna Lord or afflicted planets to rebuild self-
 {synastry_block}
 """
 
-    payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": system_msg}, {"role": "user", "content": user_msg}], "temperature": 0.3}
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
-    res = requests.post(groq_url, headers=headers, json=payload, timeout=120)
+    # Execute Agents Concurrently
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        future_a = executor.submit(call_groq_agent, groq_url, groq_key, base_system_msg, user_msg_a)
+        future_b = executor.submit(call_groq_agent, groq_url, groq_key, base_system_msg, user_msg_b)
+        future_c = executor.submit(call_groq_agent, groq_url, groq_key, base_system_msg, user_msg_c)
+        
+        res_a = future_a.result()
+        res_b = future_b.result()
+        res_c = future_c.result()
+        
+    english_text = res_a + "\n\n" + res_b + "\n\n" + res_c
+    final_text_firewalled = llm_output_firewall(english_text, logic)
     
-    if res.status_code == 200:
-        final_text = res.json()['choices'][0]['message']['content']
-        
-        # POST-GENERATION PYTHON FIREWALL
-        final_text = llm_output_firewall(final_text, logic)
-        
-        file_tag = str(int(time.time()))
-        pdf_path = f"/tmp/Astrological_Audit_{file_tag}.pdf"
-        pdf_success = generate_master_pdf(final_text, pdf_path, session["birth_str"], session["name"], session["planet_data"], session["asc_sign"], session["d9_planets"], session["asc_d9_sign"])
-        
-        if pdf_success and os.path.exists(pdf_path):
-            send_document(chat_id, pdf_path)
-            send_message(chat_id, "📄 **Astrological Audit PDF attached above!** ⬆️\nYou can now ask specific tactical questions based on this audit.")
-        else:
-            send_message(chat_id, "⚠️ PDF generation failed on server. Sending text report instead:")
-            for i in range(0, len(final_text), 3900): send_message(chat_id, final_text[i:i + 3900]); time.sleep(0.5)
+    # AGENT D: Hindi Translator
+    send_message(chat_id, "⏳ Translating Dossier to Hindi (Agent D)...")
+    translator_system_msg = """You are an expert astrological translator. Translate the provided English astrological dossier into formal, clinical Hindi. 
+    Maintain all Markdown formatting (**, ###, -, #). 
+    Ensure ALL astrological terms have their Hindi names in brackets (e.g., Saturn (Shani), 2nd House (द्वितीय भाव)). 
+    Do not add or remove information. Translate exactly."""
+    
+    hindi_text = call_groq_agent(groq_url, groq_key, translator_system_msg, f"Translate the following text to Hindi:\n\n{final_text_firewalled}")
+    
+    complete_pdf_text = final_text_firewalled + "\n\n# PART 2: हिंदी अनुवाद (HINDI TRANSLATION)\n\n" + hindi_text
+    
+    # PDF Gen
+    send_message(chat_id, "⏳ Agents have reported. Compiling Forensic Dossier...")
+    file_tag = str(int(time.time()))
+    pdf_path = f"/tmp/Astrological_Audit_{file_tag}.pdf"
+    pdf_success = generate_master_pdf(complete_pdf_text, pdf_path, session["birth_str"], session["name"], session["planet_data"], session["asc_sign"], session["d9_planets"], session["asc_d9_sign"])
+    
+    if pdf_success and os.path.exists(pdf_path):
+        send_document(chat_id, pdf_path)
+        send_message(chat_id, "📄 **Astrological Audit PDF attached above!** ⬆️\nYou can now ask specific tactical questions based on this audit.")
     else:
-        send_message(chat_id, f"Groq API Error: {res.text[:150]}")
+        send_message(chat_id, "⚠️ PDF generation failed on server. Sending text report instead:")
+        for i in range(0, len(complete_pdf_text), 3900): send_message(chat_id, complete_pdf_text[i:i + 3900]); time.sleep(0.5)
+        
     return jsonify(status="success"), 200
 
 if __name__ == '__main__':
