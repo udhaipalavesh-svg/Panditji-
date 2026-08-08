@@ -4,4 +4,4 @@ jyotichart
 gunicorn
 pillow
 reportlab
-swisseph
+pyswisseph
