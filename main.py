@@ -51,7 +51,13 @@ def send_document(chat_id, file_path):
     except: return False
 
 def generate_svg_chart(filename, title, asc_sign, planets_data):
-    p_chart_map = {"Sun (Surya)": chart.SUN, "Moon (Chandra)": chart.MOON, "Mars (Mangal)": chart.MARS, "Mercury (Budh)": chart.MERCERY, "Jupiter (Guru)": chart.JUPITER, "Venus (Shukra)": chart.VENUS, "Saturn (Shani)": chart.SATURN, "Rahu": chart.RAHU, "Ketu": chart.KETU}
+    # FIX 1: Corrected chart.MERCURY typo
+    p_chart_map = {
+        "Sun (Surya)": chart.SUN, "Moon (Chandra)": chart.MOON, "Mars (Mangal)": chart.MARS, 
+        "Mercury (Budh)": chart.MERCURY, 
+        "Jupiter (Guru)": chart.JUPITER, "Venus (Shukra)": chart.VENUS, 
+        "Saturn (Shani)": chart.SATURN, "Rahu": chart.RAHU, "Ketu": chart.KETU
+    }
     svg_path = f"/tmp/{filename}.svg"
     north = chart.NorthChart(title, "", IsFullChart=True)
     north.set_ascendantsign(asc_sign)
@@ -421,7 +427,8 @@ def webhook():
                 send_message(chat_id, "Welcome! Send your birth details to begin your **Astrological Audit**:\n`Name DD-MM-YYYY HH:MM City`\n(e.g., `Rahul 05-09-1981 12:16 Amritsar`)\n\n_(Name is optional)_")
                 return jsonify(status="success"), 200
                 
-            match = re.search(r'^(?:(?P<name>.+?)\s+)?(?P<day>\d{1,2})\s*[-/]\s*(?P<month>\d{1,2})\s*[-/]\s*(?P<year>\d{2,4})\s+(?P<hour>\d{1,2}):(?P<minute>\d{1,2})\s+(?P<city>.+)$', user_text)
+            # FIX 2: Bulletproof Regex to handle city names with parentheses, symbols, etc.
+            match = re.search(r'^(?:(?P<name>[A-Za-z][\w\s\.]+?)\s+)?(?P<day>\d{1,2})\s*[-/]\s*(?P<month>\d{1,2})\s*[-/]\s*(?P<year>\d{2,4})\s+(?P<hour>\d{1,2}):(?P<minute>\d{1,2})\s+(?P<city>[A-Za-z][\w\s\(\)\&\-]+)$', user_text)
             
             if match:
                 if chat_id in USER_SESSIONS and USER_SESSIONS[chat_id].get("state") == "awaiting_partner":
