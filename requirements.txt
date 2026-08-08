@@ -5,3 +5,5 @@ jyotichart
 gunicorn
 svglib
 pillow
+reportlab
+swisseph
