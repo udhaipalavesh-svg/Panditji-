@@ -135,6 +135,39 @@ def get_lal_kitab_remedy(houses_dict, planets_dict):
     return unique_remedies[:2]
 
 # ==========================================
+# LIVE TRANSIT ENGINE (Vector 8 Calculation)
+# ==========================================
+def calculate_live_transits(natal_moon_sign):
+    now_dt = datetime.now()
+    swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
+    dt_utc = now_dt - timedelta(hours=5, minutes=30)
+    utc_decimal = dt_utc.hour + (dt_utc.minute / 60.0)
+    jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, utc_decimal)
+    flags = swe.FLG_SWIEPH + swe.FLG_SPEED + swe.FLG_SIDEREAL
+    
+    calc = swe.calc_ut(jdut, swe.SATURN, flags)
+    sat_lon = calc[0][0] if isinstance(calc[0], tuple) else calc[0]
+    transit_sat_sign = ZODIAC_SIGNS[int(sat_lon / 30) % 12]
+    
+    natal_idx = ZODIAC_SIGNS.index(natal_moon_sign)
+    transit_idx = ZODIAC_SIGNS.index(transit_sat_sign)
+    diff = (transit_idx - natal_idx) % 12
+    
+    sade_sati_status = "Inactive"
+    if diff == 11:
+        sade_sati_status = "Active - Phase 1 (Rising Phase / 12th from Moon): Financial pressure & mental anxiety"
+    elif diff == 0:
+        sade_sati_status = "Active - Phase 2 (Peak Phase / 1st House Moon): Core psychological pressure & identity shift"
+    elif diff == 1:
+        sade_sati_status = "Active - Phase 3 (Setting Phase / 2nd from Moon): Liquidity strain & family asset realignment"
+    elif diff == 3:
+        sade_sati_status = "Kantaka Shani (Saturn in 4th from Moon): Domestic instability & career friction"
+    elif diff == 7:
+        sade_sati_status = "Ashtama Shani (Saturn in 8th from Moon): Severe transformation, sudden delays & legal/health vulnerability"
+        
+    return f"Transit Saturn in {HINDI_SIGNS[transit_sat_sign]} | Sade Sati / Shani Transit Status: {sade_sati_status}"
+
+# ==========================================
 # CORE BOT FUNCTIONS
 # ==========================================
 def send_message(chat_id, text):
@@ -461,6 +494,10 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     logic_summary += f"\n[HARD DEDUCTIVE INFERENCES]:\n - " + "\n - ".join(inferences) if inferences else "\n[HARD DEDUCTIVE INFERENCES]: None."
     logic_summary += f"\n[MANDATORY LAL KITAB REMEDY]:\n - " + "\n - ".join(lal_kitab_rules) if lal_kitab_rules else "\n[MANDATORY LAL KITAB REMEDY]: None."
 
+    # STEP 2: Inject Live Transits
+    transit_data = calculate_live_transits(planets_full["Moon (Chandra)"]["sign"])
+    logic_summary += f"\n[LIVE TRANSIT THREAT]: {transit_data}"
+
     return logic_summary, age
 
 def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
@@ -564,7 +601,6 @@ def calculate_synastry(p1_data, p2_data):
     if gan_pts == 1: summary += "- GAN DOSHA DETECTED: Temperament mismatch (Deva vs Rakshasa).\n"
     return summary.strip()
 
-# TASK 2: Upgraded Python Firewall
 def llm_output_firewall(text, logic_summary):
     # 1. Aspect Hallucination Filter
     none_houses = re.findall(r"House (\d+).*?Aspected by: none\.", logic_summary, re.IGNORECASE)
@@ -631,7 +667,6 @@ def webhook():
                     for p, d in planets.items()
                 ])
                 
-                # TASK 1A: Streamline UX - Skip awaiting_focus
                 USER_SESSIONS[chat_id] = {
                     "state": "awaiting_partner",
                     "asc_sign": asc_sign, "planet_summary": planet_summary,
@@ -642,8 +677,6 @@ def webhook():
                 }
                 send_message(chat_id, "✅ Chart calculated. \n\nDo you want to analyze compatibility with a partner? \nSend their details (Name DD-MM-YYYY HH:MM City) or type 'skip'.")
                 return jsonify(status="success"), 200
-
-            # TASK 1B: Removed the elif block for "awaiting_focus"
 
             elif chat_id in USER_SESSIONS and USER_SESSIONS[chat_id].get("state") == "awaiting_partner":
                 if user_text.lower() == 'skip':
@@ -677,19 +710,18 @@ def webhook():
 def generate_final_pdf(chat_id, session, groq_key, groq_url):
     send_message(chat_id, "⏳ Audit complete. Formatting Dossier and generating PDF...")
     
-    # TASK 3: Overhaul Output Prompts
-    system_msg = """You are an Elite Forensic Astrological Diagnostician. You write tactical, highly structured threat-matrix dossiers. 
+    # STEP 3: Overhaul generate_final_pdf (All 8 Vectors)
+    system_msg = """You are an Elite Forensic Astrological Diagnostician writing an institutional 8-Vector Threat Matrix Dossier. 
 [ABSOLUTE LAWS - VIOLATION = FAILURE]
-1. FORBIDDEN CONCEPTS: Do not use words like 'potentially', 'possibly', 'suggesting', or 'assuming'. Do NOT prescribe generic couples therapy (e.g., 'date nights', 'communication') or generic wellness (e.g., 'yoga', 'meditation', 'self-care'). Use blunt, definitive, clinical terminology only.
+1. FORBIDDEN CONCEPTS: Do not use words like 'potentially', 'possibly', 'suggesting', or 'assuming'. Do NOT prescribe generic couples therapy or generic wellness ('meditation', 'mindfulness', 'self-care'). Use blunt, definitive, clinical terminology only.
 2. CHAIN OF DEDUCTION: For every Threat Vector, you MUST output your analysis in this exact 4-part structure:
-   - Astronomical Root: [State the hard planet/house/nakshatra data]
+   - Astronomical Root: [State the hard planet/house/nakshatra/transit data]
    - Systemic Vulnerability: [Explain the structural/neurological weakness]
-   - Real-World Manifestation: [State exactly what this looks like in the user's daily life]
+   - Real-World Manifestation: [State exactly what this looks like in real life]
    - Tactical Countermeasure: [Provide a FULL-SPECTRUM PROTOCOL]
-3. THE PUPPET MASTERS: Analyze the Nakshatra Lords. A planet is only as strong as its Nakshatra Lord. 
-4. JAIMINI MANDATE: Explicitly interpret the Atmakaraka (Soul's Core Karma) and Amatyakaraka (Career Driver). 
-5. LAL KITAB STRICTNESS: Use the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section verbatim. Do not invent Lal Kitab remedies.
-6. HINDI MANDATORY: Use the Hindi names provided for EVERY Zodiac Sign and Planet.
+3. NAKSHATRA & JAIMINI: Analyze Nakshatra Lords, Atmakaraka (Soul's Core Karma), and Amatyakaraka (Career Driver).
+4. LAL KITAB STRICTNESS: Use the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section verbatim.
+5. HINDI MANDATORY: Use Hindi names for EVERY Zodiac Sign and Planet.
 """
 
     logic = session['logic_breakdown']
@@ -701,12 +733,17 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
             return f"House {house_num} is {sign}. Ruled by {lord}. Lord is in House {lord_house}. Occupied by: {occ}. Aspected by: {asp}."
         return f"Data for House {house_num} not found."
 
+    h1_facts = extract_house_facts(1)
     h2_facts = extract_house_facts(2)
+    h3_facts = extract_house_facts(3)
+    h4_facts = extract_house_facts(4)
+    h5_facts = extract_house_facts(5)
+    h6_facts = extract_house_facts(6)
     h7_facts = extract_house_facts(7)
+    h8_facts = extract_house_facts(8)
+    h9_facts = extract_house_facts(9)
     h10_facts = extract_house_facts(10)
     h11_facts = extract_house_facts(11)
-    h6_facts = extract_house_facts(6)
-    h8_facts = extract_house_facts(8)
     h12_facts = extract_house_facts(12)
 
     synastry_block = ""
@@ -724,48 +761,85 @@ def generate_final_pdf(chat_id, session, groq_key, groq_url):
 - Ascendant Nakshatra: {session['t_ctx']['asc_nakshatra']}
 - Exact Dasha Timeline: {session['t_ctx']['dasha_timeline']}
 {session['logic_breakdown']}
-
 [PLANETARY ARRAY]
-- Ascendant (Lagna): {HINDI_SIGNS[session['asc_sign']]}
+
+Ascendant (Lagna): {HINDI_SIGNS[session['asc_sign']]}
 {session['planet_summary']}
 
 [OUTPUT TEMPLATE - FOLLOW EXACTLY]
-*Disclaimer: This audit maps karmic tendencies and probabilistic risk vectors based on planetary mathematics. Astrological indications are environmental influences, not absolute mandates.*
+Disclaimer: This audit maps karmic tendencies and probabilistic risk vectors based on planetary mathematics. Astrological indications are environmental influences, not absolute mandates.
 
 # I. EXECUTIVE DIAGNOSIS (The Karmic Baseline)
-- **The Core Constraint (Atmakaraka):** Explicitly name the Atmakaraka planet. Diagnose the native's primary, inescapable karmic loop and psychological bottleneck based on this planet.
-- **The Structural Reality:** Write a brutal synthesis of the [PRE-CALCULATED YOGAS] and [HARD DEDUCTIVE INFERENCES]. State the absolute truth of their current crisis.
+The Core Constraint (Atmakaraka): Explicitly name the Atmakaraka planet. Diagnose the native's primary karmic loop and psychological bottleneck based on this planet.
 
-# II. THE TEMPORAL TRIGGER (Micro-Timing)
-- **Current Pratyantardasha Trigger:** Analyze the Current Pratyantardasha. Look at the Dasha Lord and its Nakshatra Lord. Explain exactly *why* the specific collapse triggered right now.
-- **Timeline Trajectory:** Briefly contrast this with the Past Antardasha and define the survival requirements for the Future Antardasha.
+The Structural Reality: Write a brutal synthesis of the [PRE-CALCULATED YOGAS] and [HARD DEDUCTIVE INFERENCES]. State the absolute truth of their current crisis.
 
-# III. THREAT MATRIX & DEDUCTIVE TRIAGE
-*(Analyze the following vectors using the strict 4-part Chain of Deduction)*
+# II. THE TEMPORAL TRIGGER (Micro-Timing & Transits)
+Current Pratyantardasha Trigger: Analyze the Current Pratyantardasha and its Nakshatra Lord. Explain exactly why the specific collapse triggered right now.
+
+Live Transit Pressure (Gochar): Analyze the live Saturn transit / Sade Sati status from the logic summary. State how current real-time transits are exacerbating the active Dasha.
+
+# III. THE 8-VECTOR THREAT MATRIX & DEDUCTIVE TRIAGE
+(Analyze every vector using the strict 4-part Chain of Deduction)
 
 **Vector 1: Wealth, Career & Amatyakaraka**
 - [FACT BLOCKS]: House 2: {h2_facts} | House 10: {h10_facts} | House 11: {h11_facts}
-- **Astronomical Root:** (State specific dignities, Amatyakaraka, and empty/aspected houses)
-- **Systemic Vulnerability:** (Explain the mechanical flaw in their wealth generation or career structure)
+- **Astronomical Root:** (State dignities, Amatyakaraka, and house occupants/aspects)
+- **Systemic Vulnerability:** (Explain mechanical flaws in wealth generation or career structure)
 - **Real-World Manifestation:** (Diagnose liquidity freezes, business shutdowns, or career stagnation bluntly)
-- **Tactical Countermeasure:** (Provide a Full-Spectrum Protocol: Include the [MANDATORY LAL KITAB REMEDY] verbatim, alongside highly specific financial triage, relevant Gemstone/Metal prescriptions, and karmic behavioral shifts.)
+- **Tactical Countermeasure:** (Full-Spectrum Protocol: Include [MANDATORY LAL KITAB REMEDY] verbatim, financial triage, and Gemstone/Metal prescriptions)
 
 **Vector 2: Neurological & Psychological Baseline**
 - [FACT BLOCKS]: House 6: {h6_facts} | House 8: {h8_facts} | House 12: {h12_facts}
-- **Astronomical Root:** (State the Moon's dignity, Nakshatra Lord, and Dosha)
-- **Systemic Vulnerability:** (Explain the exact neurological breakdown, e.g., Vata/Pitta overload)
+- **Astronomical Root:** (State Moon dignity, Nakshatra Lord, and Dosha)
+- **Systemic Vulnerability:** (Explain neurological breakdown, e.g., Vata/Pitta overload)
 - **Real-World Manifestation:** (Diagnose clinical anxiety, panic, or insomnia)
-- **Tactical Countermeasure:** (Provide a Full-Spectrum Protocol: Detail specific Ayurvedic/dietary triage for their Dosha, exact daily behavioral routines to hack the nervous system, and targeted Mantric prescriptions.)
+- **Tactical Countermeasure:** (Full-Spectrum Protocol: Ayurvedic/dietary triage, daily behavioral routines to hack the nervous system, and targeted Mantric prescriptions)
 
 **Vector 3: Relationship & Partnership Dynamics**
 - [FACT BLOCKS]: House 7: {h7_facts}
 - **Astronomical Root:** (State 7th house occupants and aspects)
-- **Systemic Vulnerability:** (Explain the psychological friction or emotional unavailability)
-- **Real-World Manifestation:** (State how this damages their marriage or business partnerships)
-- **Tactical Countermeasure:** (Provide a Full-Spectrum Protocol: Prescribe clinical psychological adjustments, karmic offsets, and environmental corrections, completely avoiding generic couples-therapy tropes.)
+- **Systemic Vulnerability:** (Explain psychological friction or emotional unavailability)
+- **Real-World Manifestation:** (State how this damages marriage or business partnerships)
+- **Tactical Countermeasure:** (Full-Spectrum Protocol: Clinical psychological adjustments, karmic offsets, and environmental corrections)
+
+**Vector 4: Property, Assets & Domestic Foundation**
+- [FACT BLOCKS]: House 4: {h4_facts}
+- **Astronomical Root:** (State 4th house occupants, aspects, and lord dignity)
+- **Systemic Vulnerability:** (Explain structural risk to real estate, vehicles, or domestic peace)
+- **Real-World Manifestation:** (Diagnose property disputes, asset erosion, or home hostility)
+- **Tactical Countermeasure:** (Full-Spectrum Protocol: Environmental/Vastu corrections, protective routines, and remedial offsets)
+
+**Vector 5: Progeny, Intellect & Karmic Legacy**
+- [FACT BLOCKS]: House 5: {h5_facts} | House 9: {h9_facts}
+- **Astronomical Root:** (State 5th and 9th house occupants, aspects, and lord dignities)
+- **Systemic Vulnerability:** (Explain blockages in higher learning, creative output, or generational legacy)
+- **Real-World Manifestation:** (Diagnose creative stagnation, educational delays, or friction with children/mentors)
+- **Tactical Countermeasure:** (Full-Spectrum Protocol: Mantras for 5th/9th lords, charitable donations, and behavioral alignments)
+
+**Vector 6: Core Vitality, Drive & Self-Effort**
+- [FACT BLOCKS]: House 1: {h1_facts} | House 3: {h3_facts}
+- **Astronomical Root:** (State 1st and 3rd house occupants, aspects, and Lagna Lord dignity)
+- **Systemic Vulnerability:** (Explain structural drains on physical vitality, self-esteem, or entrepreneurial drive)
+- **Real-World Manifestation:** (Diagnose physical burnout, lack of initiative, or sibling/peer friction)
+- **Tactical Countermeasure:** (Full-Spectrum Protocol: Physical/Ayurvedic routines for vitality, communication strategies, and protective actions)
+
+**Vector 7: Subconscious Reality & Second-Half Trajectory (Navamsha D9)**
+- [FACT BLOCKS]: Navamsha Lagna: {HINDI_SIGNS[session['asc_d9_sign']]} | Key D9 Placements
+- **Astronomical Root:** (Cross-reference D1 Lagna vs D9 Lagna, and evaluate planets with Vargottama or shifted dignities in D9)
+- **Systemic Vulnerability:** (Explain hidden subconscious patterns or shifts occurring in the second half of life)
+- **Real-World Manifestation:** (Diagnose internal emptiness despite external success, or late-life structural transformations)
+- **Tactical Countermeasure:** (Full-Spectrum Protocol: Spiritual realignment, long-term karmic adjustments, and D9-activating remedies)
+
+**Vector 8: Live Real-Time Transit Matrix (Gochar & Sade Sati)**
+- [FACT BLOCKS]: Live Transits: {calculate_live_transits(session['planet_data']['Moon (Chandra)']['sign'])}
+- **Astronomical Root:** (Detail current position of transit Saturn relative to natal Moon and active transit pressure)
+- **Systemic Vulnerability:** (Explain real-time environmental friction or psychological compression caused by Gochar)
+- **Real-World Manifestation:** (Diagnose immediate real-time bottlenecks occurring this month/year)
+- **Tactical Countermeasure:** (Full-Spectrum Protocol: Immediate transit triage, weekly Shani/Rahu pacification steps, and emergency behavioral containment)
 
 # IV. LONG-TERM ALIGNMENT STRATEGY
-- Detail specific Mantras for the Lagna Lord or afflicted planets to rebuild self-worth and survive the upcoming Future Dasha.
+Detail specific Mantras for the Lagna Lord or afflicted planets to rebuild self-worth and survive the upcoming Future Dasha.
 {synastry_block}
 """
 
