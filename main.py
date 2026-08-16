@@ -1,29 +1,3 @@
-Here is the complete, final, production-ready `main.py` code. It integrates all four absolute corrections (BAV, Charadasha, Threaded Webhook, WeasyPrint) along with the three behavioral fixes (Smart Fluff Cleaner, Lal Kitab Strictness, Hindi Bracket Artifact Fix).
-
-### Deployment Prerequisites (CRITICAL)
-
-**1. `requirements.txt`**
-```text
-Flask
-requests
-pyswisseph
-markdown2
-weasyprint
-gunicorn
-```
-
-**2. `build.sh`**
-WeasyPrint requires Pango/Cairo system libraries. Create a file named `build.sh` in your root directory:
-```bash
-#!/usr/bin/env bash
-apt-get update && apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libcairo2
-pip install -r requirements.txt
-```
-*In your Render Web Service settings, set the Build Command to `bash build.sh`.*
-
-### 3. `main.py`
-
-```python
 import os
 import requests
 import re
@@ -628,4 +602,3 @@ init_db()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-```
