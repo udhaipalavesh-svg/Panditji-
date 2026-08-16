@@ -31,7 +31,6 @@ COMBUSTION_ORB = {"Moon (Chandra)": 12, "Mars (Mangal)": 17, "Mercury (Budh)": 1
 MALEFICS = ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]
 NAK_LORDS = ["Ketu", "Venus (Shukra)", "Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Rahu", "Jupiter (Guru)", "Saturn (Shani)", "Mercury (Budh)"]
 
-# Bhinnashtakavarga (BAV) Kakshya Tables
 BAV_TABLES = {
     "Sun (Surya)": [0,0,1,1,0,0,1,1, 1,0,0,0,1,1,0,0, 0,1,1,0,0,1,1,0, 0,0,1,1,0,0,1,1, 1,0,0,1,1,0,0,1, 0,1,1,0,0,1,1,0, 1,0,0,1,1,0,0,1, 0,1,1,0,0,1,1,0, 0,0,0,1,1,1,1,0, 1,1,1,0,0,0,0,1, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0],
     "Moon (Chandra)": [0,1,0,1,1,0,1,0, 1,0,1,0,0,1,0,1, 1,1,0,0,1,1,0,0, 0,1,1,0,1,0,1,0, 1,0,1,1,0,1,0,1, 0,1,0,1,1,0,1,0, 1,1,0,1,0,1,1,0, 0,0,1,1,1,1,0,0, 1,1,0,0,0,0,1,1, 0,0,1,1,1,1,0,0, 1,0,1,0,0,1,0,1, 0,1,0,1,1,0,1,0],
@@ -48,8 +47,7 @@ BAV_TABLES = {
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS sessions
-                 (chat_id INTEGER PRIMARY KEY, session_data TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS sessions (chat_id INTEGER PRIMARY KEY, session_data TEXT)''')
     conn.commit()
     conn.close()
 
@@ -113,48 +111,72 @@ def calculate_bav(planet_name, target_house, houses_dict):
     start_idx = (rel_house - 1) * 8
     return sum(table[start_idx : start_idx + 8])
 
-def calculate_vimshottari_dasha(moon_lon, birth_dt, target_dt):
+def fmt_jd_to_mon_year(jd):
+    y, m, d = swe.revjul(jd)[:3]
+    return f"{m:02d}/{y}"
+
+def calculate_vimshottari_timeline(moon_lon, birth_dt):
+    """Calculates exact dates for Dasha periods."""
     nak_span = 360.0 / 27.0
     nak_idx, _, _, rem = get_nakshatra_info(moon_lon)
     lord_idx = (nak_idx // 3) % 9
-    dasha_lord, total_years = DASHA_LORDS[lord_idx]
     
-    fraction_remaining = 1.0 - (rem / nak_span)
-    years_remaining = fraction_remaining * total_years
+    fraction_elapsed = rem / nak_span
+    fraction_remaining = 1.0 - fraction_elapsed
     
-    current_jd = swe.julday(target_dt.year, target_dt.month, target_dt.day)
     birth_jd = swe.julday(birth_dt.year, birth_dt.month, birth_dt.day)
-    years_passed = (current_jd - birth_jd) / 365.25
+    days_per_year = 365.25
+    now_jd = swe.julday(datetime.now().year, datetime.now().month, datetime.now().day)
     
-    current_lord_idx = lord_idx
-    if years_passed <= years_remaining:
-        return f"{dasha_lord} Mahadasha (Balance: {years_remaining - years_passed:.1f}y)"
+    curr_m_idx = lord_idx
+    curr_m_years = DASHA_LORDS[curr_m_idx][1] * fraction_remaining
+    curr_m_start_jd = birth_jd
     
-    years_passed_after_balance = years_passed - years_remaining
-    current_lord_idx = (current_lord_idx + 1) % 9
-    
-    while years_passed_after_balance > 0:
-        lord, span = DASHA_LORDS[current_lord_idx]
-        if years_passed_after_balance <= span:
-            a_idx = current_lord_idx
-            a_years = (DASHA_LORDS[a_idx][1] * DASHA_LORDS[current_lord_idx][1]) / 120.0
-            y_passed_ad = years_passed_after_balance
+    while True:
+        curr_m_end_jd = curr_m_start_jd + (curr_m_years * days_per_year)
+        if curr_m_end_jd > now_jd:
+            m_lord = DASHA_LORDS[curr_m_idx][0]
             
-            while y_passed_ad > a_years:
-                y_passed_ad -= a_years
+            a_idx = curr_m_idx
+            a_years = (DASHA_LORDS[a_idx][1] * DASHA_LORDS[curr_m_idx][1]) / 120.0
+            if curr_m_idx == lord_idx: a_years *= fraction_remaining
+            a_start_jd = curr_m_start_jd
+            
+            while True:
+                a_end_jd = a_start_jd + (a_years * days_per_year)
+                if a_end_jd > now_jd:
+                    a_lord = DASHA_LORDS[a_idx][0]
+                    
+                    pa_idx = a_idx
+                    pa_years = (DASHA_LORDS[pa_idx][1] * DASHA_LORDS[a_idx][1] * DASHA_LORDS[curr_m_idx][1]) / (120.0 * 120.0)
+                    if curr_m_idx == lord_idx and a_idx == lord_idx: pa_years *= fraction_remaining
+                    pa_start_jd = a_start_jd
+                    
+                    while True:
+                        pa_end_jd = pa_start_jd + (pa_years * days_per_year)
+                        if pa_end_jd > now_jd:
+                            pa_lord = DASHA_LORDS[pa_idx][0]
+                            
+                            next_a_idx = (a_idx + 1) % 9
+                            next_a_years = (DASHA_LORDS[next_a_idx][1] * DASHA_LORDS[curr_m_idx][1]) / 120.0
+                            next_a_start_jd = a_end_jd
+                            next_a_end_jd = next_a_start_jd + (next_a_years * days_per_year)
+                            
+                            return f"Current AD: {m_lord}-{a_lord} [{fmt_jd_to_mon_year(a_start_jd)} to {fmt_jd_to_mon_year(a_end_jd)}] | Current PAD: {pa_lord} [{fmt_jd_to_mon_year(pa_start_jd)} to {fmt_jd_to_mon_year(pa_end_jd)}] | Next AD: {m_lord}-{DASHA_LORDS[next_a_idx][0]} [{fmt_jd_to_mon_year(next_a_start_jd)} to {fmt_jd_to_mon_year(next_a_end_jd)}]"
+                        
+                        pa_start_jd = pa_end_jd
+                        pa_idx = (pa_idx + 1) % 9
+                        pa_years = (DASHA_LORDS[pa_idx][1] * DASHA_LORDS[a_idx][1] * DASHA_LORDS[curr_m_idx][1]) / (120.0 * 120.0)
+                        
+                a_start_jd = a_end_jd
                 a_idx = (a_idx + 1) % 9
-                a_years = (DASHA_LORDS[a_idx][1] * DASHA_LORDS[current_lord_idx][1]) / 120.0
+                a_years = (DASHA_LORDS[a_idx][1] * DASHA_LORDS[curr_m_idx][1]) / 120.0
                 
-            prev_a_idx = (a_idx - 1) % 9
-            next_a_idx = (a_idx + 1) % 9
-            return f"Past: {lord}-{DASHA_LORDS[prev_a_idx][0]} | Current: {lord}-{DASHA_LORDS[a_idx][0]} | Future: {lord}-{DASHA_LORDS[next_a_idx][0]}"
-            
-        years_passed_after_balance -= span
-        current_lord_idx = (current_lord_idx + 1) % 9
-        
-    return f"{DASHA_LORDS[current_lord_idx][0]} Mahadasha"
+        curr_m_start_jd = curr_m_end_jd
+        curr_m_idx = (curr_m_idx + 1) % 9
+        curr_m_years = DASHA_LORDS[curr_m_idx][1]
 
-def calculate_charadasha(asc_sign, planets_full, birth_dt):
+def calculate_charadasha(asc_sign, planets_full):
     asc_idx = ZODIAC_SIGNS.index(asc_sign)
     sign_lords = {"Aries": "Mars (Mangal)", "Taurus": "Venus (Shukra)", "Gemini": "Mercury (Budh)", "Cancer": "Moon (Chandra)", "Leo": "Sun (Surya)", "Virgo": "Mercury (Budh)", "Libra": "Venus (Shukra)", "Scorpio": "Mars (Mangal)", "Sagittarius": "Jupiter (Guru)", "Capricorn": "Saturn (Shani)", "Aquarius": "Saturn (Shani)", "Pisces": "Jupiter (Guru)"}
     
@@ -167,7 +189,7 @@ def calculate_charadasha(asc_sign, planets_full, birth_dt):
     
     dashas = []
     curr_idx = start_idx
-    for _ in range(12):
+    for _ in range(3): # Get first 3 signs for sequence context
         sign_name = ZODIAC_SIGNS[curr_idx]
         lord = sign_lords.get(sign_name)
         lord_sign = planets_full.get(lord, {}).get("sign")
@@ -179,42 +201,63 @@ def calculate_charadasha(asc_sign, planets_full, birth_dt):
             duration = abs((lord_idx - curr_idx) * direction) % 12
             if duration == 0: duration = 12
             
-        dashas.append({"sign": sign_name, "lord": lord, "duration": duration})
+        dashas.append(f"{sign_name} ({duration}y)")
         curr_idx = (curr_idx + direction) % 12
         
-    return f"Current Charadasha Sequence: {dashas[0]['sign']} ({dashas[0]['duration']}y) -> {dashas[1]['sign']} ({dashas[1]['duration']}y) -> {dashas[2]['sign']} ({dashas[2]['duration']}y)"
+    return " -> ".join(dashas)
 
-def calculate_multi_transits_with_bav(natal_moon_sign, natal_asc_sign, houses_dict):
+def calculate_transit_timings():
+    """Forward-scans ephemeris to find exact ingress dates for transits."""
     now_dt = datetime.now()
     swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     dt_utc = now_dt - timedelta(hours=5, minutes=30)
-    utc_decimal = dt_utc.hour + (dt_utc.minute / 60.0)
-    jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, utc_decimal)
+    jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour + dt_utc.minute/60.0)
+    flags = swe.FLG_SWIEPH + swe.FLG_SPEED + swe.FLG_SIDEREAL
+    
+    planets_to_track = {"Saturn": swe.SATURN, "Jupiter": swe.JUPITER, "Rahu": swe.MEAN_NODE}
+    timings = []
+    
+    for name, p_id in planets_to_track.items():
+        calc = swe.calc_ut(jdut, p_id, flags)
+        lon = calc[0][0] if isinstance(calc[0], tuple) else calc[0]
+        curr_sign = int(lon / 30) % 12
+        
+        scan_jd = jdut
+        for _ in range(730): # Scan up to 2 years
+            scan_jd += 1.0
+            calc_scan = swe.calc_ut(scan_jd, p_id, flags)
+            lon_scan = calc_scan[0][0] if isinstance(calc_scan[0], tuple) else calc_scan[0]
+            scan_sign = int(lon_scan / 30) % 12
+            
+            if scan_sign != curr_sign:
+                ingress_date = swe.revjul(scan_jd)
+                timings.append(f"{name} enters {HINDI_SIGNS[ZODIAC_SIGNS[scan_sign]]} on {ingress_date[1]:02d}/{ingress_date[0]}")
+                break
+                
+    return "; ".join(timings) if timings else "No major ingress in next 2 years"
+
+def calculate_transit_bav(natal_moon_sign, natal_asc_sign, houses_dict):
+    now_dt = datetime.now()
+    swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
+    dt_utc = now_dt - timedelta(hours=5, minutes=30)
+    jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour + dt_utc.minute/60.0)
     flags = swe.FLG_SWIEPH + swe.FLG_SPEED + swe.FLG_SIDEREAL
     
     t_sat = swe.calc_ut(jdut, swe.SATURN, flags); sat_lon = t_sat[0][0] if isinstance(t_sat[0], tuple) else t_sat[0]
     t_jup = swe.calc_ut(jdut, swe.JUPITER, flags); jup_lon = t_jup[0][0] if isinstance(t_jup[0], tuple) else t_jup[0]
     
-    transit_sat_sign = ZODIAC_SIGNS[int(sat_lon / 30) % 12]
-    transit_jup_sign = ZODIAC_SIGNS[int(jup_lon / 30) % 12]
+    sat_sign = ZODIAC_SIGNS[int(sat_lon / 30) % 12]
+    jup_sign = ZODIAC_SIGNS[int(jup_lon / 30) % 12]
     
-    moon_idx = ZODIAC_SIGNS.index(natal_moon_sign)
-    asc_idx = ZODIAC_SIGNS.index(natal_asc_sign)
+    sat_house_moon = ((ZODIAC_SIGNS.index(sat_sign) - ZODIAC_SIGNS.index(natal_moon_sign)) % 12) + 1
+    sat_house_asc = ((ZODIAC_SIGNS.index(sat_sign) - ZODIAC_SIGNS.index(natal_asc_sign)) % 12) + 1
     
-    sat_house_from_moon = ((ZODIAC_SIGNS.index(transit_sat_sign) - moon_idx) % 12) + 1
-    sat_house_from_asc = ((ZODIAC_SIGNS.index(transit_sat_sign) - asc_idx) % 12) + 1
+    sat_bav_moon = calculate_bav("Saturn (Shani)", sat_house_moon, houses_dict)
+    sat_bav_asc = calculate_bav("Saturn (Shani)", sat_house_asc, houses_dict)
     
-    jup_house_from_moon = ((ZODIAC_SIGNS.index(transit_jup_sign) - moon_idx) % 12) + 1
-    jup_house_from_asc = ((ZODIAC_SIGNS.index(transit_jup_sign) - asc_idx) % 12) + 1
-    
-    sat_bav_moon = calculate_bav("Saturn (Shani)", sat_house_from_moon, houses_dict)
-    sat_bav_asc = calculate_bav("Saturn (Shani)", sat_house_from_asc, houses_dict)
-    jup_bav_moon = calculate_bav("Jupiter (Guru)", jup_house_from_moon, houses_dict)
-    jup_bav_asc = calculate_bav("Jupiter (Guru)", jup_house_from_asc, houses_dict)
-    
-    return f"Saturn Transiting House {sat_house_from_moon} from Moon (BAV: {sat_bav_moon}/8) & House {sat_house_from_asc} from Lagna (BAV: {sat_bav_asc}/8). Jupiter Transiting House {jup_house_from_moon} from Moon (BAV: {jup_bav_moon}/8) & House {jup_house_from_asc} from Lagna (BAV: {jup_bav_asc}/8)."
+    return f"Saturn in {HINDI_SIGNS[sat_sign]} (H{sat_house_moon} from Moon, BAV:{sat_bav_moon}/8; H{sat_house_asc} from Lagna, BAV:{sat_bav_asc}/8)"
 
-def calculate_chart_logic(asc_sign, planets_full, birth_dt, sun_lon):
+def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     now = datetime.now()
     age = (now - birth_dt).days // 365
     if age < 18: life_stage = f"CHILD (Age {age}): STRICTLY focus on House 4, 5, 9."
@@ -237,25 +280,30 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt, sun_lon):
         occ_house = get_house_of_planet(houses, p_name)
         if occ_house:
             for ah in get_aspects(p_name, occ_house): houses[ah]["aspected_by"].append(p_name)
-    for h_num, h_data in houses.items():
-        ruler = h_data["ruler"]
-        h_data["ruler_placed_in"] = get_house_of_planet(houses, ruler) if ruler else None
 
     fact_sheet = "[GLOBAL PLANETARY INTERCONNECTION MATRIX]\n"
     for h, data in houses.items():
         occ_str = ', '.join(data['occupants']) if data['occupants'] else 'Empty'
         asp_str = ', '.join(data['aspected_by']) if data['aspected_by'] else 'None'
-        fact_sheet += f"- House {h} ({data['hindi_sign']}): Ruled by {data['ruler']}. {data['ruler']} is sitting in House {data['ruler_placed_in']}. Occupied by: {occ_str}. Aspected by: {asp_str}.\n"
+        fact_sheet += f"- House {h} ({data['hindi_sign']}): Occ: {occ_str}. Asp: {asp_str}.\n"
     
     logic_summary = f"[LIFE STAGE FILTER]: {life_stage}\n{fact_sheet}"
     
-    vimshottari = calculate_vimshottari_dasha(planets_full["Moon (Chandra)"]["lon"], birth_dt, now)
-    charadasha = calculate_charadasha(asc_sign, planets_full, birth_dt)
-    logic_summary += f"\n[VIMSHOTTARI DASHA]: {vimshottari}"
+    # 1. Exact Dasha Timeline
+    dasha_timeline = calculate_vimshottari_timeline(planets_full["Moon (Chandra)"]["lon"], birth_dt)
+    logic_summary += f"\n[VIMSHOTTARI TIMELINE]: {dasha_timeline}"
+    
+    # 2. Charadasha
+    charadasha = calculate_charadasha(asc_sign, planets_full)
     logic_summary += f"\n[JAIMINI CHARADASHA]: {charadasha}"
     
-    transit_data = calculate_multi_transits_with_bav(planets_full["Moon (Chandra)"]["sign"], asc_sign, houses)
-    logic_summary += f"\n[BAV TRANSIT MATRIX]: {transit_data}"
+    # 3. Transit Ingress Timings
+    transit_ingress = calculate_transit_timings()
+    logic_summary += f"\n[TRANSIT INGRESS DATES]: {transit_ingress}"
+    
+    # 4. Current Transit BAV
+    transit_bav = calculate_transit_bav(planets_full["Moon (Chandra)"]["sign"], asc_sign, houses)
+    logic_summary += f"\n[CURRENT TRANSIT BAV]: {transit_bav}"
 
     return logic_summary, age
 
@@ -308,7 +356,7 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
         asc_lon = 0.0
         
     asc_sign = ZODIAC_SIGNS[int(asc_lon / 30) % 12]; _, asc_nak, asc_pada, _ = get_nakshatra_info(asc_lon)
-    logic_breakdown, age = calculate_chart_logic(asc_sign, positions, dt_ist, sun_lon)
+    logic_breakdown, age = calculate_chart_logic(asc_sign, positions, dt_ist)
     
     return asc_sign, asc_nak, asc_pada, positions, logic_breakdown, age
 
@@ -396,7 +444,6 @@ def generate_pdf_weasyprint(report_text, pdf_path):
         return False
 
 def process_background_task(chat_id, session_data):
-    """The heavy asynchronous task that generates the report."""
     groq_key = os.environ.get("GROQ_API_KEY")
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
     
@@ -404,12 +451,12 @@ def process_background_task(chat_id, session_data):
     
     system_msg = """You are an Elite Forensic Astrological Diagnostician writing an institutional Threat Matrix Dossier. 
 [ABSOLUTE LAWS - VIOLATION = FAILURE]
-1. NARRATIVE FLOW: Psychological Baseline -> Past -> Present Trigger -> Future Survival.
-2. NO REPETITION: State the "Astronomical Root" ONCE. Use "As established by..." to correlate.
-3. DEEP CORRELATION: Link the 5-Pillar Ecosystem data to real-world manifestations.
-4. BAV INTEGRATION: You MUST explicitly cite the BAV scores (0-8) when analyzing transits. A BAV of 0-2 is severe friction; 6-8 is high relief.
+1. TIMELINE MANDATE: You are forbidden from making a prediction without stating the exact Start Date, End Date, and Duration of the impact. You must cite the Dasha dates and Transit ingress dates provided in the math data.
+2. NARRATIVE FLOW: Psychological Baseline -> Past -> Present Trigger -> Future Survival.
+3. NO REPETITION: State the "Astronomical Root" ONCE. Use "As established by..." to correlate.
+4. BAV INTEGRATION: You MUST explicitly cite the BAV scores (0-8) when analyzing transits.
 5. FORBIDDEN CONCEPTS: Do not use 'potentially', 'possibly', 'suggesting', 'assuming', 'yoga', 'meditation'. Use definitive clinical terms.
-6. LAL KITAB STRICTNESS: You MUST copy-paste the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section verbatim. Do NOT invent generic remedies like 'perform puja' or 'practice yoga'. If the logic summary says 'Drop raw coal', you write 'Drop raw coal'.
+6. LAL KITAB STRICTNESS: You MUST copy-paste the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section verbatim. Do NOT invent generic remedies.
 7. HINDI MANDATORY: Use Hindi names for EVERY Zodiac Sign and Planet.
 """
     logic = session_data['logic_breakdown']
@@ -426,34 +473,28 @@ Ascendant (Lagna): {session_data['asc_sign']}
 *Disclaimer: This audit maps karmic tendencies and probabilistic risk vectors based on planetary mathematics.*
 
 # I. THE TEMPORAL-PSYCHOLOGICAL NARRATIVE
-- **The Psychological Baseline:** Diagnose the native's core psychological bottleneck based on the Atmakaraka and Moon's Nakshatra.
-- **The Historical Trajectory:** Analyze the Past Vimshottari Antardasha.
-- **The Present Trigger:** Pinpoint the exact trigger using Current Vimshottari/Charadasha and the BAV Transit Matrix. Explicitly state the BAV scores.
-- **The Expected State & Survival:** Map the survival trajectory based on the Future Antardasha.
+- **The Psychological Baseline:** Diagnose the native's core psychological bottleneck.
+- **The Historical Trajectory:** Analyze the Past Antardasha.
+- **The Present Trigger:** Pinpoint the exact trigger using Current Dasha dates and Transit BAV/Ingress dates. Explicitly state the dates.
+- **The Expected State & Survival:** Map the survival trajectory based on the Future Antardasha dates and Transit Ingress dates.
 
 # II. THE 3-PILLAR THREAT MATRIX
-*(Analyze using: Astronomical Root -> Systemic Vulnerability -> Real-World Manifestation -> Tactical Countermeasure)*
+*(Analyze using the strict 5-PILLAR CHAIN OF DEDUCTION)*
+1. Astronomical Root
+2. Systemic Vulnerability
+3. Real-World Manifestation
+4. Expected Timeline (Exact Dates from Dasha/Transits)
+5. Tactical Countermeasure
 
-**Pillar 1: Wealth, Career & Structural Stability**
-- Analyze Houses 2, 10, 11.
-- Provide Financial triage and Gemstone prescriptions.
-
-**Pillar 2: Relationship, Property & Progeny Dynamics**
-- Analyze Houses 4, 5, 7, 9.
-- Provide Environmental/Vastu corrections.
-
-**Pillar 3: Core Vitality & Subconscious Trajectory (D9)**
-- Analyze Houses 1, 3.
-- Provide Physical routines and D9 remedies.
+**Pillar 1: Wealth, Career & Structural Stability** (Analyze Houses 2, 10, 11)
+**Pillar 2: Relationship, Property & Progeny Dynamics** (Analyze Houses 4, 5, 7, 9)
+**Pillar 3: Core Vitality & Subconscious Trajectory** (Analyze Houses 1, 3)
 
 # III. AYURVEDIC & NEUROLOGICAL AUDIT
-- **Dosha Analysis:** Diagnose the exact physical imbalance (Vata/Pitta/Kapha).
-- **Ayurvedic Triage Protocol:** Prescribe specific dietary shifts and lifestyle modifications.
+- Diagnose Dosha and neurological breakdown. Prescribe Ayurvedic Triage.
 
 # IV. WHOLISTIC LAL KITAB REMEDIATION
-- **Immediate First Aid:** The most urgent karmic actions.
-- **Holistic Protocol:** Compile remaining remedies into a weekly schedule.
-- **Long-Term Mantras:** Specific mantras for the Lagna Lord.
+- Immediate First Aid, Holistic Protocol, and Long-Term Mantras.
 """
     
     english_text = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", system_msg, user_msg_eng)
@@ -461,15 +502,11 @@ Ascendant (Lagna): {session_data['asc_sign']}
         send_message(chat_id, "⚠️ Master Agent failed.")
         return
 
-    # Apply the Smart Firewall to clean fluff and bad grammar
     english_text = llm_output_firewall(english_text, logic)
 
-    # Hindi Translation (Using 70B to prevent cutoff)
     translator_system_msg = """You are an expert astrological translator. Translate the provided English astrological dossier into formal, clinical Hindi. 
-    Maintain all Markdown formatting. 
-    Ensure English astrological terms have their Hindi names in brackets (e.g., Saturn (Shani)). 
-    DO NOT put Hindi words in brackets if they are already in Devanagari script. 
-    Do not add or remove information. Translate exactly."""
+    Maintain all Markdown formatting. Ensure English astrological terms have their Hindi names in brackets. 
+    DO NOT put Hindi words in brackets if they are already in Devanagari script. Translate exactly."""
     
     hindi_text = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", translator_system_msg, f"Translate the following text to Hindi:\n\n{english_text}")
     
@@ -574,14 +611,19 @@ def webhook():
                 threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
                 
-            # STATE 4: Follow-up Questions (Sync, but fast)
+            # STATE 4: Follow-up Questions (Drill-Down State)
             elif session and session.get("state") == "ready_to_generate":
                 send_message(chat_id, "Running follow-up analysis...")
                 groq_key = os.environ.get("GROQ_API_KEY")
                 groq_url = "https://api.groq.com/openai/v1/chat/completions"
-                q_prompt = f"You are an elite Vedic Astrologer. Answer directly based on this data:\n{session['logic_breakdown']}\nQuestion: {user_text}"
-                payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": q_prompt}], "temperature": 0.3}
+                
+                q_system_msg = """You are an Elite Forensic Astrological Diagnostician. Answer the user's follow-up question directly based on the provided chart data. 
+                TIMELINE MANDATE: You must cite exact dates when discussing predictions. Do not use fluff words. Use Hindi names."""
+                
+                q_prompt = f"[CHART DATA]\n{session['logic_breakdown']}\n[USER QUESTION]\n{user_text}"
+                payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": q_system_msg}, {"role": "user", "content": q_prompt}], "temperature": 0.3}
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
+                
                 res = requests.post(groq_url, headers=headers, json=payload, timeout=90)
                 if res.status_code == 200:
                     answer = res.json()['choices'][0]['message']['content']
