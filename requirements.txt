@@ -1,7 +1,6 @@
 Flask
 requests
-jyotichart
-gunicorn
-pillow
-reportlab
 pyswisseph
+markdown2
+weasyprint
+gunicorn
