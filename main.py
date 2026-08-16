@@ -32,7 +32,6 @@ MALEFICS = ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]
 NAK_LORDS = ["Ketu", "Venus (Shukra)", "Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Rahu", "Jupiter (Guru)", "Saturn (Shani)", "Mercury (Budh)"]
 
 # Bhinnashtakavarga (BAV) Kakshya Tables (1s and 0s representing contribution)
-# Order of Kakshyas (3.75 deg each): Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon, Lagna
 BAV_TABLES = {
     "Sun (Surya)": [0,0,1,1,0,0,1,1, 1,0,0,0,1,1,0,0, 0,1,1,0,0,1,1,0, 0,0,1,1,0,0,1,1, 1,0,0,1,1,0,0,1, 0,1,1,0,0,1,1,0, 1,0,0,1,1,0,0,1, 0,1,1,0,0,1,1,0, 0,0,0,1,1,1,1,0, 1,1,1,0,0,0,0,1, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0],
     "Moon (Chandra)": [0,1,0,1,1,0,1,0, 1,0,1,0,0,1,0,1, 1,1,0,0,1,1,0,0, 0,1,1,0,1,0,1,0, 1,0,1,1,0,1,0,1, 0,1,0,1,1,0,1,0, 1,1,0,1,0,1,1,0, 0,0,1,1,1,1,0,0, 1,1,0,0,0,0,1,1, 0,0,1,1,1,1,0,0, 1,0,1,0,0,1,0,1, 0,1,0,1,1,0,1,0],
@@ -53,6 +52,9 @@ def init_db():
                  (chat_id INTEGER PRIMARY KEY, session_data TEXT)''')
     conn.commit()
     conn.close()
+
+# FIX: Initialize database on module load for Gunicorn compatibility
+init_db()
 
 def save_session(chat_id, data):
     conn = sqlite3.connect(DB_PATH)
@@ -106,15 +108,11 @@ def get_house_of_planet(houses, planet_name):
     return None
 
 def calculate_bav(planet_name, target_house, houses_dict):
-    """Calculates the BAV score (0-8) for a specific planet in a specific house."""
     if planet_name not in BAV_TABLES: return 0
     table = BAV_TABLES[planet_name]
     p_house = get_house_of_planet(houses_dict, planet_name)
     if not p_house: return 0
-    
-    # Relative house position from the planet's own house
     rel_house = ((target_house - p_house) % 12) + 1
-    # Each house has 8 Kakshyas. Start index for the target house is (rel_house - 1) * 8
     start_idx = (rel_house - 1) * 8
     bav_score = sum(table[start_idx : start_idx + 8])
     return bav_score
@@ -142,7 +140,6 @@ def calculate_vimshottari_dasha(moon_lon, birth_dt, target_dt):
     while years_passed_after_balance > 0:
         lord, span = DASHA_LORDS[current_lord_idx]
         if years_passed_after_balance <= span:
-            # Antardasha logic (simplified for current period)
             a_idx = current_lord_idx
             a_years = (DASHA_LORDS[a_idx][1] * DASHA_LORDS[current_lord_idx][1]) / 120.0
             y_passed_ad = years_passed_after_balance
@@ -162,20 +159,16 @@ def calculate_vimshottari_dasha(moon_lon, birth_dt, target_dt):
     return f"{DASHA_LORDS[current_lord_idx][0]} Mahadasha"
 
 def calculate_charadasha(asc_sign, planets_full, birth_dt):
-    """Calculates standard Jaimini Charadasha (Sign-based, no Mandooka)."""
     asc_idx = ZODIAC_SIGNS.index(asc_sign)
     sign_lords = {"Aries": "Mars (Mangal)", "Taurus": "Venus (Shukra)", "Gemini": "Mercury (Budh)", "Cancer": "Moon (Chandra)", "Leo": "Sun (Surya)", "Virgo": "Mercury (Budh)", "Libra": "Venus (Shukra)", "Scorpio": "Mars (Mangal)", "Sagittarius": "Jupiter (Guru)", "Capricorn": "Saturn (Shani)", "Aquarius": "Saturn (Shani)", "Pisces": "Jupiter (Guru)"}
     
-    # Determine starting sign
-    if asc_idx in [0, 3, 6, 9]: start_idx = asc_idx # Movable
-    elif asc_idx in [1, 4, 7, 10]: start_idx = (asc_idx + 8) % 12 # Fixed (9th)
-    else: start_idx = (asc_idx + 4) % 12 # Dual (5th)
+    if asc_idx in [0, 3, 6, 9]: start_idx = asc_idx
+    elif asc_idx in [1, 4, 7, 10]: start_idx = (asc_idx + 8) % 12
+    else: start_idx = (asc_idx + 4) % 12
     
-    # Determine direction (9th house odd/even)
     ninth_idx = (asc_idx + 8) % 12
-    direction = 1 if (ninth_idx % 2 == 0) else -1 # Odd=Direct, Even=Reverse
+    direction = 1 if (ninth_idx % 2 == 0) else -1
     
-    # Generate 12 dasha periods
     dashas = []
     curr_idx = start_idx
     for _ in range(12):
@@ -193,7 +186,6 @@ def calculate_charadasha(asc_sign, planets_full, birth_dt):
         dashas.append({"sign": sign_name, "lord": lord, "duration": duration})
         curr_idx = (curr_idx + direction) % 12
         
-    # Map to timeline (Simplified mapping for prompt context)
     return f"Current Charadasha Sequence: {dashas[0]['sign']} ({dashas[0]['duration']}y) -> {dashas[1]['sign']} ({dashas[1]['duration']}y) -> {dashas[2]['sign']} ({dashas[2]['duration']}y)"
 
 def calculate_multi_transits_with_bav(natal_moon_sign, natal_asc_sign, houses_dict):
@@ -219,7 +211,6 @@ def calculate_multi_transits_with_bav(natal_moon_sign, natal_asc_sign, houses_di
     jup_house_from_moon = ((ZODIAC_SIGNS.index(transit_jup_sign) - moon_idx) % 12) + 1
     jup_house_from_asc = ((ZODIAC_SIGNS.index(transit_jup_sign) - asc_idx) % 12) + 1
     
-    # Fetch BAV scores
     sat_bav_moon = calculate_bav("Saturn (Shani)", sat_house_from_moon, houses_dict)
     sat_bav_asc = calculate_bav("Saturn (Shani)", sat_house_from_asc, houses_dict)
     jup_bav_moon = calculate_bav("Jupiter (Guru)", jup_house_from_moon, houses_dict)
@@ -262,13 +253,11 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt, sun_lon):
     
     logic_summary = f"[LIFE STAGE FILTER]: {life_stage}\n{fact_sheet}"
     
-    # Inject Dashas
     vimshottari = calculate_vimshottari_dasha(planets_full["Moon (Chandra)"]["lon"], birth_dt, now)
     charadasha = calculate_charadasha(asc_sign, planets_full, birth_dt)
     logic_summary += f"\n[VIMSHOTTARI DASHA]: {vimshottari}"
     logic_summary += f"\n[JAIMINI CHARADASHA]: {charadasha}"
     
-    # Inject BAV Transits
     transit_data = calculate_multi_transits_with_bav(planets_full["Moon (Chandra)"]["sign"], asc_sign, houses)
     logic_summary += f"\n[BAV TRANSIT MATRIX]: {transit_data}"
 
@@ -356,10 +345,7 @@ def call_groq_agent(groq_key, groq_url, model_name, system_msg, user_msg):
 
 def generate_pdf_weasyprint(report_text, pdf_path):
     try:
-        # Convert Markdown to HTML
         html_body = markdown2.markdown(report_text, extras=["tables", "fenced-code-blocks"])
-        
-        # CSS for typography and layout
         css = """
         @page { size: letter; margin: 2cm; }
         body { font-family: 'Noto Sans', 'Noto Sans Devanagari', sans-serif; font-size: 11pt; line-height: 1.5; color: #222; }
@@ -374,7 +360,6 @@ def generate_pdf_weasyprint(report_text, pdf_path):
         ul, ol { padding-left: 20px; }
         li { margin-bottom: 5px; }
         """
-        
         full_html = f"<html><head><style>{css}</style></head><body>{html_body}</body></html>"
         HTML(string=full_html).write_pdf(pdf_path)
         return True
@@ -383,7 +368,6 @@ def generate_pdf_weasyprint(report_text, pdf_path):
         return False
 
 def process_background_task(chat_id, session_data):
-    """The heavy asynchronous task that generates the report."""
     groq_key = os.environ.get("GROQ_API_KEY")
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
     
@@ -447,7 +431,6 @@ Ascendant (Lagna): {session_data['asc_sign']}
         send_message(chat_id, "⚠️ Master Agent failed.")
         return
 
-    # Hindi Translation (Using 70B to prevent cutoff)
     translator_system_msg = """You are an expert astrological translator. Translate the provided English astrological dossier into formal, clinical Hindi. Maintain all Markdown formatting. Ensure ALL astrological terms have their Hindi names in brackets. Do not add or remove information."""
     hindi_text = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", translator_system_msg, f"Translate the following text to Hindi:\n\n{english_text}")
     
@@ -494,10 +477,8 @@ def webhook():
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
                 if year < 100: year += 1900 if year > 25 else 2000
                 
-                # Quick response to prevent webhook timeout
                 send_message(chat_id, "⏳ Partner chart calculating in background...")
                 
-                # Run partner chart sync (fast math, no LLM)
                 url = f"https://nominatim.openstreetmap.org/search?q={city_input}&format=json&limit=1"
                 try:
                     res = requests.get(url, headers={'User-Agent': 'PanditjiBot/1.0'}, timeout=5).json()
@@ -507,7 +488,6 @@ def webhook():
                 
                 p2_asc, p2_nak, p2_pada, p2_planets, p2_logic, p2_age = calculate_sidereal_chart(day, month, year, hour, minute, lat, lon)
                 
-                # Simple Synastry
                 p1_moon_idx, _, _, _ = get_nakshatra_info(session['planet_data']["Moon (Chandra)"]["lon"])
                 p2_moon_idx, _, _, _ = get_nakshatra_info(p2_planets["Moon (Chandra)"]["lon"])
                 nadi_dosha = (p1_moon_idx % 3) == (p2_moon_idx % 3)
@@ -516,7 +496,6 @@ def webhook():
                 session["state"] = "ready_to_generate"
                 save_session(chat_id, session)
                 
-                # Trigger Background Task for Final PDF
                 threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
 
@@ -528,7 +507,6 @@ def webhook():
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
                 if year < 100: year += 1900 if year > 25 else 2000
                 
-                # Run math sync (fast)
                 url = f"https://nominatim.openstreetmap.org/search?q={city_input}&format=json&limit=1"
                 try:
                     res = requests.get(url, headers={'User-Agent': 'PanditjiBot/1.0'}, timeout=5).json()
@@ -557,7 +535,7 @@ def webhook():
                 threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
                 
-            # STATE 4: Follow-up Questions (Sync, but fast)
+            # STATE 4: Follow-up Questions
             elif session and session.get("state") == "ready_to_generate":
                 send_message(chat_id, "Running follow-up analysis...")
                 groq_key = os.environ.get("GROQ_API_KEY")
@@ -581,5 +559,4 @@ def webhook():
     return jsonify(status="success"), 200
 
 if __name__ == '__main__':
-    init_db()
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
