@@ -1,3 +1,29 @@
+Here is the complete, final, production-ready `main.py` code. It integrates all four absolute corrections (BAV, Charadasha, Threaded Webhook, WeasyPrint) along with the three behavioral fixes (Smart Fluff Cleaner, Lal Kitab Strictness, Hindi Bracket Artifact Fix).
+
+### Deployment Prerequisites (CRITICAL)
+
+**1. `requirements.txt`**
+```text
+Flask
+requests
+pyswisseph
+markdown2
+weasyprint
+gunicorn
+```
+
+**2. `build.sh`**
+WeasyPrint requires Pango/Cairo system libraries. Create a file named `build.sh` in your root directory:
+```bash
+#!/usr/bin/env bash
+apt-get update && apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libcairo2
+pip install -r requirements.txt
+```
+*In your Render Web Service settings, set the Build Command to `bash build.sh`.*
+
+### 3. `main.py`
+
+```python
 import os
 import requests
 import re
@@ -31,7 +57,7 @@ COMBUSTION_ORB = {"Moon (Chandra)": 12, "Mars (Mangal)": 17, "Mercury (Budh)": 1
 MALEFICS = ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]
 NAK_LORDS = ["Ketu", "Venus (Shukra)", "Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Rahu", "Jupiter (Guru)", "Saturn (Shani)", "Mercury (Budh)"]
 
-# Bhinnashtakavarga (BAV) Kakshya Tables (1s and 0s representing contribution)
+# Bhinnashtakavarga (BAV) Kakshya Tables
 BAV_TABLES = {
     "Sun (Surya)": [0,0,1,1,0,0,1,1, 1,0,0,0,1,1,0,0, 0,1,1,0,0,1,1,0, 0,0,1,1,0,0,1,1, 1,0,0,1,1,0,0,1, 0,1,1,0,0,1,1,0, 1,0,0,1,1,0,0,1, 0,1,1,0,0,1,1,0, 0,0,0,1,1,1,1,0, 1,1,1,0,0,0,0,1, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0],
     "Moon (Chandra)": [0,1,0,1,1,0,1,0, 1,0,1,0,0,1,0,1, 1,1,0,0,1,1,0,0, 0,1,1,0,1,0,1,0, 1,0,1,1,0,1,0,1, 0,1,0,1,1,0,1,0, 1,1,0,1,0,1,1,0, 0,0,1,1,1,1,0,0, 1,1,0,0,0,0,1,1, 0,0,1,1,1,1,0,0, 1,0,1,0,0,1,0,1, 0,1,0,1,1,0,1,0],
@@ -52,9 +78,6 @@ def init_db():
                  (chat_id INTEGER PRIMARY KEY, session_data TEXT)''')
     conn.commit()
     conn.close()
-
-# FIX: Initialize database on module load for Gunicorn compatibility
-init_db()
 
 def save_session(chat_id, data):
     conn = sqlite3.connect(DB_PATH)
@@ -114,8 +137,7 @@ def calculate_bav(planet_name, target_house, houses_dict):
     if not p_house: return 0
     rel_house = ((target_house - p_house) % 12) + 1
     start_idx = (rel_house - 1) * 8
-    bav_score = sum(table[start_idx : start_idx + 8])
-    return bav_score
+    return sum(table[start_idx : start_idx + 8])
 
 def calculate_vimshottari_dasha(moon_lon, birth_dt, target_dt):
     nak_span = 360.0 / 27.0
@@ -162,12 +184,12 @@ def calculate_charadasha(asc_sign, planets_full, birth_dt):
     asc_idx = ZODIAC_SIGNS.index(asc_sign)
     sign_lords = {"Aries": "Mars (Mangal)", "Taurus": "Venus (Shukra)", "Gemini": "Mercury (Budh)", "Cancer": "Moon (Chandra)", "Leo": "Sun (Surya)", "Virgo": "Mercury (Budh)", "Libra": "Venus (Shukra)", "Scorpio": "Mars (Mangal)", "Sagittarius": "Jupiter (Guru)", "Capricorn": "Saturn (Shani)", "Aquarius": "Saturn (Shani)", "Pisces": "Jupiter (Guru)"}
     
-    if asc_idx in [0, 3, 6, 9]: start_idx = asc_idx
-    elif asc_idx in [1, 4, 7, 10]: start_idx = (asc_idx + 8) % 12
-    else: start_idx = (asc_idx + 4) % 12
+    if asc_idx in [0, 3, 6, 9]: start_idx = asc_idx 
+    elif asc_idx in [1, 4, 7, 10]: start_idx = (asc_idx + 8) % 12 
+    else: start_idx = (asc_idx + 4) % 12 
     
     ninth_idx = (asc_idx + 8) % 12
-    direction = 1 if (ninth_idx % 2 == 0) else -1
+    direction = 1 if (ninth_idx % 2 == 0) else -1 
     
     dashas = []
     curr_idx = start_idx
@@ -343,6 +365,38 @@ def call_groq_agent(groq_key, groq_url, model_name, system_msg, user_msg):
     except:
         return "[AGENT TIMEOUT]"
 
+def llm_output_firewall(text, logic_summary):
+    """Post-generation validation that strips hallucinated aspects and cleans fluff."""
+    none_houses = re.findall(r"House (\d+).*?Aspected by: none\.", logic_summary, re.IGNORECASE)
+    clean_text = text
+    for h_num in none_houses:
+        pattern = rf'(?i)([^.]*aspect[^.]*House {h_num}[^.]*\.)|([^.]House {h_num}[^.]*aspect[^.]*\.)'
+        def replace_func(match):
+            if "no planetary" in match.group(0).lower() or "none" in match.group(0).lower():
+                return match.group(0)
+            return " [REDACTED: HALLUCINATED ASPECT] "
+        clean_text = re.sub(pattern, replace_func, clean_text)
+        
+    replacements = {
+        r"\bpotentially\b": "",
+        r"\bpossibly\b": "",
+        r"\bsuggesting that\b": "indicating that",
+        r"\bsuggests that\b": "indicates that",
+        r"\bsuggests a need\b": "mandates a need",
+        r"\bassuming\b": "",
+        r"\bself-care\b": "tactical remediation",
+        r"\bdate nights\b": "structured relational protocols",
+        r"\byoga\b": "Ayurvedic physical routines",
+        r"\bmeditation\b": "targeted mantric resonance",
+        r"\bmindfulness\b": "clinical situational awareness"
+    }
+    
+    for pattern, replacement in replacements.items():
+        clean_text = re.compile(pattern, re.IGNORECASE).sub(replacement, clean_text)
+        
+    clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+    return clean_text
+
 def generate_pdf_weasyprint(report_text, pdf_path):
     try:
         html_body = markdown2.markdown(report_text, extras=["tables", "fenced-code-blocks"])
@@ -368,6 +422,7 @@ def generate_pdf_weasyprint(report_text, pdf_path):
         return False
 
 def process_background_task(chat_id, session_data):
+    """The heavy asynchronous task that generates the report."""
     groq_key = os.environ.get("GROQ_API_KEY")
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
     
@@ -380,7 +435,8 @@ def process_background_task(chat_id, session_data):
 3. DEEP CORRELATION: Link the 5-Pillar Ecosystem data to real-world manifestations.
 4. BAV INTEGRATION: You MUST explicitly cite the BAV scores (0-8) when analyzing transits. A BAV of 0-2 is severe friction; 6-8 is high relief.
 5. FORBIDDEN CONCEPTS: Do not use 'potentially', 'possibly', 'suggesting', 'assuming', 'yoga', 'meditation'. Use definitive clinical terms.
-6. HINDI MANDATORY: Use Hindi names for EVERY Zodiac Sign and Planet.
+6. LAL KITAB STRICTNESS: You MUST copy-paste the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section verbatim. Do NOT invent generic remedies like 'perform puja' or 'practice yoga'. If the logic summary says 'Drop raw coal', you write 'Drop raw coal'.
+7. HINDI MANDATORY: Use Hindi names for EVERY Zodiac Sign and Planet.
 """
     logic = session_data['logic_breakdown']
     planet_summary = session_data['planet_summary']
@@ -431,7 +487,16 @@ Ascendant (Lagna): {session_data['asc_sign']}
         send_message(chat_id, "⚠️ Master Agent failed.")
         return
 
-    translator_system_msg = """You are an expert astrological translator. Translate the provided English astrological dossier into formal, clinical Hindi. Maintain all Markdown formatting. Ensure ALL astrological terms have their Hindi names in brackets. Do not add or remove information."""
+    # Apply the Smart Firewall to clean fluff and bad grammar
+    english_text = llm_output_firewall(english_text, logic)
+
+    # Hindi Translation (Using 70B to prevent cutoff)
+    translator_system_msg = """You are an expert astrological translator. Translate the provided English astrological dossier into formal, clinical Hindi. 
+    Maintain all Markdown formatting. 
+    Ensure English astrological terms have their Hindi names in brackets (e.g., Saturn (Shani)). 
+    DO NOT put Hindi words in brackets if they are already in Devanagari script. 
+    Do not add or remove information. Translate exactly."""
+    
     hindi_text = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", translator_system_msg, f"Translate the following text to Hindi:\n\n{english_text}")
     
     complete_pdf_text = english_text + "\n\n# PART 2: हिंदी अनुवाद (HINDI TRANSLATION)\n\n" + hindi_text
@@ -535,7 +600,7 @@ def webhook():
                 threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
                 
-            # STATE 4: Follow-up Questions
+            # STATE 4: Follow-up Questions (Sync, but fast)
             elif session and session.get("state") == "ready_to_generate":
                 send_message(chat_id, "Running follow-up analysis...")
                 groq_key = os.environ.get("GROQ_API_KEY")
@@ -558,5 +623,9 @@ def webhook():
         
     return jsonify(status="success"), 200
 
+# Initialize database on module load (required for Gunicorn on Render)
+init_db()
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+```
