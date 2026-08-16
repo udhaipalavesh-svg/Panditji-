@@ -116,7 +116,6 @@ def fmt_jd_to_mon_year(jd):
     return f"{m:02d}/{y}"
 
 def calculate_vimshottari_timeline(moon_lon, birth_dt):
-    """Calculates exact dates for Dasha periods."""
     nak_span = 360.0 / 27.0
     nak_idx, _, _, rem = get_nakshatra_info(moon_lon)
     lord_idx = (nak_idx // 3) % 9
@@ -189,14 +188,13 @@ def calculate_charadasha(asc_sign, planets_full):
     
     dashas = []
     curr_idx = start_idx
-    for _ in range(3): # Get first 3 signs for sequence context
+    for _ in range(3):
         sign_name = ZODIAC_SIGNS[curr_idx]
         lord = sign_lords.get(sign_name)
         lord_sign = planets_full.get(lord, {}).get("sign")
         lord_idx = ZODIAC_SIGNS.index(lord_sign) if lord_sign else curr_idx
         
-        if curr_idx == lord_idx:
-            duration = 12
+        if curr_idx == lord_idx: duration = 12
         else:
             duration = abs((lord_idx - curr_idx) * direction) % 12
             if duration == 0: duration = 12
@@ -207,7 +205,6 @@ def calculate_charadasha(asc_sign, planets_full):
     return " -> ".join(dashas)
 
 def calculate_transit_timings():
-    """Forward-scans ephemeris to find exact ingress dates for transits."""
     now_dt = datetime.now()
     swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     dt_utc = now_dt - timedelta(hours=5, minutes=30)
@@ -223,7 +220,7 @@ def calculate_transit_timings():
         curr_sign = int(lon / 30) % 12
         
         scan_jd = jdut
-        for _ in range(730): # Scan up to 2 years
+        for _ in range(730):
             scan_jd += 1.0
             calc_scan = swe.calc_ut(scan_jd, p_id, flags)
             lon_scan = calc_scan[0][0] if isinstance(calc_scan[0], tuple) else calc_scan[0]
@@ -244,10 +241,7 @@ def calculate_transit_bav(natal_moon_sign, natal_asc_sign, houses_dict):
     flags = swe.FLG_SWIEPH + swe.FLG_SPEED + swe.FLG_SIDEREAL
     
     t_sat = swe.calc_ut(jdut, swe.SATURN, flags); sat_lon = t_sat[0][0] if isinstance(t_sat[0], tuple) else t_sat[0]
-    t_jup = swe.calc_ut(jdut, swe.JUPITER, flags); jup_lon = t_jup[0][0] if isinstance(t_jup[0], tuple) else t_jup[0]
-    
     sat_sign = ZODIAC_SIGNS[int(sat_lon / 30) % 12]
-    jup_sign = ZODIAC_SIGNS[int(jup_lon / 30) % 12]
     
     sat_house_moon = ((ZODIAC_SIGNS.index(sat_sign) - ZODIAC_SIGNS.index(natal_moon_sign)) % 12) + 1
     sat_house_asc = ((ZODIAC_SIGNS.index(sat_sign) - ZODIAC_SIGNS.index(natal_asc_sign)) % 12) + 1
@@ -289,19 +283,15 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     
     logic_summary = f"[LIFE STAGE FILTER]: {life_stage}\n{fact_sheet}"
     
-    # 1. Exact Dasha Timeline
     dasha_timeline = calculate_vimshottari_timeline(planets_full["Moon (Chandra)"]["lon"], birth_dt)
     logic_summary += f"\n[VIMSHOTTARI TIMELINE]: {dasha_timeline}"
     
-    # 2. Charadasha
     charadasha = calculate_charadasha(asc_sign, planets_full)
     logic_summary += f"\n[JAIMINI CHARADASHA]: {charadasha}"
     
-    # 3. Transit Ingress Timings
     transit_ingress = calculate_transit_timings()
     logic_summary += f"\n[TRANSIT INGRESS DATES]: {transit_ingress}"
     
-    # 4. Current Transit BAV
     transit_bav = calculate_transit_bav(planets_full["Moon (Chandra)"]["sign"], asc_sign, houses)
     logic_summary += f"\n[CURRENT TRANSIT BAV]: {transit_bav}"
 
@@ -376,68 +366,45 @@ def send_document(chat_id, file_path):
             requests.post(url, data={'chat_id': chat_id}, files={'document': f}, timeout=30)
     except: pass
 
-def call_groq_agent(groq_key, groq_url, model_name, system_msg, user_msg):
-    payload = {"model": model_name, "messages": [{"role": "system", "content": system_msg}, {"role": "user", "content": user_msg}], "temperature": 0.3}
+def call_groq_agent(groq_key, groq_url, model_name, system_msg, user_msg, json_mode=False):
+    payload = {
+        "model": model_name, 
+        "messages": [
+            {"role": "system", "content": system_msg}, 
+            {"role": "user", "content": user_msg}
+        ], 
+        "temperature": 0.3
+    }
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+        
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
     try:
         res = requests.post(groq_url, headers=headers, json=payload, timeout=180)
         if res.status_code == 200:
             return res.json()['choices'][0]['message']['content']
-        return "[ERROR IN AGENT]"
-    except:
-        return "[AGENT TIMEOUT]"
+        return json.dumps({"error": "API_ERROR", "details": res.text[:100]}) if json_mode else "[ERROR IN AGENT]"
+    except Exception as e:
+        return json.dumps({"error": "TIMEOUT", "details": str(e)}) if json_mode else "[AGENT TIMEOUT]"
 
-def llm_output_firewall(text, logic_summary):
-    """Post-generation validation that strips hallucinated aspects and cleans fluff."""
-    none_houses = re.findall(r"House (\d+).*?Aspected by: none\.", logic_summary, re.IGNORECASE)
-    clean_text = text
-    for h_num in none_houses:
-        pattern = rf'(?i)([^.]*aspect[^.]*House {h_num}[^.]*\.)|([^.]House {h_num}[^.]*aspect[^.]*\.)'
-        def replace_func(match):
-            if "no planetary" in match.group(0).lower() or "none" in match.group(0).lower():
-                return match.group(0)
-            return " [REDACTED: HALLUCINATED ASPECT] "
-        clean_text = re.sub(pattern, replace_func, clean_text)
-        
+def llm_output_firewall(text):
+    """Cleans fluff from text (used on JSON values after parsing)."""
     replacements = {
-        r"\bpotentially\b": "",
-        r"\bpossibly\b": "",
-        r"\bsuggesting that\b": "indicating that",
-        r"\bsuggests that\b": "indicates that",
-        r"\bsuggests a need\b": "mandates a need",
-        r"\bassuming\b": "",
-        r"\bself-care\b": "tactical remediation",
-        r"\bdate nights\b": "structured relational protocols",
-        r"\byoga\b": "Ayurvedic physical routines",
-        r"\bmeditation\b": "targeted mantric resonance",
+        r"\bpotentially\b": "", r"\bpossibly\b": "", r"\bsuggesting that\b": "indicating that",
+        r"\bsuggests that\b": "indicates that", r"\bsuggests a need\b": "mandates a need",
+        r"\bassuming\b": "", r"\bself-care\b": "tactical remediation", r"\bdate nights\b": "structured relational protocols",
+        r"\byoga\b": "Ayurvedic physical routines", r"\bmeditation\b": "targeted mantric resonance",
         r"\bmindfulness\b": "clinical situational awareness"
     }
-    
+    clean_text = text
     for pattern, replacement in replacements.items():
         clean_text = re.compile(pattern, re.IGNORECASE).sub(replacement, clean_text)
-        
     clean_text = re.sub(r'\s+', ' ', clean_text).strip()
     return clean_text
 
-def generate_pdf_weasyprint(report_text, pdf_path):
+def generate_pdf_weasyprint(html_content, pdf_path):
     try:
-        html_body = markdown2.markdown(report_text, extras=["tables", "fenced-code-blocks"])
-        css = """
-        @page { size: letter; margin: 2cm; }
-        body { font-family: 'Noto Sans', 'Noto Sans Devanagari', sans-serif; font-size: 11pt; line-height: 1.5; color: #222; }
-        h1 { color: #4A154B; font-size: 16pt; border-bottom: 2px solid #4A154B; padding-bottom: 5px; margin-top: 20px; }
-        h2 { color: #1D1C1D; font-size: 13pt; margin-top: 15px; }
-        h3 { color: #555; font-size: 11pt; font-style: italic; }
-        strong { color: #111; }
-        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-        th { background-color: #4A154B; color: white; padding: 8px; text-align: left; font-size: 9pt; }
-        td { border: 1px solid #ddd; padding: 8px; font-size: 9pt; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        ul, ol { padding-left: 20px; }
-        li { margin-bottom: 5px; }
-        """
-        full_html = f"<html><head><style>{css}</style></head><body>{html_body}</body></html>"
-        HTML(string=full_html).write_pdf(pdf_path)
+        HTML(string=html_content).write_pdf(pdf_path)
         return True
     except Exception as e:
         print(f"WEASYPRINT ERROR: {e}", flush=True)
@@ -458,6 +425,23 @@ def process_background_task(chat_id, session_data):
 5. FORBIDDEN CONCEPTS: Do not use 'potentially', 'possibly', 'suggesting', 'assuming', 'yoga', 'meditation'. Use definitive clinical terms.
 6. LAL KITAB STRICTNESS: You MUST copy-paste the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section verbatim. Do NOT invent generic remedies.
 7. HINDI MANDATORY: Use Hindi names for EVERY Zodiac Sign and Planet.
+8. JSON OUTPUT STRICTLY ENFORCED: You must output ONLY a valid JSON object. Do not include any conversational text outside the JSON. The JSON must match this exact schema:
+{
+  "temporal_narrative": {
+    "psychological_baseline": "...",
+    "historical_trajectory": "...",
+    "present_trigger": "...",
+    "expected_survival": "..."
+  },
+  "threat_matrix": {
+    "wealth_and_career": "...",
+    "relationships_and_property": "...",
+    "vitality_and_subconscious": "..."
+  },
+  "ayurvedic_audit": "...",
+  "remediation_protocol": "..."
+}
+The string values inside the JSON can contain basic Markdown formatting (bold, italics, bullet points), but the top-level structure must be valid JSON.
 """
     logic = session_data['logic_breakdown']
     planet_summary = session_data['planet_summary']
@@ -470,58 +454,143 @@ Ascendant (Lagna): {session_data['asc_sign']}
 {planet_summary}
 
 [OUTPUT TEMPLATE - FOLLOW EXACTLY]
-*Disclaimer: This audit maps karmic tendencies and probabilistic risk vectors based on planetary mathematics.*
-
-# I. THE TEMPORAL-PSYCHOLOGICAL NARRATIVE
-- **The Psychological Baseline:** Diagnose the native's core psychological bottleneck.
-- **The Historical Trajectory:** Analyze the Past Antardasha.
-- **The Present Trigger:** Pinpoint the exact trigger using Current Dasha dates and Transit BAV/Ingress dates. Explicitly state the dates.
-- **The Expected State & Survival:** Map the survival trajectory based on the Future Antardasha dates and Transit Ingress dates.
-
-# II. THE 3-PILLAR THREAT MATRIX
-*(Analyze using the strict 5-PILLAR CHAIN OF DEDUCTION)*
+Generate the JSON object based strictly on the provided data. 
+For the threat_matrix values, structure the text using the 5-PILLAR CHAIN OF DEDUCTION:
 1. Astronomical Root
 2. Systemic Vulnerability
 3. Real-World Manifestation
 4. Expected Timeline (Exact Dates from Dasha/Transits)
 5. Tactical Countermeasure
-
-**Pillar 1: Wealth, Career & Structural Stability** (Analyze Houses 2, 10, 11)
-**Pillar 2: Relationship, Property & Progeny Dynamics** (Analyze Houses 4, 5, 7, 9)
-**Pillar 3: Core Vitality & Subconscious Trajectory** (Analyze Houses 1, 3)
-
-# III. AYURVEDIC & NEUROLOGICAL AUDIT
-- Diagnose Dosha and neurological breakdown. Prescribe Ayurvedic Triage.
-
-# IV. WHOLISTIC LAL KITAB REMEDIATION
-- Immediate First Aid, Holistic Protocol, and Long-Term Mantras.
 """
     
-    english_text = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", system_msg, user_msg_eng)
-    if "[ERROR" in english_text or "[AGENT" in english_text:
-        send_message(chat_id, "⚠️ Master Agent failed.")
+    english_json_str = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", system_msg, user_msg_eng, json_mode=True)
+    
+    try:
+        eng_data = json.loads(english_json_str)
+        if "error" in eng_data:
+            send_message(chat_id, "⚠️ Master Agent failed.")
+            return
+    except json.JSONDecodeError:
+        send_message(chat_id, "⚠️ JSON Parsing failed from Master Agent.")
         return
 
-    english_text = llm_output_firewall(english_text, logic)
+    # Clean fluff from English JSON values
+    for k, v in eng_data.items():
+        if isinstance(v, dict):
+            for sub_k, sub_v in v.items():
+                eng_data[k][sub_k] = llm_output_firewall(sub_v)
+        else:
+            eng_data[k] = llm_output_firewall(v)
 
-    translator_system_msg = """You are an expert astrological translator. Translate the provided English astrological dossier into formal, clinical Hindi. 
-    Maintain all Markdown formatting. Ensure English astrological terms have their Hindi names in brackets. 
+    # Hindi Translation (Translate parsed JSON values, output JSON)
+    translator_system_msg = """You are an expert astrological translator. Translate the provided English JSON object into Hindi. 
+    Output ONLY a valid JSON object with the EXACT SAME KEYS, but with Hindi translated values. 
     DO NOT put Hindi words in brackets if they are already in Devanagari script. Translate exactly."""
     
-    hindi_text = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", translator_system_msg, f"Translate the following text to Hindi:\n\n{english_text}")
+    hindi_json_str = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", translator_system_msg, json.dumps(eng_data), json_mode=True)
     
-    complete_pdf_text = english_text + "\n\n# PART 2: हिंदी अनुवाद (HINDI TRANSLATION)\n\n" + hindi_text
+    try:
+        hin_data = json.loads(hindi_json_str)
+    except json.JSONDecodeError:
+        hin_data = {"error": "Hindi translation failed."}
+
+    # Build HTML
+    def md_to_html(text):
+        return markdown2.markdown(text, extras=["fenced-code-blocks"])
+
+    # Construct English HTML
+    html_body = f"""
+    <h1>Astrological Audit</h1>
+    <p><em>Disclaimer: This audit maps karmic tendencies and probabilistic risk vectors based on planetary mathematics.</em></p>
+    
+    <h2>I. THE TEMPORAL-PSYCHOLOGICAL NARRATIVE</h2>
+    <h3>The Psychological Baseline</h3>
+    {md_to_html(eng_data['temporal_narrative']['psychological_baseline'])}
+    <h3>The Historical Trajectory</h3>
+    {md_to_html(eng_data['temporal_narrative']['historical_trajectory'])}
+    <h3>The Present Trigger</h3>
+    {md_to_html(eng_data['temporal_narrative']['present_trigger'])}
+    <h3>The Expected State & Survival</h3>
+    {md_to_html(eng_data['temporal_narrative']['expected_survival'])}
+    
+    <h2>II. THE 3-PILLAR THREAT MATRIX</h2>
+    <h3>Pillar 1: Wealth, Career & Structural Stability</h3>
+    {md_to_html(eng_data['threat_matrix']['wealth_and_career'])}
+    <h3>Pillar 2: Relationship, Property & Progeny Dynamics</h3>
+    {md_to_html(eng_data['threat_matrix']['relationships_and_property'])}
+    <h3>Pillar 3: Core Vitality & Subconscious Trajectory</h3>
+    {md_to_html(eng_data['threat_matrix']['vitality_and_subconscious'])}
+    
+    <h2>III. AYURVEDIC & NEUROLOGICAL AUDIT</h2>
+    {md_to_html(eng_data['ayurvedic_audit'])}
+    
+    <h2>IV. WHOLISTIC LAL KITAB REMEDIATION</h2>
+    {md_to_html(eng_data['remediation_protocol'])}
+    """
+    
+    # Construct Hindi HTML (if translation succeeded)
+    if "error" not in hin_data:
+        html_body += f"""
+        <div style="page-break-before: always;"></div>
+        <h1>भाग 2: हिंदी अनुवाद (HINDI TRANSLATION)</h1>
+        
+        <h2>I. काल-मानसिक कथा (मूल निदान)</h2>
+        <h3>मानसिक आधार</h3>
+        {md_to_html(hin_data['temporal_narrative']['psychological_baseline'])}
+        <h3>ऐतिहासिक प्रक्षेपपथ</h3>
+        {md_to_html(hin_data['temporal_narrative']['historical_trajectory'])}
+        <h3>वर्तमान ट्रिगर</h3>
+        {md_to_html(hin_data['temporal_narrative']['present_trigger'])}
+        <h3>अपेक्षित स्थिति और जीवित रहना</h3>
+        {md_to_html(hin_data['temporal_narrative']['expected_survival'])}
+        
+        <h2>II. ३-पिलर खतरा मैट्रिक्स</h2>
+        <h3>पिलर १: धन, करियर और संरचनात्मक स्थिरता</h3>
+        {md_to_html(hin_data['threat_matrix']['wealth_and_career'])}
+        <h3>पिलर २: संबंध, संपत्ति और संतान गतिशीलता</h3>
+        {md_to_html(hin_data['threat_matrix']['relationships_and_property'])}
+        <h3>पिलर ३: मूल विटैलिटी और अवचेतन प्रक्षेपपथ</h3>
+        {md_to_html(hin_data['threat_matrix']['vitality_and_subconscious'])}
+        
+        <h2>III. आयुर्वेदिक और तंत्रिका विज्ञान ऑडिट</h2>
+        {md_to_html(hin_data['ayurvedic_audit'])}
+        
+        <h2>IV. समग्र लाल किताब उपचार</h2>
+        {md_to_html(hin_data['remediation_protocol'])}
+        """
+
+    css = """
+    @page { size: letter; margin: 2cm; }
+    body { font-family: 'Noto Sans', 'Noto Sans Devanagari', sans-serif; font-size: 11pt; line-height: 1.5; color: #222; }
+    h1 { color: #4A154B; font-size: 16pt; border-bottom: 2px solid #4A154B; padding-bottom: 5px; margin-top: 20px; }
+    h2 { color: #1D1C1D; font-size: 13pt; margin-top: 15px; }
+    h3 { color: #555; font-size: 11pt; font-style: italic; }
+    strong { color: #111; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+    th { background-color: #4A154B; color: white; padding: 8px; text-align: left; font-size: 9pt; }
+    td { border: 1px solid #ddd; padding: 8px; font-size: 9pt; }
+    tr:nth-child(even) { background-color: #f9f9f9; }
+    ul, ol { padding-left: 20px; }
+    li { margin-bottom: 5px; }
+    """
+    full_html = f"<html><head><style>{css}</style></head><body>{html_body}</body></html>"
     
     send_message(chat_id, "⏳ Compiling Forensic Dossier PDF...")
     file_tag = str(int(time.time()))
     pdf_path = f"/tmp/Astrological_Audit_{file_tag}.pdf"
     
-    if generate_pdf_weasyprint(complete_pdf_text, pdf_path) and os.path.exists(pdf_path):
+    if generate_pdf_weasyprint(full_html, pdf_path) and os.path.exists(pdf_path):
         send_document(chat_id, pdf_path)
         send_message(chat_id, "📄 **Astrological Audit PDF attached above!** ⬆️")
     else:
         send_message(chat_id, "⚠️ PDF generation failed. Sending text report:")
-        for i in range(0, len(complete_pdf_text), 3900): send_message(chat_id, complete_pdf_text[i:i + 3900]); time.sleep(0.5)
+        # Fallback to sending English text
+        for k, v in eng_data.items():
+            if isinstance(v, dict):
+                for sub_k, sub_v in v.items():
+                    send_message(chat_id, f"{sub_k.replace('_', ' ').title()}:\n{sub_v}")
+            else:
+                send_message(chat_id, f"{k.replace('_', ' ').title()}:\n{v}")
 
 # ==========================================
 # FLASK WEBHOOK (Instant Return + Threading)
