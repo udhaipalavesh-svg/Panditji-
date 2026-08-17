@@ -41,6 +41,65 @@ BAV_TABLES = {
     "Saturn (Shani)": [0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0, 0,0,1,0,0,1,1,0, 0,1,0,1,1,0,0,1, 1,0,1,0,1,0,0,1, 0,1,0,1,0,1,1,0, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0]
 }
 
+LAL_KITAB_DICT = {
+    "Saturn (Shani)_Combust": "Donate black sesame oil on Saturday. Keep a square piece of silver in wallet to prevent liquid cash evaporation.",
+    "Mars (Mangal)_Combust": "Donate red masoor dal on Tuesday. Avoid keeping iron tools under the bed to prevent surgical interventions.",
+    "Jupiter (Guru)_Combust": "Donate turmeric and chana dal on Thursday. Apply a tilak of saffron on the forehead to stabilize intellect.",
+    "Venus (Shukra)_Combust": "Donate pure ghee to a temple on Friday. Feed wheat dough to a cow to stabilize marital harmony.",
+    "Mercury (Budh)_Combust": "Donate green moong dal on Wednesday. Clean teeth with fitkari (alum) daily to prevent nervous system burnout.",
+    "Mars (Mangal)_Debilitated": "Float a piece of red copper in a flowing river on Tuesday. Sleep on a white bedsheet to calm aggressive impulses.",
+    "Sun (Surya)_Debilitated": "Donate wheat and jaggery on Sunday. Offer water to the Sun (Surya Arghya) with a pinch of red sandalwood to rebuild self-worth.",
+    "Moon (Chandra)_Debilitated": "Immerse a square piece of silver in a flowing river on Monday. Feed wheat flour balls to fish to cure clinical anxiety.",
+    "Venus (Shukra)_Debilitated": "Donate white sweets to young girls on Friday. Keep a silver glass for drinking water to restore relationship balance.",
+    "Jupiter (Guru)_Debilitated": "Water a peepal tree on Thursday. Donate yellow clothes or books to a priest or student to clear karmic debts.",
+    "Saturn (Shani)_Debilitated": "Serve food to lepers or disabled people. Feed black dogs on Saturday to remove chronic structural obstacles.",
+    "Saturn (Shani)_1": "Do not consume non-veg on Saturday. Feed black crows daily to prevent chronic fatigue and identity erosion.",
+    "Mars (Mangal)_1": "Donate red lentils on Tuesday. Avoid keeping weapons in the house to prevent aggressive outbursts.",
+    "Rahu_1": "Keep a silver square in pocket. Do not accept electrical items as gifts to prevent identity confusion.",
+    "Ketu_1": "Feed street dogs daily. Do not wear fragmented jewelry to prevent scattered focus.",
+    "Sun (Surya)_1": "Offer water to the Sun daily. Do not consume salt on Sundays to maintain vitality.",
+    "Saturn (Shani)_2": "Keep a silver square in wallet. Serve food to disabled people to prevent wealth erosion.",
+    "Mars (Mangal)_2": "Donate red masoor dal on Tuesday. Do not keep iron tools in the kitchen to prevent family disputes.",
+    "Rahu_2": "Keep a solid silver ball in the mouth for a few minutes daily. Do not accept bribes to prevent wealth loss.",
+    "Ketu_2": "Donate a black and white blanket. Do not keep broken glass in the house to prevent wealth leakage.",
+    "Sun (Surya)_2": "Donate wheat and jaggery on Sunday. Do not consume hot food to prevent family arguments.",
+    "Saturn (Shani)_4": "Do not build a house before age 48. Pour mustard oil on the floor on Saturday to prevent domestic disputes.",
+    "Mars (Mangal)_4": "Keep a square piece of red copper in the house. Do not keep weapons under the bed to prevent domestic violence.",
+    "Rahu_4": "Keep a solid silver square in the house. Do not keep electronic items in the bedroom to prevent insomnia.",
+    "Ketu_4": "Feed street dogs daily. Do not keep fragmented items in the house to prevent domestic unrest.",
+    "Sun (Surya)_4": "Offer water to the Sun daily. Do not consume salt on Sundays to maintain domestic peace.",
+    "Saturn (Shani)_5": "Do not build a house before age 48. Feed black crows to prevent delays in progeny.",
+    "Mars (Mangal)_5": "Donate red lentils on Tuesday. Do not keep weapons in the bedroom to prevent miscarriages.",
+    "Rahu_5": "Keep a silver square in pocket. Do not accept electrical items as gifts to prevent progeny issues.",
+    "Ketu_5": "Feed street dogs daily. Do not wear fragmented jewelry to prevent progeny delays.",
+    "Sun (Surya)_5": "Offer water to the Sun daily. Do not consume salt on Sundays to maintain progeny health.",
+    "Saturn (Shani)_6": "Float a black mustard oil-filled bottle in a river on Saturday. Serve food to disabled people to ward off chronic debts and prolonged illnesses.",
+    "Mars (Mangal)_6": "Donate red masoor dal and batasha (sweet) on Tuesday. Feed a monkey or a red dog to neutralize enemies and prevent aggressive litigation.",
+    "Rahu_6": "Float a piece of lead or a black sesame oil bottle in running water on Saturday. Keep a solid silver square in the pocket to avoid deceptive litigation and maternal disputes.",
+    "Ketu_6": "Donate a black and white blanket on Tuesday. Feed street dogs regularly to prevent mysterious health ailments and disputes with maternal uncles.",
+    "Sun (Surya)_6": "Offer jaggery and wheat to a red cow on Sunday. Donate medicines to a hospital to prevent chronic health issues and conflicts with authorities.",
+    "Saturn (Shani)_7": "Do not build a house before age 48. Pour mustard oil on the floor on Saturday to prevent marital discord.",
+    "Mars (Mangal)_7": "Donate red lentils on Tuesday. Do not keep weapons in the bedroom to prevent marital violence.",
+    "Rahu_7": "Keep a silver square in pocket. Do not accept electrical items as gifts to prevent marital deception.",
+    "Ketu_7": "Feed street dogs daily. Do not keep fragmented items in the bedroom to prevent marital separation.",
+    "Sun (Surya)_7": "Offer water to the Sun daily. Do not consume salt on Sundays to maintain marital peace.",
+    "Saturn (Shani)_8": "Do not build a house before age 48. Drop 8 kilograms of raw coal in running water on a Saturday to prevent hospitalization.",
+    "Mars (Mangal)_8": "Feed sweet bread (roti) to a red dog on Tuesday. Keep a square piece of red copper in the house to prevent sudden trauma.",
+    "Rahu_8": "Keep a solid silver square piece in the pocket. Float four coconuts in a river on Saturday to mitigate sudden litigation.",
+    "Ketu_8": "Donate a black and white blanket. Feed street dogs regularly to prevent genetic health complications.",
+    "Sun (Surya)_8": "Offer jaggery and wheat to a red cow on Sunday. Keep a copper pot filled with water in the bedroom at night and pour it into a plant in the morning.",
+    "Saturn (Shani)_10": "Do not consume non-veg on Saturday. Feed black crows to prevent career stagnation.",
+    "Mars (Mangal)_10": "Donate red lentils on Tuesday. Do not keep weapons in the office to prevent career conflicts.",
+    "Rahu_10": "Keep a silver square in pocket. Do not accept electrical items as gifts to prevent career deception.",
+    "Ketu_10": "Feed street dogs daily. Do not wear fragmented jewelry to prevent career instability.",
+    "Sun (Surya)_10": "Offer water to the Sun daily. Do not consume salt on Sundays to maintain career status.",
+    "Saturn (Shani)_12": "Keep a square piece of silver in pocket. Do not consume alcohol or non-vegetarian food on Saturdays to prevent insomnia.",
+    "Mars (Mangal)_12": "Float a piece of red copper in flowing water on Tuesday. Do not keep weapons in the bedroom to prevent night terrors.",
+    "Rahu_12": "Donate a black blanket to a homeless person. Keep a dog as a pet to absorb environmental malefic energy.",
+    "Ketu_12": "Bury a pair of ivory pieces in a graveyard or at a crossroad. Avoid wearing fragmented or broken jewelry.",
+    "Sun (Surya)_12": "Keep a copper coin in a visible spot in the house. Do not consume salt on Sundays to prevent immune system collapse."
+}
+
 # ==========================================
 # DATABASE MANAGER (SQLite Stateless Architecture)
 # ==========================================
@@ -72,6 +131,18 @@ def clear_session(chat_id):
     c.execute("DELETE FROM sessions WHERE chat_id=?", (chat_id,))
     conn.commit()
     conn.close()
+
+def safe_get(data, keys, default="*Data Unavailable*"):
+    """Safely traverses a nested dictionary. Returns default if any key is missing."""
+    if not isinstance(data, dict):
+        return default
+    current = data
+    for key in keys:
+        if isinstance(current, dict) and key in current:
+            current = current[key]
+        else:
+            return default
+    return current if current else default
 
 # ==========================================
 # ASTROLOGY MATH ENGINE
@@ -241,15 +312,84 @@ def calculate_transit_bav(natal_moon_sign, natal_asc_sign, houses_dict):
     flags = swe.FLG_SWIEPH + swe.FLG_SPEED + swe.FLG_SIDEREAL
     
     t_sat = swe.calc_ut(jdut, swe.SATURN, flags); sat_lon = t_sat[0][0] if isinstance(t_sat[0], tuple) else t_sat[0]
+    t_jup = swe.calc_ut(jdut, swe.JUPITER, flags); jup_lon = t_jup[0][0] if isinstance(t_jup[0], tuple) else t_jup[0]
+    
     sat_sign = ZODIAC_SIGNS[int(sat_lon / 30) % 12]
+    jup_sign = ZODIAC_SIGNS[int(jup_lon / 30) % 12]
     
     sat_house_moon = ((ZODIAC_SIGNS.index(sat_sign) - ZODIAC_SIGNS.index(natal_moon_sign)) % 12) + 1
     sat_house_asc = ((ZODIAC_SIGNS.index(sat_sign) - ZODIAC_SIGNS.index(natal_asc_sign)) % 12) + 1
+    jup_house_moon = ((ZODIAC_SIGNS.index(jup_sign) - ZODIAC_SIGNS.index(natal_moon_sign)) % 12) + 1
+    jup_house_asc = ((ZODIAC_SIGNS.index(jup_sign) - ZODIAC_SIGNS.index(natal_asc_sign)) % 12) + 1
     
     sat_bav_moon = calculate_bav("Saturn (Shani)", sat_house_moon, houses_dict)
     sat_bav_asc = calculate_bav("Saturn (Shani)", sat_house_asc, houses_dict)
+    jup_bav_moon = calculate_bav("Jupiter (Guru)", jup_house_moon, houses_dict)
+    jup_bav_asc = calculate_bav("Jupiter (Guru)", jup_house_asc, houses_dict)
     
-    return f"Saturn in {HINDI_SIGNS[sat_sign]} (H{sat_house_moon} from Moon, BAV:{sat_bav_moon}/8; H{sat_house_asc} from Lagna, BAV:{sat_bav_asc}/8)"
+    sat_friction = "Severe Friction" if sat_bav_moon <= 2 else "High Relief" if sat_bav_moon >= 6 else "Neutral"
+    jup_relief = "High Relief" if jup_bav_moon >= 6 else "Low Relief" if jup_bav_moon <= 2 else "Neutral"
+    
+    return f"Saturn in {HINDI_SIGNS[sat_sign]} (H{sat_house_moon} from Moon, BAV:{sat_bav_moon}/8 - {sat_friction}; H{sat_house_asc} from Lagna, BAV:{sat_bav_asc}/8). Jupiter in {HINDI_SIGNS[jup_sign]} (H{jup_house_moon} from Moon, BAV:{jup_bav_moon}/8 - {jup_relief}; H{jup_house_asc} from Lagna, BAV:{jup_bav_asc}/8)."
+
+def get_lal_kitab_remedy(houses_dict, planets_dict):
+    remedies = []
+    for p_name, p_data in planets_dict.items():
+        if p_data.get("combust"):
+            key = f"{p_name}_Combust"
+            if key in LAL_KITAB_DICT: remedies.append(f"{p_name} is Combust: {LAL_KITAB_DICT[key]}")
+        if p_data.get("dignity", "").startswith("Debilitated"):
+            key = f"{p_name}_Debilitated"
+            if key in LAL_KITAB_DICT: remedies.append(f"{p_name} is Debilitated: {LAL_KITAB_DICT[key]}")
+                    
+    for h_num in range(1, 13):
+        occ = houses_dict[h_num]["occupants"]
+        malefics_in_house = [p for p in occ if p in ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]]
+        for p_name in malefics_in_house:
+            key = f"{p_name}_{h_num}"
+            if key in LAL_KITAB_DICT: 
+                remedy_text = LAL_KITAB_DICT[key]
+                if len(malefics_in_house) > 1:
+                    remedy_text += " (Warning: Malefic conjunction detected. Do not perform gemstone therapy for these planets.)"
+                remedies.append(f"{p_name} in House {h_num}: {remedy_text}")
+                        
+    unique_remedies = list(dict.fromkeys(remedies))
+    return unique_remedies[:5]
+
+def detect_yogas(houses_dict, planets_dict, sign_lords):
+    yogas = []
+    moon_house = get_house_of_planet(houses_dict, "Moon (Chandra)")
+    jup_house = get_house_of_planet(houses_dict, "Jupiter (Guru)")
+    
+    if moon_house and jup_house:
+        if abs(jup_house - moon_house) in [0, 3, 6, 9]:
+            yogas.append("Gaja Kesari Yoga (Jupiter in Kendra from Moon): Grants high intelligence, fame, wealth, strong moral character.")
+
+    for p_name, p_data in planets_dict.items():
+        if p_data.get("dignity", "").startswith("Debilitated"):
+            deb_sign = p_data["sign"]
+            exalt_lord = sign_lords.get(EXALTATION.get(p_name, ""))
+            deb_lord = sign_lords.get(deb_sign, "")
+            for lord in [exalt_lord, deb_lord]:
+                if lord:
+                    lord_house = get_house_of_planet(houses_dict, lord)
+                    if lord_house in [1, 4, 7, 10]:
+                        yogas.append(f"Neecha Bhanga Raja Yoga for {p_name}: Debilitation canceled by {lord} in Kendra. The initial weakness transforms into immense late-life power.")
+                        break
+
+    kendra_houses = [1, 4, 7, 10]
+    trikona_houses = [1, 5, 9]
+    kendra_lords = [sign_lords.get(houses_dict[h]["sign"], "") for h in kendra_houses]
+    trikona_lords = [sign_lords.get(houses_dict[h]["sign"], "") for h in trikona_houses]
+    
+    for h_num in range(1, 13):
+        occupants = houses_dict[h_num]["occupants"]
+        for k_lord in kendra_lords:
+            for t_lord in trikona_lords:
+                if k_lord and t_lord and k_lord != t_lord:
+                    if k_lord in occupants and t_lord in occupants:
+                        yogas.append(f"Raja Yoga ({k_lord} conjunct {t_lord} in House {h_num}): Grants sudden elevation in status, power, and financial capacity.")
+    return yogas
 
 def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     now = datetime.now()
@@ -294,6 +434,12 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     
     transit_bav = calculate_transit_bav(planets_full["Moon (Chandra)"]["sign"], asc_sign, houses)
     logic_summary += f"\n[CURRENT TRANSIT BAV]: {transit_bav}"
+
+    yogas = detect_yogas(houses, planets_full, sign_lords)
+    logic_summary += f"\n[DETECTED YOGAS (KARMIC ASSETS)]:\n - " + "\n - ".join(yogas) if yogas else "\n[DETECTED YOGAS]: None."
+    
+    lal_kitab_rules = get_lal_kitab_remedy(houses, planets_full)
+    logic_summary += f"\n[MANDATORY LAL KITAB REMEDY]:\n - " + "\n - ".join(lal_kitab_rules) if lal_kitab_rules else "\n[MANDATORY LAL KITAB REMEDY]: None."
 
     return logic_summary, age
 
@@ -388,7 +534,6 @@ def call_groq_agent(groq_key, groq_url, model_name, system_msg, user_msg, json_m
         return json.dumps({"error": "TIMEOUT", "details": str(e)}) if json_mode else "[AGENT TIMEOUT]"
 
 def llm_output_firewall(text):
-    """Cleans fluff from text (used on JSON values after parsing)."""
     replacements = {
         r"\bpotentially\b": "", r"\bpossibly\b": "", r"\bsuggesting that\b": "indicating that",
         r"\bsuggests that\b": "indicates that", r"\bsuggests a need\b": "mandates a need",
@@ -414,18 +559,19 @@ def process_background_task(chat_id, session_data):
     groq_key = os.environ.get("GROQ_API_KEY")
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
     
-    send_message(chat_id, "⏳ Initiating Deep Correlation Audit Pipeline...")
+    send_message(chat_id, "⏳ Initiating Structural Integrity Audit Pipeline...")
     
-    system_msg = """You are an Elite Forensic Astrological Diagnostician writing an institutional Threat Matrix Dossier. 
+    system_msg = """You are an Elite Vedic Astrological Strategist writing an institutional Structural Integrity Audit. 
 [ABSOLUTE LAWS - VIOLATION = FAILURE]
-1. TIMELINE MANDATE: You are forbidden from making a prediction without stating the exact Start Date, End Date, and Duration of the impact. You must cite the Dasha dates and Transit ingress dates provided in the math data.
-2. NARRATIVE FLOW: Psychological Baseline -> Past -> Present Trigger -> Future Survival.
-3. NO REPETITION: State the "Astronomical Root" ONCE. Use "As established by..." to correlate.
-4. BAV INTEGRATION: You MUST explicitly cite the BAV scores (0-8) when analyzing transits.
-5. FORBIDDEN CONCEPTS: Do not use 'potentially', 'possibly', 'suggesting', 'assuming', 'yoga', 'meditation'. Use definitive clinical terms.
-6. LAL KITAB STRICTNESS: You MUST copy-paste the exact remedies provided in the [MANDATORY LAL KITAB REMEDY] section verbatim. Do NOT invent generic remedies.
-7. HINDI MANDATORY: Use Hindi names for EVERY Zodiac Sign and Planet.
-8. JSON OUTPUT STRICTLY ENFORCED: You must output ONLY a valid JSON object. Do not include any conversational text outside the JSON. The JSON must match this exact schema:
+1. UNBIASED ANALYSIS: You must analyze the chart neutrally. Explicitly highlight Karmic Assets (Exalted planets, Raja Yogas, high BAV scores) AND Threat Vectors (Combust, Dusthana, low BAV). Do not write a doomsday dossier; write a tactical survival map that leverages strengths.
+2. TIMELINE MANDATE: You must cite exact dates when discussing predictions.
+3. NARRATIVE FLOW: Psychological Baseline -> Past -> Present Trigger -> Future Survival.
+4. NO REPETITION: State the "Astronomical Root" ONCE. Use "As established by..." to correlate.
+5. BAV INTEGRATION: Cite BAV scores (0-8) when analyzing transits.
+6. FORBIDDEN CONCEPTS: Do not use 'potentially', 'possibly', 'suggesting', 'assuming', 'yoga', 'meditation'.
+7. LAL KITAB STRICTNESS: Copy-paste exact remedies from [MANDATORY LAL KITAB REMEDY] verbatim.
+8. HINDI MANDATORY: Use Hindi names for EVERY Zodiac Sign and Planet.
+9. JSON OUTPUT STRICTLY ENFORCED: Output ONLY a valid JSON object matching this exact schema:
 {
   "temporal_narrative": {
     "psychological_baseline": "...",
@@ -433,7 +579,7 @@ def process_background_task(chat_id, session_data):
     "present_trigger": "...",
     "expected_survival": "..."
   },
-  "threat_matrix": {
+  "structural_analysis": {
     "wealth_and_career": "...",
     "relationships_and_property": "...",
     "vitality_and_subconscious": "..."
@@ -441,7 +587,6 @@ def process_background_task(chat_id, session_data):
   "ayurvedic_audit": "...",
   "remediation_protocol": "..."
 }
-The string values inside the JSON can contain basic Markdown formatting (bold, italics, bullet points), but the top-level structure must be valid JSON.
 """
     logic = session_data['logic_breakdown']
     planet_summary = session_data['planet_summary']
@@ -455,12 +600,12 @@ Ascendant (Lagna): {session_data['asc_sign']}
 
 [OUTPUT TEMPLATE - FOLLOW EXACTLY]
 Generate the JSON object based strictly on the provided data. 
-For the threat_matrix values, structure the text using the 5-PILLAR CHAIN OF DEDUCTION:
+For the structural_analysis values, structure the text using the 5-PILLAR CHAIN OF DEDUCTION:
 1. Astronomical Root
-2. Systemic Vulnerability
+2. Structural Integrity (Vulnerability or Asset)
 3. Real-World Manifestation
-4. Expected Timeline (Exact Dates from Dasha/Transits)
-5. Tactical Countermeasure
+4. Expected Timeline (Exact Dates)
+5. Tactical Countermeasure (Leveraging Assets or mitigating Threats)
 """
     
     english_json_str = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", system_msg, user_msg_eng, json_mode=True)
@@ -474,7 +619,6 @@ For the threat_matrix values, structure the text using the 5-PILLAR CHAIN OF DED
         send_message(chat_id, "⚠️ JSON Parsing failed from Master Agent.")
         return
 
-    # Clean fluff from English JSON values
     for k, v in eng_data.items():
         if isinstance(v, dict):
             for sub_k, sub_v in v.items():
@@ -482,9 +626,9 @@ For the threat_matrix values, structure the text using the 5-PILLAR CHAIN OF DED
         else:
             eng_data[k] = llm_output_firewall(v)
 
-    # Hindi Translation (Translate parsed JSON values, output JSON)
     translator_system_msg = """You are an expert astrological translator. Translate the provided English JSON object into Hindi. 
-    Output ONLY a valid JSON object with the EXACT SAME KEYS, but with Hindi translated values. 
+    CRITICAL: You are translating a JSON object. You MUST NOT translate the JSON keys. The keys must remain exactly in English (e.g., 'wealth_and_career'). Only translate the string values into Hindi. 
+    Output ONLY a valid JSON object with the EXACT SAME ENGLISH KEYS. 
     DO NOT put Hindi words in brackets if they are already in Devanagari script. Translate exactly."""
     
     hindi_json_str = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", translator_system_msg, json.dumps(eng_data), json_mode=True)
@@ -494,41 +638,38 @@ For the threat_matrix values, structure the text using the 5-PILLAR CHAIN OF DED
     except json.JSONDecodeError:
         hin_data = {"error": "Hindi translation failed."}
 
-    # Build HTML
     def md_to_html(text):
-        return markdown2.markdown(text, extras=["fenced-code-blocks"])
+        return markdown2.markdown(str(text), extras=["fenced-code-blocks"])
 
-    # Construct English HTML
     html_body = f"""
     <h1>Astrological Audit</h1>
-    <p><em>Disclaimer: This audit maps karmic tendencies and probabilistic risk vectors based on planetary mathematics.</em></p>
+    <p><em>Disclaimer: This audit maps karmic tendencies, assets, and probabilistic risk vectors based on planetary mathematics.</em></p>
     
     <h2>I. THE TEMPORAL-PSYCHOLOGICAL NARRATIVE</h2>
     <h3>The Psychological Baseline</h3>
-    {md_to_html(eng_data['temporal_narrative']['psychological_baseline'])}
+    {md_to_html(safe_get(eng_data, ["temporal_narrative", "psychological_baseline"]))}
     <h3>The Historical Trajectory</h3>
-    {md_to_html(eng_data['temporal_narrative']['historical_trajectory'])}
+    {md_to_html(safe_get(eng_data, ["temporal_narrative", "historical_trajectory"]))}
     <h3>The Present Trigger</h3>
-    {md_to_html(eng_data['temporal_narrative']['present_trigger'])}
+    {md_to_html(safe_get(eng_data, ["temporal_narrative", "present_trigger"]))}
     <h3>The Expected State & Survival</h3>
-    {md_to_html(eng_data['temporal_narrative']['expected_survival'])}
+    {md_to_html(safe_get(eng_data, ["temporal_narrative", "expected_survival"]))}
     
-    <h2>II. THE 3-PILLAR THREAT MATRIX</h2>
+    <h2>II. STRUCTURAL INTEGRITY ANALYSIS</h2>
     <h3>Pillar 1: Wealth, Career & Structural Stability</h3>
-    {md_to_html(eng_data['threat_matrix']['wealth_and_career'])}
+    {md_to_html(safe_get(eng_data, ["structural_analysis", "wealth_and_career"]))}
     <h3>Pillar 2: Relationship, Property & Progeny Dynamics</h3>
-    {md_to_html(eng_data['threat_matrix']['relationships_and_property'])}
+    {md_to_html(safe_get(eng_data, ["structural_analysis", "relationships_and_property"]))}
     <h3>Pillar 3: Core Vitality & Subconscious Trajectory</h3>
-    {md_to_html(eng_data['threat_matrix']['vitality_and_subconscious'])}
+    {md_to_html(safe_get(eng_data, ["structural_analysis", "vitality_and_subconscious"]))}
     
     <h2>III. AYURVEDIC & NEUROLOGICAL AUDIT</h2>
-    {md_to_html(eng_data['ayurvedic_audit'])}
+    {md_to_html(safe_get(eng_data, ["ayurvedic_audit"]))}
     
     <h2>IV. WHOLISTIC LAL KITAB REMEDIATION</h2>
-    {md_to_html(eng_data['remediation_protocol'])}
+    {md_to_html(safe_get(eng_data, ["remediation_protocol"]))}
     """
     
-    # Construct Hindi HTML (if translation succeeded)
     if "error" not in hin_data:
         html_body += f"""
         <div style="page-break-before: always;"></div>
@@ -536,27 +677,27 @@ For the threat_matrix values, structure the text using the 5-PILLAR CHAIN OF DED
         
         <h2>I. काल-मानसिक कथा (मूल निदान)</h2>
         <h3>मानसिक आधार</h3>
-        {md_to_html(hin_data['temporal_narrative']['psychological_baseline'])}
+        {md_to_html(safe_get(hin_data, ["temporal_narrative", "psychological_baseline"]))}
         <h3>ऐतिहासिक प्रक्षेपपथ</h3>
-        {md_to_html(hin_data['temporal_narrative']['historical_trajectory'])}
+        {md_to_html(safe_get(hin_data, ["temporal_narrative", "historical_trajectory"]))}
         <h3>वर्तमान ट्रिगर</h3>
-        {md_to_html(hin_data['temporal_narrative']['present_trigger'])}
+        {md_to_html(safe_get(hin_data, ["temporal_narrative", "present_trigger"]))}
         <h3>अपेक्षित स्थिति और जीवित रहना</h3>
-        {md_to_html(hin_data['temporal_narrative']['expected_survival'])}
+        {md_to_html(safe_get(hin_data, ["temporal_narrative", "expected_survival"]))}
         
-        <h2>II. ३-पिलर खतरा मैट्रिक्स</h2>
-        <h3>पिलर १: धन, करियर और संरचनात्मक स्थिरता</h3>
-        {md_to_html(hin_data['threat_matrix']['wealth_and_career'])}
-        <h3>पिलर २: संबंध, संपत्ति और संतान गतिशीलता</h3>
-        {md_to_html(hin_data['threat_matrix']['relationships_and_property'])}
-        <h3>पिलर ३: मूल विटैलिटी और अवचेतन प्रक्षेपपथ</h3>
-        {md_to_html(hin_data['threat_matrix']['vitality_and_subconscious'])}
+        <h2>II. संरचनात्मक अखंडता विश्लेषण</h2>
+        <h3>पिलर 1: धन, करियर और संरचनात्मक स्थिरता</h3>
+        {md_to_html(safe_get(hin_data, ["structural_analysis", "wealth_and_career"]))}
+        <h3>पिलर 2: संबंध, संपत्ति और संतान गतिशीलता</h3>
+        {md_to_html(safe_get(hin_data, ["structural_analysis", "relationships_and_property"]))}
+        <h3>पिलर 3: मूल विटैलिटी और अवचेतन प्रक्षेपपथ</h3>
+        {md_to_html(safe_get(hin_data, ["structural_analysis", "vitality_and_subconscious"]))}
         
         <h2>III. आयुर्वेदिक और तंत्रिका विज्ञान ऑडिट</h2>
-        {md_to_html(hin_data['ayurvedic_audit'])}
+        {md_to_html(safe_get(hin_data, ["ayurvedic_audit"]))}
         
         <h2>IV. समग्र लाल किताब उपचार</h2>
-        {md_to_html(hin_data['remediation_protocol'])}
+        {md_to_html(safe_get(hin_data, ["remediation_protocol"]))}
         """
 
     css = """
@@ -584,7 +725,6 @@ For the threat_matrix values, structure the text using the 5-PILLAR CHAIN OF DED
         send_message(chat_id, "📄 **Astrological Audit PDF attached above!** ⬆️")
     else:
         send_message(chat_id, "⚠️ PDF generation failed. Sending text report:")
-        # Fallback to sending English text
         for k, v in eng_data.items():
             if isinstance(v, dict):
                 for sub_k, sub_v in v.items():
@@ -616,7 +756,6 @@ def webhook():
             match = re.search(r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{2,4})\s+(\d{1,2}):(\d{1,2})\s+(.+)', user_text)
             session = get_session(chat_id)
             
-            # STATE 1: Awaiting Partner details
             if match and session and session.get("state") == "awaiting_partner":
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
@@ -644,7 +783,6 @@ def webhook():
                 threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
 
-            # STATE 2: Initial Birth Details
             elif match:
                 send_message(chat_id, "✅ Chart calculated. \n\nDo you want to analyze compatibility with a partner? \nSend their details (DD-MM-YYYY HH:MM City) or type 'skip'.")
                 
@@ -673,21 +811,19 @@ def webhook():
                 save_session(chat_id, session)
                 return jsonify(status="success"), 200
 
-            # STATE 3: Skip Partner
             elif session and session.get("state") == "awaiting_partner" and user_text.lower() == 'skip':
                 session["state"] = "ready_to_generate"
                 save_session(chat_id, session)
                 threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
                 
-            # STATE 4: Follow-up Questions (Drill-Down State)
             elif session and session.get("state") == "ready_to_generate":
                 send_message(chat_id, "Running follow-up analysis...")
                 groq_key = os.environ.get("GROQ_API_KEY")
                 groq_url = "https://api.groq.com/openai/v1/chat/completions"
                 
-                q_system_msg = """You are an Elite Forensic Astrological Diagnostician. Answer the user's follow-up question directly based on the provided chart data. 
-                TIMELINE MANDATE: You must cite exact dates when discussing predictions. Do not use fluff words. Use Hindi names."""
+                q_system_msg = """You are an Elite Vedic Astrological Strategist. Answer the user's follow-up question directly based on the provided chart data. 
+                TIMELINE MANDATE: Cite exact dates. Do not use fluff words. Use Hindi names. Highlight both Assets and Threats."""
                 
                 q_prompt = f"[CHART DATA]\n{session['logic_breakdown']}\n[USER QUESTION]\n{user_text}"
                 payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": q_system_msg}, {"role": "user", "content": q_prompt}], "temperature": 0.3}
