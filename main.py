@@ -30,6 +30,7 @@ OWN_SIGNS = {"Sun (Surya)": ["Leo"], "Moon (Chandra)": ["Cancer"], "Mars (Mangal
 COMBUSTION_ORB = {"Moon (Chandra)": 12, "Mars (Mangal)": 17, "Mercury (Budh)": 14, "Jupiter (Guru)": 11, "Venus (Shukra)": 10, "Saturn (Shani)": 15}
 MALEFICS = ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]
 NAK_LORDS = ["Ketu", "Venus (Shukra)", "Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Rahu", "Jupiter (Guru)", "Saturn (Shani)", "Mercury (Budh)"]
+DOSHA_MAP = {"Aries": "Pitta", "Taurus": "Kapha", "Gemini": "Vata", "Cancer": "Kapha", "Leo": "Pitta", "Virgo": "Vata", "Libra": "Vata", "Scorpio": "Kapha", "Sagittarius": "Pitta", "Capricorn": "Vata", "Aquarius": "Vata", "Pisces": "Kapha"}
 
 BAV_TABLES = {
     "Sun (Surya)": [0,0,1,1,0,0,1,1, 1,0,0,0,1,1,0,0, 0,1,1,0,0,1,1,0, 0,0,1,1,0,0,1,1, 1,0,0,1,1,0,0,1, 0,1,1,0,0,1,1,0, 1,0,0,1,1,0,0,1, 0,1,1,0,0,1,1,0, 0,0,0,1,1,1,1,0, 1,1,1,0,0,0,0,1, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0],
@@ -133,15 +134,12 @@ def clear_session(chat_id):
     conn.close()
 
 def safe_get(data, keys, default="*Data Unavailable*"):
-    """Safely traverses a nested dictionary. Returns default if any key is missing."""
-    if not isinstance(data, dict):
-        return default
+    if not isinstance(data, dict): return default
     current = data
     for key in keys:
         if isinstance(current, dict) and key in current:
             current = current[key]
-        else:
-            return default
+        else: return default
     return current if current else default
 
 # ==========================================
@@ -435,11 +433,15 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     transit_bav = calculate_transit_bav(planets_full["Moon (Chandra)"]["sign"], asc_sign, houses)
     logic_summary += f"\n[CURRENT TRANSIT BAV]: {transit_bav}"
 
+    asc_dosha = DOSHA_MAP.get(asc_sign, "Unknown")
+    moon_dosha = DOSHA_MAP.get(planets_full["Moon (Chandra)"]["sign"], "Unknown")
+    logic_summary += f"\n[AYURVEDIC DOSHA]: Ascendant is {asc_dosha}, Moon is {moon_dosha}."
+
     yogas = detect_yogas(houses, planets_full, sign_lords)
     logic_summary += f"\n[DETECTED YOGAS (KARMIC ASSETS)]:\n - " + "\n - ".join(yogas) if yogas else "\n[DETECTED YOGAS]: None."
     
     lal_kitab_rules = get_lal_kitab_remedy(houses, planets_full)
-    logic_summary += f"\n[MANDATORY LAL KITAB REMEDY]:\n - " + "\n - ".join(lal_kitab_rules) if lal_kitab_rules else "\n[MANDATORY LAL KITAB REMEDY]: None."
+    logic_summary += f"\n[MANDATORY LAL KITAB REFERENCE]:\n - " + "\n - ".join(lal_kitab_rules) if lal_kitab_rules else "\n[MANDATORY LAL KITAB REFERENCE]: None."
 
     return logic_summary, age
 
@@ -561,32 +563,21 @@ def process_background_task(chat_id, session_data):
     
     send_message(chat_id, "⏳ Initiating Structural Integrity Audit Pipeline...")
     
-    system_msg = """You are an Elite Vedic Astrological Strategist writing an institutional Structural Integrity Audit. 
+    system_msg = """You are an Elite Vedic Astrological Auditor. This is an AUDIT, not an appraisal. Negatives and Threats MUST be stated first and bluntly. Do not snub the bad to highlight the good.
 [ABSOLUTE LAWS - VIOLATION = FAILURE]
-1. UNBIASED ANALYSIS: You must analyze the chart neutrally. Explicitly highlight Karmic Assets (Exalted planets, Raja Yogas, high BAV scores) AND Threat Vectors (Combust, Dusthana, low BAV). Do not write a doomsday dossier; write a tactical survival map that leverages strengths.
-2. TIMELINE MANDATE: You must cite exact dates when discussing predictions.
-3. NARRATIVE FLOW: Psychological Baseline -> Past -> Present Trigger -> Future Survival.
-4. NO REPETITION: State the "Astronomical Root" ONCE. Use "As established by..." to correlate.
-5. BAV INTEGRATION: Cite BAV scores (0-8) when analyzing transits.
-6. FORBIDDEN CONCEPTS: Do not use 'potentially', 'possibly', 'suggesting', 'assuming', 'yoga', 'meditation'.
-7. LAL KITAB STRICTNESS: Copy-paste exact remedies from [MANDATORY LAL KITAB REMEDY] verbatim.
-8. HINDI MANDATORY: Use Hindi names for EVERY Zodiac Sign and Planet.
-9. JSON OUTPUT STRICTLY ENFORCED: Output ONLY a valid JSON object matching this exact schema:
-{
-  "temporal_narrative": {
-    "psychological_baseline": "...",
-    "historical_trajectory": "...",
-    "present_trigger": "...",
-    "expected_survival": "..."
-  },
-  "structural_analysis": {
-    "wealth_and_career": "...",
-    "relationships_and_property": "...",
-    "vitality_and_subconscious": "..."
-  },
-  "ayurvedic_audit": "...",
-  "remediation_protocol": "..."
-}
+1. THREAT-FIRST SEQUENCING: For every key inside "structural_analysis", you MUST format the text using a strict bulleted list (do not merge into a paragraph). Follow this exact sequence:
+   - **The Warning (Threat First):** State the severe afflictions (Combust, Debilitated, low BAV, malefic aspect) and the exact timeline of the threat. Do not sugarcoat.
+   - **The Support (Karmic Asset):** State the positive placements (Exalted, high BAV, Yogas) that will act as a shield during the affected phase.
+   - **The Synthesis:** Explain exactly how the native must combine the Support to survive the Warning.
+2. AFFLICTION MANDATE: If a planet is Combust, Retrograde, or Debilitated, you MUST explicitly state how that specific state modifies the house it sits in. Do not ignore afflictions just because an asset (like a Raja Yoga) is present.
+3. TIMELINE MANDATE: You must cite exact dates when discussing predictions.
+4. AYURVEDIC ACCURACY: In the "ayurvedic_audit", you MUST diagnose the exact physical Dosha (Vata/Pitta/Kapha) based on the provided [AYURVEDIC DOSHA] data and prescribe specific dietary/lifestyle shifts.
+5. CONSOLIDATED UPAYAS: In the "remediation_protocol" object, you must output two distinct sub-sections as strings:
+   A. "suppressing_afflictions": Inject the exact, hardcoded Lal Kitab remedies provided in the [MANDATORY LAL KITAB REFERENCE] here, alongside specific Daan (donations) for the current malefic transits/dashas.
+   B. "amplifying_assets": Recommend specific Gemstones (Ratnas), Beej Mantras, or lifestyle alignments to amplify the positive Karmic Assets identified in the Support sections.
+6. FORBIDDEN CONCEPTS: Do not use 'potentially', 'possibly', 'suggesting', 'assuming', 'yoga' (the physical exercise), 'meditation'. Use definitive clinical terms.
+7. HINDI MANDATORY: Use Hindi names for EVERY Zodiac Sign and Planet.
+8. JSON OUTPUT STRICTLY ENFORCED: Output ONLY a valid JSON object matching the exact schema provided.
 """
     logic = session_data['logic_breakdown']
     planet_summary = session_data['planet_summary']
@@ -600,12 +591,25 @@ Ascendant (Lagna): {session_data['asc_sign']}
 
 [OUTPUT TEMPLATE - FOLLOW EXACTLY]
 Generate the JSON object based strictly on the provided data. 
-For the structural_analysis values, structure the text using the 5-PILLAR CHAIN OF DEDUCTION:
-1. Astronomical Root
-2. Structural Integrity (Vulnerability or Asset)
-3. Real-World Manifestation
-4. Expected Timeline (Exact Dates)
-5. Tactical Countermeasure (Leveraging Assets or mitigating Threats)
+The JSON must match this exact schema:
+{{
+  "temporal_narrative": {{
+    "psychological_baseline": "...",
+    "historical_trajectory": "...",
+    "present_trigger": "...",
+    "expected_survival": "..."
+  }},
+  "structural_analysis": {{
+    "wealth_and_career": "...",
+    "relationships_and_property": "...",
+    "vitality_and_subconscious": "..."
+  }},
+  "ayurvedic_audit": "...",
+  "remediation_protocol": {{
+    "suppressing_afflictions": "...",
+    "amplifying_assets": "..."
+  }}
+}}
 """
     
     english_json_str = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", system_msg, user_msg_eng, json_mode=True)
@@ -666,8 +670,11 @@ For the structural_analysis values, structure the text using the 5-PILLAR CHAIN 
     <h2>III. AYURVEDIC & NEUROLOGICAL AUDIT</h2>
     {md_to_html(safe_get(eng_data, ["ayurvedic_audit"]))}
     
-    <h2>IV. WHOLISTIC LAL KITAB REMEDIATION</h2>
-    {md_to_html(safe_get(eng_data, ["remediation_protocol"]))}
+    <h2>IV. CONSOLIDATED UPAYAS (REMEDICATION PROTOCOL)</h2>
+    <h3>A. Suppressing Afflictions</h3>
+    {md_to_html(safe_get(eng_data, ["remediation_protocol", "suppressing_afflictions"]))}
+    <h3>B. Amplifying Assets</h3>
+    {md_to_html(safe_get(eng_data, ["remediation_protocol", "amplifying_assets"]))}
     """
     
     if "error" not in hin_data:
@@ -696,8 +703,11 @@ For the structural_analysis values, structure the text using the 5-PILLAR CHAIN 
         <h2>III. आयुर्वेदिक और तंत्रिका विज्ञान ऑडिट</h2>
         {md_to_html(safe_get(hin_data, ["ayurvedic_audit"]))}
         
-        <h2>IV. समग्र लाल किताब उपचार</h2>
-        {md_to_html(safe_get(hin_data, ["remediation_protocol"]))}
+        <h2>IV. समेकित उपाय (रेमेडिएशन प्रोटोकॉल)</h2>
+        <h3>अ. दोषों का दमन</h3>
+        {md_to_html(safe_get(hin_data, ["remediation_protocol", "suppressing_afflictions"]))}
+        <h3>ब. संपत्तियों का प्रवर्धन</h3>
+        {md_to_html(safe_get(hin_data, ["remediation_protocol", "amplifying_assets"]))}
         """
 
     css = """
@@ -822,8 +832,8 @@ def webhook():
                 groq_key = os.environ.get("GROQ_API_KEY")
                 groq_url = "https://api.groq.com/openai/v1/chat/completions"
                 
-                q_system_msg = """You are an Elite Vedic Astrological Strategist. Answer the user's follow-up question directly based on the provided chart data. 
-                TIMELINE MANDATE: Cite exact dates. Do not use fluff words. Use Hindi names. Highlight both Assets and Threats."""
+                q_system_msg = """You are an Elite Vedic Astrological Auditor. Answer the user's follow-up question directly based on the provided chart data. 
+                THREAT-FIRST: State the negative/vulnerability first, then the supporting asset. Cite exact dates. Do not use fluff words. Use Hindi names."""
                 
                 q_prompt = f"[CHART DATA]\n{session['logic_breakdown']}\n[USER QUESTION]\n{user_text}"
                 payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": q_system_msg}, {"role": "user", "content": q_prompt}], "temperature": 0.3}
