@@ -1,3 +1,11 @@
+# ==========================================
+# CORE IMPORTS & APP INITIALIZATION
+# ==========================================
+# Flask: Web framework to receive Telegram webhooks instantly.
+# swisseph: The gold standard C-library for astronomical calculations.
+# weasyprint: Converts HTML strings into physical PDF documents.
+# markdown2: Converts LLM markdown output into HTML for the PDF.
+
 import os
 import requests
 import re
@@ -13,13 +21,16 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
+# Environment variables injected by Render/GitHub
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 DB_PATH = os.environ.get("DB_PATH", "/tmp/bot.db")
 
+
 # ==========================================
-# CORE CONSTANTS & MATH TABLES
+# CORE ASTROLOGY CONSTANTS & MATH TABLES
 # ==========================================
+# These dictionaries map astronomical data to human-readable Vedic concepts.
 ZODIAC_SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
 HINDI_SIGNS = {"Aries": "Aries (Mesha)", "Taurus": "Taurus (Vrishabha)", "Gemini": "Gemini (Mithuna)", "Cancer": "Cancer (Karka)", "Leo": "Leo (Simha)", "Virgo": "Virgo (Kanya)", "Libra": "Libra (Tula)", "Scorpio": "Scorpio (Vrishchika)", "Sagittarius": "Sagittarius (Dhanu)", "Capricorn": "Capricorn (Makara)", "Aquarius": "Aquarius (Kumbha)", "Pisces": "Pisces (Meena)"}
 NAKSHATRAS = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"]
@@ -32,6 +43,7 @@ MALEFICS = ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]
 NAK_LORDS = ["Ketu", "Venus (Shukra)", "Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Rahu", "Jupiter (Guru)", "Saturn (Shani)", "Mercury (Budh)"]
 DOSHA_MAP = {"Aries": "Pitta", "Taurus": "Kapha", "Gemini": "Vata", "Cancer": "Kapha", "Leo": "Pitta", "Virgo": "Vata", "Libra": "Vata", "Scorpio": "Kapha", "Sagittarius": "Pitta", "Capricorn": "Vata", "Aquarius": "Vata", "Pisces": "Kapha"}
 
+# Ashtakavarga (BAV) tables for each planet.
 BAV_TABLES = {
     "Sun (Surya)": [0,0,1,1,0,0,1,1, 1,0,0,0,1,1,0,0, 0,1,1,0,0,1,1,0, 0,0,1,1,0,0,1,1, 1,0,0,1,1,0,0,1, 0,1,1,0,0,1,1,0, 1,0,0,1,1,0,0,1, 0,1,1,0,0,1,1,0, 0,0,0,1,1,1,1,0, 1,1,1,0,0,0,0,1, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0],
     "Moon (Chandra)": [0,1,0,1,1,0,1,0, 1,0,1,0,0,1,0,1, 1,1,0,0,1,1,0,0, 0,1,1,0,1,0,1,0, 1,0,1,1,0,1,0,1, 0,1,0,1,1,0,1,0, 1,1,0,1,0,1,1,0, 0,0,1,1,1,1,0,0, 1,1,0,0,0,0,1,1, 0,0,1,1,1,1,0,0, 1,0,1,0,0,1,0,1, 0,1,0,1,1,0,1,0],
@@ -42,6 +54,7 @@ BAV_TABLES = {
     "Saturn (Shani)": [0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0, 0,0,1,0,0,1,1,0, 0,1,0,1,1,0,0,1, 1,0,1,0,1,0,0,1, 0,1,0,1,0,1,1,0, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0]
 }
 
+# Hardcoded Lal Kitab remedy database mapped to planetary afflictions.
 LAL_KITAB_DICT = {
     "Saturn (Shani)_Combust": "Donate black sesame oil on Saturday. Keep a square piece of silver in wallet to prevent liquid cash evaporation.",
     "Mars (Mangal)_Combust": "Donate red masoor dal on Tuesday. Avoid keeping iron tools under the bed to prevent surgical interventions.",
@@ -101,9 +114,13 @@ LAL_KITAB_DICT = {
     "Sun (Surya)_12": "Keep a copper coin in a visible spot in the house. Do not consume salt on Sundays to prevent immune system collapse."
 }
 
+
 # ==========================================
 # DATABASE MANAGER (SQLite Stateless Architecture)
 # ==========================================
+# We use a local SQLite DB to store user session states. 
+# This allows the webhook to respond instantly to Telegram while processing heavy tasks in the background.
+
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -133,6 +150,7 @@ def clear_session(chat_id):
     conn.commit()
     conn.close()
 
+# Safe getter to prevent PDF generation crashes if LLM omits a JSON key.
 def safe_get(data, keys, default="*Data Unavailable*"):
     if not isinstance(data, dict): return default
     current = data
@@ -142,9 +160,12 @@ def safe_get(data, keys, default="*Data Unavailable*"):
         else: return default
     return current if current else default
 
+
 # ==========================================
 # ASTROLOGY MATH ENGINE
 # ==========================================
+# All functions below convert raw astronomical longitude into Vedic astrological concepts.
+
 def get_nakshatra_info(lon):
     nak_span = 360.0 / 27.0
     nak_idx = int(lon / nak_span) % 27
@@ -185,6 +206,7 @@ def fmt_jd_to_mon_year(jd):
     return f"{m:02d}/{y}"
 
 def calculate_vimshottari_timeline(moon_lon, birth_dt):
+    # Calculates the exact Mahadasha, Antardasha, and Pratyantardasha based on Moon's longitude.
     nak_span = 360.0 / 27.0
     nak_idx, _, _, rem = get_nakshatra_info(moon_lon)
     lord_idx = (nak_idx // 3) % 9
@@ -274,6 +296,7 @@ def calculate_charadasha(asc_sign, planets_full):
     return " -> ".join(dashas)
 
 def calculate_transit_timings():
+    # Scans the next 730 days to find when Jupiter, Saturn, or Rahu change signs.
     now_dt = datetime.now()
     swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     dt_utc = now_dt - timedelta(hours=5, minutes=30)
@@ -303,6 +326,7 @@ def calculate_transit_timings():
     return "; ".join(timings) if timings else "No major ingress in next 2 years"
 
 def calculate_transit_bav(natal_moon_sign, natal_asc_sign, houses_dict):
+    # Calculates the Ashtakavarga score of transiting Saturn and Jupiter relative to natal Moon and Lagna.
     now_dt = datetime.now()
     swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     dt_utc = now_dt - timedelta(hours=5, minutes=30)
@@ -331,6 +355,7 @@ def calculate_transit_bav(natal_moon_sign, natal_asc_sign, houses_dict):
     return f"Saturn in {HINDI_SIGNS[sat_sign]} (H{sat_house_moon} from Moon, BAV:{sat_bav_moon}/8 - {sat_friction}; H{sat_house_asc} from Lagna, BAV:{sat_bav_asc}/8). Jupiter in {HINDI_SIGNS[jup_sign]} (H{jup_house_moon} from Moon, BAV:{jup_bav_moon}/8 - {jup_relief}; H{jup_house_asc} from Lagna, BAV:{jup_bav_asc}/8)."
 
 def get_lal_kitab_remedy(houses_dict, planets_dict):
+    # Matches chart afflictions to the hardcoded LAL_KITAB_DICT.
     remedies = []
     for p_name, p_data in planets_dict.items():
         if p_data.get("combust"):
@@ -355,6 +380,7 @@ def get_lal_kitab_remedy(houses_dict, planets_dict):
     return unique_remedies[:5]
 
 def detect_yogas(houses_dict, planets_dict, sign_lords):
+    # Scans the chart for specific planetary combinations (Yogas).
     yogas = []
     moon_house = get_house_of_planet(houses_dict, "Moon (Chandra)")
     jup_house = get_house_of_planet(houses_dict, "Jupiter (Guru)")
@@ -390,6 +416,7 @@ def detect_yogas(houses_dict, planets_dict, sign_lords):
     return yogas
 
 def calculate_chart_logic(asc_sign, planets_full, birth_dt):
+    # The master function that compiles all astrology math into a single text string for the LLM.
     now = datetime.now()
     age = (now - birth_dt).days // 365
     if age < 18: life_stage = f"CHILD (Age {age}): STRICTLY focus on House 4, 5, 9."
@@ -446,6 +473,7 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     return logic_summary, age
 
 def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
+    # Uses Swiss Ephemeris to calculate exact planetary longitudes.
     swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     dt_ist = datetime(year, month, day, hour, minute)
     dt_utc = dt_ist - timedelta(hours=5, minutes=30)
@@ -498,9 +526,11 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     
     return asc_sign, asc_nak, asc_pada, positions, logic_breakdown, age
 
+
 # ==========================================
 # LLM ORCHESTRATION & PDF PIPELINE
 # ==========================================
+
 def send_message(chat_id, text):
     url = f"{TELEGRAM_API_URL}/sendMessage"
     payload = {"chat_id": chat_id, "text": text}
@@ -514,7 +544,12 @@ def send_document(chat_id, file_path):
             requests.post(url, data={'chat_id': chat_id}, files={'document': f}, timeout=30)
     except: pass
 
+# BULLETPROOF GROQ AGENT WITH MODEL FALLBACK LOOP
 def call_groq_agent(system_prompt, user_prompt, models_list, json_mode=False):
+    """
+    Accepts a list of Groq models and iterates through them.
+    If a model is decommissioned or fails (400/404/429), it catches the error and tries the next model.
+    """
     groq_key = os.environ.get("GROQ_API_KEY")
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
     
@@ -528,8 +563,7 @@ def call_groq_agent(system_prompt, user_prompt, models_list, json_mode=False):
         ], 
         "temperature": 0.3
     }
-    # NOTE: We intentionally do not send "response_format" because several Groq models 
-    # return a 400 error if they see it. Our markdown-stripping parser handles raw JSON perfectly.
+    # NOTE: "response_format" is intentionally omitted. Several Groq models reject it with a 400 error.
         
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
     
@@ -552,17 +586,35 @@ def call_groq_agent(system_prompt, user_prompt, models_list, json_mode=False):
             
     return json.dumps({"error": "API_ERROR", "details": "All Groq models failed or are decommissioned."}) if json_mode else "[ERROR: ALL MODELS FAILED]"
 
+# SMART REGEX FIREWALL
 def llm_output_firewall(text):
+    """
+    Cleans LLM output to enforce strict clinical tone.
+    Uses a conditional capture group to preserve Vedic Yogas while replacing standalone 'yoga' (exercise).
+    """
     replacements = {
         r"\bpotentially\b": "", r"\bpossibly\b": "", r"\bsuggesting that\b": "indicating that",
         r"\bsuggests that\b": "indicates that", r"\bsuggests a need\b": "mandates a need",
         r"\bassuming\b": "", r"\bself-care\b": "tactical remediation", r"\bdate nights\b": "structured relational protocols",
-        r"\byoga\b": "Ayurvedic physical routines", r"\bmeditation\b": "targeted mantric resonance",
         r"\bmindfulness\b": "clinical situational awareness"
     }
     clean_text = text
     for pattern, replacement in replacements.items():
         clean_text = re.compile(pattern, re.IGNORECASE).sub(replacement, clean_text)
+    
+    # SMART REGEX FOR "YOGA"
+    vedic_prefixes = r"(?:raja|neecha|bhanga|gaja|kesari|maha|panch|mahapurusha|chandra|surya|budha|guru|shukra|shani|mangal)[\s\-]+"
+    yoga_pattern = re.compile(r"\b(" + vedic_prefixes + r")?(yoga)\b", re.IGNORECASE)
+    
+    def yoga_replacer(match):
+        prefix = match.group(1)
+        if prefix:
+            return match.group(0) # Preserve Vedic Yoga
+        else:
+            return "Ayurvedic physical routines" # Replace standalone yoga
+            
+    clean_text = yoga_pattern.sub(yoga_replacer, clean_text)
+    
     clean_text = re.sub(r'\s+', ' ', clean_text).strip()
     return clean_text
 
@@ -575,30 +627,60 @@ def generate_pdf_weasyprint(html_content, pdf_path):
         return False
 
 def process_background_task(chat_id, session_data):
-    groq_url = "https://api.groq.com/openai/v1/chat/completions"
-    
-    # BULLETPROOF MODEL LISTS (Tries 1st, if decommissioned, tries 2nd, etc.)
+    """
+    The Master Pipeline. Runs in a separate thread so the webhook can respond instantly.
+    1. Calls Groq to generate English JSON.
+    2. Calls Groq to translate to Hindi.
+    3. Converts both to HTML and compiles a PDF.
+    """
+    # Verified working models for this specific Groq workspace tier.
     MASTER_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "groq/compound"]
     TRANSLATOR_MODELS = ["openai/gpt-oss-120b", "groq/compound", "qwen/qwen3.6-27b"]
     
     send_message(chat_id, "⏳ Initiating Structural Integrity Audit Pipeline...")
     
-    system_msg = """You are an Elite Vedic Astrological Auditor. This is an AUDIT, not an appraisal. Negatives and Threats MUST be stated first and bluntly. Do not snub the bad to highlight the good.
+    # THE NEW SYSTEM PROMPT (Decoupled, Strategic, Anti-Token-Drop)
+    system_msg = """You are an Elite Vedic Astrological Strategic Advisor. Your role is to synthesize complex planetary mathematics into a grounded, objective, and highly strategic audit.
+
 [ABSOLUTE LAWS - VIOLATION = FAILURE]
-1. THREAT-FIRST SEQUENCING: For every key inside "structural_analysis", you MUST format the text using a strict bulleted list (do not merge into a paragraph). Follow this exact sequence:
-   - **The Warning (Threat First):** State the severe afflictions (Combust, Debilitated, low BAV, malefic aspect) and the exact timeline of the threat. Do not sugarcoat.
-   - **The Support (Karmic Asset):** State the positive placements (Exalted, high BAV, Yogas) that will act as a shield during the affected phase.
-   - **The Synthesis:** Explain exactly how the native must combine the Support to survive the Warning.
-2. AFFLICTION MANDATE: If a planet is Combust, Retrograde, or Debilitated, you MUST explicitly state how that specific state modifies the house it sits in. Do not ignore afflictions just because an asset (like a Raja Yoga) is present.
-3. TIMELINE MANDATE: You must cite exact dates when discussing predictions.
-4. AYURVEDIC ACCURACY: In the "ayurvedic_audit", you MUST diagnose the exact physical Dosha (Vata/Pitta/Kapha) based on the provided [AYURVEDIC DOSHA] data and prescribe specific dietary/lifestyle shifts.
-5. CONSOLIDATED UPAYAS: In the "remediation_protocol" object, you must output two distinct sub-sections as strings:
-   A. "suppressing_afflictions": Inject the exact, hardcoded Lal Kitab remedies provided in the [MANDATORY LAL KITAB REFERENCE] here, alongside specific Daan (donations) for the current malefic transits/dashas.
-   B. "amplifying_assets": Recommend specific Gemstones (Ratnas), Beej Mantras, or lifestyle alignments to amplify the positive Karmic Assets identified in the Support sections.
-6. FORBIDDEN CONCEPTS: Do not use 'potentially', 'possibly', 'suggesting', 'assuming', 'yoga' (the physical exercise), 'meditation'. Use definitive clinical terms.
-7. HINDI MANDATORY: Use Hindi names for EVERY Zodiac Sign and Planet.
-8. JSON OUTPUT STRICTLY ENFORCED: Output ONLY a valid JSON object matching the exact schema provided.
+1. THE NAMING PROTOCOL (ANTI-TOKEN-DROP):
+You are strictly forbidden from omitting the English name of a planet or sign to save tokens. 
+You MUST use the exact format: "English Name (Hindi Name)".
+- CORRECT: "Moon (Chandra) is debilitated"
+- INCORRECT: "(Chandra) is debilitated"
+- INCORRECT: "Moon is debilitated"
+- INCORRECT: "(mind) is debilitated"
+Never leave empty brackets. Never substitute the planet's English name with a psychological function.
+
+2. NARRATIVE DECOUPLING (NO REMEDIES IN PILLARS):
+The "structural_analysis" section (Pillars 1, 2, and 3) is strictly diagnostic. 
+You are forbidden from mentioning Lal Kitab, gemstones, mantras, or donations inside the "structural_analysis" object. 
+Pillars must synthesize the planetary math into a cohesive narrative of risks and assets.
+ALL actionable remedies must be deduplicated and placed exclusively in the "remediation_protocol" object.
+
+3. TONE RECALIBRATION (STRATEGIC, NOT ALARMIST):
+You are a high-level strategic advisor. 
+- Frame afflictions as "karmic friction," "probabilistic risk vectors," or "structural vulnerabilities."
+- Frame dignities as "latent resilience," "strategic assets," or "karmic buffers."
+- Do NOT use fatalistic, fearful, or alarmist language.
+
+4. THREAT-FIRST SEQUENCING:
+For every key inside "structural_analysis", format as a strict bulleted list:
+   - **The Risk Vector (Friction First):** State severe afflictions and exact timeline.
+   - **The Strategic Asset (Support):** State positive placements acting as a buffer.
+   - **The Synthesis:** Explain how to combine Support to navigate Risk.
+
+5. AYURVEDIC ACCURACY:
+In "ayurvedic_audit", diagnose the exact physical Dosha based on [AYURVEDIC DOSHA] data.
+
+6. CONSOLIDATED UPAYAS (REMEDICATION PROTOCOL):
+   A. "suppressing_afflictions": Deduplicated master list of hardcoded Lal Kitab remedies from [MANDATORY LAL KITAB REFERENCE] + Daan for current transits.
+   B. "amplifying_assets": Gemstones, Beej Mantras for positive assets identified.
+
+7. JSON OUTPUT STRICTLY ENFORCED:
+Output ONLY a valid JSON object matching the exact schema provided.
 """
+    
     logic = session_data['logic_breakdown']
     planet_summary = session_data['planet_summary']
     
@@ -610,8 +692,6 @@ Ascendant (Lagna): {session_data['asc_sign']}
 {planet_summary}
 
 [OUTPUT TEMPLATE - FOLLOW EXACTLY]
-Generate the JSON object based strictly on the provided data. 
-The JSON must match this exact schema:
 {{
   "temporal_narrative": {{
     "psychological_baseline": "...",
@@ -632,9 +712,10 @@ The JSON must match this exact schema:
 }}
 """
     
-    # 1. Master Synthesizer Agent (English JSON Generation)
+    # 1. Master Synthesizer Agent
     english_json_str = call_groq_agent(system_msg, user_msg_eng, MASTER_MODELS, json_mode=True)
     
+    # Strip markdown code blocks if LLM adds them despite instructions
     english_json_str = english_json_str.strip()
     if english_json_str.startswith("```json"):
         english_json_str = english_json_str[7:]
@@ -654,6 +735,7 @@ The JSON must match this exact schema:
         print(f"JSON PARSE FAIL. RAW OUTPUT:\n{english_json_str[:2000]}", flush=True)
         return
 
+    # Apply the smart firewall to all values in the English JSON
     for k, v in eng_data.items():
         if isinstance(v, dict):
             for sub_k, sub_v in v.items():
@@ -662,11 +744,10 @@ The JSON must match this exact schema:
             eng_data[k] = llm_output_firewall(v)
 
     translator_system_msg = """You are an expert astrological translator. Translate the provided English JSON object into Hindi. 
-    CRITICAL: You are translating a JSON object. You MUST NOT translate the JSON keys. The keys must remain exactly in English (e.g., 'wealth_and_career'). Only translate the string values into Hindi. 
-    Output ONLY a valid JSON object with the EXACT SAME ENGLISH KEYS. 
-    DO NOT put Hindi words in brackets if they are already in Devanagari script. Translate exactly."""
+    CRITICAL: You MUST NOT translate the JSON keys. The keys must remain exactly in English. Only translate the string values into Hindi. 
+    Output ONLY a valid JSON object with the EXACT SAME ENGLISH KEYS."""
     
-    # 2. Translator Agent (Hindi Translation)
+    # 2. Translator Agent
     hindi_json_str = call_groq_agent(translator_system_msg, json.dumps(eng_data), TRANSLATOR_MODELS, json_mode=True)
     
     try:
@@ -677,6 +758,7 @@ The JSON must match this exact schema:
     def md_to_html(text):
         return markdown2.markdown(str(text), extras=["fenced-code-blocks"])
 
+    # Build the PDF HTML structure
     html_body = f"""
     <h1>Astrological Audit</h1>
     <p><em>Disclaimer: This audit maps karmic tendencies, assets, and probabilistic risk vectors based on planetary mathematics.</em></p>
@@ -766,6 +848,7 @@ The JSON must match this exact schema:
         send_document(chat_id, pdf_path)
         send_message(chat_id, "📄 **Astrological Audit PDF attached above!** ⬆️")
     else:
+        # Fallback to text if PDF library fails
         send_message(chat_id, "⚠️ PDF generation failed. Sending text report:")
         for k, v in eng_data.items():
             if isinstance(v, dict):
@@ -773,6 +856,7 @@ The JSON must match this exact schema:
                     send_message(chat_id, f"{sub_k.replace('_', ' ').title()}:\n{sub_v}")
             else:
                 send_message(chat_id, f"{k.replace('_', ' ').title()}:\n{v}")
+
 
 # ==========================================
 # FLASK WEBHOOK (Instant Return + Threading)
@@ -795,9 +879,11 @@ def webhook():
                 send_message(chat_id, "Welcome! Send your birth details to begin your **Astrological Audit**:\n`DD-MM-YYYY HH:MM City`\n(e.g., `05-09-1981 12:16 Amritsar`)")
                 return jsonify(status="success"), 200
                 
+            # Regex to extract birth details from user input
             match = re.search(r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{2,4})\s+(\d{1,2}):(\d{1,2})\s+(.+)', user_text)
             session = get_session(chat_id)
             
+            # BLOCK 1: Partner details provided after initial chart was calculated
             if match and session and session.get("state") == "awaiting_partner":
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
@@ -825,9 +911,7 @@ def webhook():
                 threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
 
-            # ==========================================
-            # BRAND NEW USERS BLOCK (STATE 0 SECURED)
-            # ==========================================
+            # BLOCK 2: BRAND NEW USERS (STATE 0 SECURED)
             elif match:
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
@@ -858,32 +942,35 @@ def webhook():
                 threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
 
+            # BLOCK 3: User skips partner compatibility
             elif session and session.get("state") == "awaiting_partner" and user_text.lower() == 'skip':
                 session["state"] = "ready_to_generate"
                 save_session(chat_id, session)
                 threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
                 
+            # BLOCK 4: Follow-up questions based on the already generated chart
             elif session and session.get("state") == "ready_to_generate":
                 send_message(chat_id, "Running follow-up analysis...")
                 
-                q_system_msg = """You are an Elite Vedic Astrological Auditor. Answer the user's follow-up question directly based on the provided chart data. 
-                THREAT-FIRST: State the negative/vulnerability first, then the supporting asset. Cite exact dates. Do not use fluff words. Use Hindi names."""
+                q_system_msg = """You are an Elite Vedic Astrological Strategic Advisor. Answer the user's follow-up question directly based on the provided chart data. 
+                Use the exact format "English Name (Hindi Name)" for all planets. Frame risks as 'karmic friction' and assets as 'strategic buffers'. Cite exact dates."""
                 
                 q_prompt = f"[CHART DATA]\n{session['logic_breakdown']}\n[USER QUESTION]\n{user_text}"
                 
-                # BULLETPROOF MODEL LISTS for Follow-ups
                 FOLLOWUP_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "groq/compound"]
                 
-                # Corrected function call (no groq_key or groq_url needed here)
+                # Use the fallback loop for the follow-up as well
                 answer = call_groq_agent(q_system_msg, q_prompt, FOLLOWUP_MODELS, json_mode=False)
                 
                 if answer and not answer.startswith("[ERROR"):
+                    # Chunk the response to bypass Telegram's 4096 character limit
                     for i in range(0, len(answer), 3900): send_message(chat_id, answer[i:i + 3900]); time.sleep(0.5)
                 else: 
                     send_message(chat_id, "Error processing your question.")
                 return jsonify(status="success"), 200
            
+            # BLOCK 5: Unrecognized input
             else:
                 send_message(chat_id, "Please send birth details: `DD-MM-YYYY HH:MM City`")
                 return jsonify(status="success"), 200
@@ -893,7 +980,7 @@ def webhook():
         
     return jsonify(status="success"), 200
 
-# Initialize database on module load (required for Gunicorn on Render)
+# Initialize DB on script load (Required for Gunicorn environments like Render)
 init_db()
 
 if __name__ == '__main__':
