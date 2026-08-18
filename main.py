@@ -17,6 +17,9 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 DB_PATH = os.environ.get("DB_PATH", "/tmp/bot.db")
 
+# Groq Model Configuration (Change this in Render Env Vars if Groq deprecates it)
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-70b-versatile")
+
 # ==========================================
 # CORE CONSTANTS & MATH TABLES
 # ==========================================
@@ -560,7 +563,6 @@ def generate_pdf_weasyprint(html_content, pdf_path):
 def process_background_task(chat_id, session_data):
     groq_key = os.environ.get("GROQ_API_KEY")
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
-    model_name = "llama3-8b-8192"  # Valid Groq model ID
     
     send_message(chat_id, "⏳ Initiating Structural Integrity Audit Pipeline...")
     
@@ -613,7 +615,7 @@ The JSON must match this exact schema:
 }}
 """
     
-    english_json_str = call_groq_agent(groq_key, groq_url, model_name, system_msg, user_msg_eng, json_mode=True)
+    english_json_str = call_groq_agent(groq_key, groq_url, GROQ_MODEL, system_msg, user_msg_eng, json_mode=True)
     
     english_json_str = english_json_str.strip()
     if english_json_str.startswith("```json"):
@@ -646,7 +648,7 @@ The JSON must match this exact schema:
     Output ONLY a valid JSON object with the EXACT SAME ENGLISH KEYS. 
     DO NOT put Hindi words in brackets if they are already in Devanagari script. Translate exactly."""
     
-    hindi_json_str = call_groq_agent(groq_key, groq_url, model_name, translator_system_msg, json.dumps(eng_data), json_mode=True)
+    hindi_json_str = call_groq_agent(groq_key, groq_url, GROQ_MODEL, translator_system_msg, json.dumps(eng_data), json_mode=True)
     
     try:
         hin_data = json.loads(hindi_json_str)
@@ -847,7 +849,7 @@ def webhook():
                 THREAT-FIRST: State the negative/vulnerability first, then the supporting asset. Cite exact dates. Do not use fluff words. Use Hindi names."""
                 
                 q_prompt = f"[CHART DATA]\n{session['logic_breakdown']}\n[USER QUESTION]\n{user_text}"
-                payload = {"model": "llama3-8b-8192", "messages": [{"role": "system", "content": q_system_msg}, {"role": "user", "content": q_prompt}], "temperature": 0.3}
+                payload = {"model": GROQ_MODEL, "messages": [{"role": "system", "content": q_system_msg}, {"role": "user", "content": q_prompt}], "temperature": 0.3}
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
                 
                 res = requests.post(groq_url, headers=headers, json=payload, timeout=90)
