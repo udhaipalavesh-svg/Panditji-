@@ -560,7 +560,7 @@ def generate_pdf_weasyprint(html_content, pdf_path):
 def process_background_task(chat_id, session_data):
     groq_key = os.environ.get("GROQ_API_KEY")
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
-    model_name = "llama-3.1-8b-instant"
+    model_name = "llama3-8b-8192"  # Valid Groq model ID
     
     send_message(chat_id, "⏳ Initiating Structural Integrity Audit Pipeline...")
     
@@ -847,7 +847,7 @@ def webhook():
                 THREAT-FIRST: State the negative/vulnerability first, then the supporting asset. Cite exact dates. Do not use fluff words. Use Hindi names."""
                 
                 q_prompt = f"[CHART DATA]\n{session['logic_breakdown']}\n[USER QUESTION]\n{user_text}"
-                payload = {"model": "llama-3.1-8b-instant", "messages": [{"role": "system", "content": q_system_msg}, {"role": "user", "content": q_prompt}], "temperature": 0.3}
+                payload = {"model": "llama3-8b-8192", "messages": [{"role": "system", "content": q_system_msg}, {"role": "user", "content": q_prompt}], "temperature": 0.3}
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
                 
                 res = requests.post(groq_url, headers=headers, json=payload, timeout=90)
