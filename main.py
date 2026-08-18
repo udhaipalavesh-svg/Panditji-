@@ -614,13 +614,25 @@ The JSON must match this exact schema:
     
     english_json_str = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", system_msg, user_msg_eng, json_mode=True)
     
+    # Clean up potential markdown code blocks that LLMs sometimes add despite JSON mode
+    english_json_str = english_json_str.strip()
+    if english_json_str.startswith("```json"):
+        english_json_str = english_json_str[7:]
+    elif english_json_str.startswith("```"):
+        english_json_str = english_json_str[3:]
+    if english_json_str.endswith("```"):
+        english_json_str = english_json_str[:-3]
+    english_json_str = english_json_str.strip()
+
     try:
         eng_data = json.loads(english_json_str)
         if "error" in eng_data:
-            send_message(chat_id, "⚠️ Master Agent failed.")
+            # Send the actual API error details to Telegram so we can see it
+            send_message(chat_id, f"⚠️ Master Agent API Error: {eng_data.get('details', 'Unknown Error')}")
             return
     except json.JSONDecodeError:
-        send_message(chat_id, "⚠️ JSON Parsing failed from Master Agent.")
+        send_message(chat_id, "⚠️ JSON Parsing failed from Master Agent. Check server logs.")
+        print(f"JSON PARSE FAIL. RAW OUTPUT:\n{english_json_str[:2000]}", flush=True)
         return
 
     for k, v in eng_data.items():
