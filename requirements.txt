@@ -1,6 +1,5 @@
-Flask
-requests
-pyswisseph
-markdown2
-weasyprint
-gunicorn
+Flask==3.0.0
+requests==2.31.0
+pyswisseph==2.10.3.2
+WeasyPrint==60.1
+markdown==3.5.1
