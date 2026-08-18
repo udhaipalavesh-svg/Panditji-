@@ -562,7 +562,8 @@ def process_background_task(chat_id, session_data):
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
     
     # MANDATE: EXACT MODEL STRINGS TO BYPASS TIER RESTRICTIONS
-    MASTER_MODEL = "llama-3.3-70b-versatile"
+    # Replaced llama-3.3-70b-versatile with llama3-70b-8192 for tier stability
+    MASTER_MODEL = "llama3-70b-8192"
     TRANSLATOR_MODEL = "mixtral-8x7b-32768"
     
     send_message(chat_id, "⏳ Initiating Structural Integrity Audit Pipeline...")
@@ -809,12 +810,15 @@ def webhook():
                 threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
 
+            # ==========================================
+            # BRAND NEW USERS BLOCK (STATE 0 SECURED)
+            # ==========================================
             elif match:
-                send_message(chat_id, "✅ Chart calculated. \n\nDo you want to analyze compatibility with a partner? \nSend their details (DD-MM-YYYY HH:MM City) or type 'skip'.")
-                
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
                 if year < 100: year += 1900 if year > 25 else 2000
+                
+                send_message(chat_id, "⏳ Calculating...")
                 
                 url = f"https://nominatim.openstreetmap.org/search?q={city_input}&format=json&limit=1"
                 try:
@@ -829,12 +833,14 @@ def webhook():
                 planet_summary = "\n".join([f"- {p}: {d['hindi_sign']} | Nak: {d['nak']} (ruled by {d.get('nak_lord', 'Unknown')}) | Dignity: {d['dignity']}" for p, d in planets.items()])
                 
                 session = {
-                    "state": "awaiting_partner",
+                    "state": "ready_to_generate",
                     "asc_sign": asc_sign, "planet_summary": planet_summary,
                     "planet_data": planets, "logic_breakdown": logic_breakdown, "age": age,
                     "birth_str": f"{day:02d}-{month:02d}-{year} at {hour:02d}:{minute:02d} in {city_clean} (Age: {age})"
                 }
                 save_session(chat_id, session)
+                
+                threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
 
             elif session and session.get("state") == "awaiting_partner" and user_text.lower() == 'skip':
@@ -852,8 +858,8 @@ def webhook():
                 THREAT-FIRST: State the negative/vulnerability first, then the supporting asset. Cite exact dates. Do not use fluff words. Use Hindi names."""
                 
                 q_prompt = f"[CHART DATA]\n{session['logic_breakdown']}\n[USER QUESTION]\n{user_text}"
-                # MANDATE PATCH: Hardcoded model to bypass decommissioned 8b-instant
-                payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": q_system_msg}, {"role": "user", "content": q_prompt}], "temperature": 0.3}
+                # Replaced decommissioned models with highly accessible llama3-70b-8192
+                payload = {"model": "llama3-70b-8192", "messages": [{"role": "system", "content": q_system_msg}, {"role": "user", "content": q_prompt}], "temperature": 0.3}
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
                 
                 res = requests.post(groq_url, headers=headers, json=payload, timeout=90)
