@@ -578,8 +578,8 @@ def process_background_task(chat_id, session_data):
     groq_key = os.environ.get("GROQ_API_KEY")
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
     # BULLETPROOF MODEL LISTS (Tries 1st, if decommissioned, tries 2nd, etc.)
-    MASTER_MODELS = ["llama-3.3-70b-versatile", "llama3-70b-8192", "llama-3.1-8b-instant", "llama3-8b-8192"]
-    TRANSLATOR_MODELS = ["mixtral-8x7b-32768", "llama-3.3-70b-versatile", "llama3-70b-8192"]
+    MASTER_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "groq/compound"]
+    TRANSLATOR_MODELS = ["openai/gpt-oss-120b", "groq/compound", "qwen/qwen3.6-27b"]
     
     send_message(chat_id, "⏳ Initiating Structural Integrity Audit Pipeline...")
     
@@ -873,7 +873,7 @@ def webhook():
                 q_prompt = f"[CHART DATA]\n{session['logic_breakdown']}\n[USER QUESTION]\n{user_text}"
                 
                 # BULLETPROOF MODEL LISTS for Follow-ups
-                FOLLOWUP_MODELS = ["llama-3.3-70b-versatile", "llama3-70b-8192", "llama-3.1-8b-instant", "llama3-8b-8192"]
+                FOLLOWUP_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "groq/compound"]
                 
                 # Corrected function call (no groq_key or groq_url needed here)
                 answer = call_groq_agent(q_system_msg, q_prompt, FOLLOWUP_MODELS, json_mode=False)
