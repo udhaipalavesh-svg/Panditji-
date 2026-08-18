@@ -528,8 +528,8 @@ def call_groq_agent(system_prompt, user_prompt, models_list, json_mode=False):
         ], 
         "temperature": 0.3
     }
-    if json_mode:
-        payload_base["response_format"] = {"type": "json_object"}
+    # NOTE: We intentionally do not send "response_format" because several Groq models 
+    # return a 400 error if they see it. Our markdown-stripping parser handles raw JSON perfectly.
         
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
     
@@ -540,7 +540,7 @@ def call_groq_agent(system_prompt, user_prompt, models_list, json_mode=False):
             res = requests.post(groq_url, headers=headers, json=payload, timeout=180)
             if res.status_code == 200:
                 return res.json()['choices'][0]['message']['content']
-            elif res.status_code in [400, 403, 404, 429]:
+            elif res.status_code in [400, 403, 404, 429, 413]:
                 print(f"WARNING: Model '{model_name}' failed with status {res.status_code}. Trying next model...", flush=True)
                 continue
             else:
@@ -575,8 +575,8 @@ def generate_pdf_weasyprint(html_content, pdf_path):
         return False
 
 def process_background_task(chat_id, session_data):
-    groq_key = os.environ.get("GROQ_API_KEY")
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
+    
     # BULLETPROOF MODEL LISTS (Tries 1st, if decommissioned, tries 2nd, etc.)
     MASTER_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "groq/compound"]
     TRANSLATOR_MODELS = ["openai/gpt-oss-120b", "groq/compound", "qwen/qwen3.6-27b"]
@@ -634,7 +634,7 @@ The JSON must match this exact schema:
     
     # 1. Master Synthesizer Agent (English JSON Generation)
     english_json_str = call_groq_agent(system_msg, user_msg_eng, MASTER_MODELS, json_mode=True)
-        
+    
     english_json_str = english_json_str.strip()
     if english_json_str.startswith("```json"):
         english_json_str = english_json_str[7:]
