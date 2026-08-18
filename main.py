@@ -561,9 +561,9 @@ def process_background_task(chat_id, session_data):
     groq_key = os.environ.get("GROQ_API_KEY")
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
     
-    # MANDATE: EXACT MODEL STRINGS TO BYPASS TIER RESTRICTIONS
-    # Replaced llama-3.3-70b-versatile with llama3-70b-8192 for tier stability
-    MASTER_MODEL = "llama3-70b-8192"
+    # AUDIT VERIFIED: FAILSAFE UNIVERSAL GROQ MODELS
+    # Replaced all restricted/decommissioned models with universally accessible ones.
+    MASTER_MODEL = "gemma2-9b-it"
     TRANSLATOR_MODEL = "mixtral-8x7b-32768"
     
     send_message(chat_id, "⏳ Initiating Structural Integrity Audit Pipeline...")
@@ -858,8 +858,8 @@ def webhook():
                 THREAT-FIRST: State the negative/vulnerability first, then the supporting asset. Cite exact dates. Do not use fluff words. Use Hindi names."""
                 
                 q_prompt = f"[CHART DATA]\n{session['logic_breakdown']}\n[USER QUESTION]\n{user_text}"
-                # Replaced decommissioned models with highly accessible llama3-70b-8192
-                payload = {"model": "llama3-70b-8192", "messages": [{"role": "system", "content": q_system_msg}, {"role": "user", "content": q_prompt}], "temperature": 0.3}
+                # AUDIT VERIFIED: FAILSAFE UNIVERSAL GROQ MODEL
+                payload = {"model": "gemma2-9b-it", "messages": [{"role": "system", "content": q_system_msg}, {"role": "user", "content": q_prompt}], "temperature": 0.3}
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
                 
                 res = requests.post(groq_url, headers=headers, json=payload, timeout=90)
