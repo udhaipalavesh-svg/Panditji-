@@ -612,7 +612,7 @@ The JSON must match this exact schema:
 }}
 """
     
-    english_json_str = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", system_msg, user_msg_eng, json_mode=True)
+    english_json_str = call_groq_agent(groq_key, groq_url, ""llama-3.1-8b-instant"", system_msg, user_msg_eng, json_mode=True)
     
     # Clean up potential markdown code blocks that LLMs sometimes add despite JSON mode
     english_json_str = english_json_str.strip()
@@ -647,7 +647,7 @@ The JSON must match this exact schema:
     Output ONLY a valid JSON object with the EXACT SAME ENGLISH KEYS. 
     DO NOT put Hindi words in brackets if they are already in Devanagari script. Translate exactly."""
     
-    hindi_json_str = call_groq_agent(groq_key, groq_url, "llama-3.3-70b-versatile", translator_system_msg, json.dumps(eng_data), json_mode=True)
+    hindi_json_str = call_groq_agent(groq_key, groq_url, ""llama-3.1-8b-instant"", translator_system_msg, json.dumps(eng_data), json_mode=True)
     
     try:
         hin_data = json.loads(hindi_json_str)
@@ -848,7 +848,7 @@ def webhook():
                 THREAT-FIRST: State the negative/vulnerability first, then the supporting asset. Cite exact dates. Do not use fluff words. Use Hindi names."""
                 
                 q_prompt = f"[CHART DATA]\n{session['logic_breakdown']}\n[USER QUESTION]\n{user_text}"
-                payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": q_system_msg}, {"role": "user", "content": q_prompt}], "temperature": 0.3}
+                payload = {"model": ""llama-3.1-8b-instant"", "messages": [{"role": "system", "content": q_system_msg}, {"role": "user", "content": q_prompt}], "temperature": 0.3}
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
                 
                 res = requests.post(groq_url, headers=headers, json=payload, timeout=90)
