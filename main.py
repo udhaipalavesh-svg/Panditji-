@@ -55,7 +55,52 @@ LAL_KITAB_DICT = {
     "Moon / Chandra_Debilitated": "Immerse a square piece of silver in a flowing river on Monday. Feed wheat flour balls to fish to cure clinical anxiety.",
     "Venus / Shukra_Debilitated": "Donate white sweets to young girls on Friday. Keep a silver glass for drinking water to restore relationship balance.",
     "Jupiter / Guru_Debilitated": "Water a peepal tree on Thursday. Donate yellow clothes or books to a priest or student to clear karmic debts.",
-    "Saturn / Shani_Debilitated": "Serve food to lepers or disabled people. Feed black dogs on Saturday to remove chronic structural obstacles."
+    "Saturn / Shani_Debilitated": "Serve food to lepers or disabled people. Feed black dogs on Saturday to remove chronic structural obstacles.",
+    "Saturn / Shani_1": "Do not consume non-veg on Saturday. Feed black crows daily to prevent chronic fatigue and identity erosion.",
+    "Mars / Mangal_1": "Donate red lentils on Tuesday. Avoid keeping weapons in the house to prevent aggressive outbursts.",
+    "Rahu / Rahu_1": "Keep a silver square in pocket. Do not accept electrical items as gifts to prevent identity confusion.",
+    "Ketu / Ketu_1": "Feed street dogs daily. Do not wear fragmented jewelry to prevent scattered focus.",
+    "Sun / Surya_1": "Offer water to the Sun daily. Do not consume salt on Sundays to maintain vitality.",
+    "Saturn / Shani_2": "Keep a silver square in wallet. Serve food to disabled people to prevent wealth erosion.",
+    "Mars / Mangal_2": "Donate red masoor dal on Tuesday. Do not keep iron tools in the kitchen to prevent family disputes.",
+    "Rahu / Rahu_2": "Keep a solid silver ball in the mouth for a few minutes daily. Do not accept bribes to prevent wealth loss.",
+    "Ketu / Ketu_2": "Donate a black and white blanket. Do not keep broken glass in the house to prevent wealth leakage.",
+    "Sun / Surya_2": "Donate wheat and jaggery on Sunday. Do not consume hot food to prevent family arguments.",
+    "Saturn / Shani_4": "Do not build a house before age 48. Pour mustard oil on the floor on Saturday to prevent domestic disputes.",
+    "Mars / Mangal_4": "Keep a square piece of red copper in the house. Do not keep weapons under the bed to prevent domestic violence.",
+    "Rahu / Rahu_4": "Keep a solid silver square in the house. Do not keep electronic items in the bedroom to prevent insomnia.",
+    "Ketu / Ketu_4": "Feed street dogs daily. Do not keep fragmented items in the house to prevent domestic unrest.",
+    "Sun / Surya_4": "Offer water to the Sun daily. Do not consume salt on Sundays to maintain domestic peace.",
+    "Saturn / Shani_5": "Do not build a house before age 48. Feed black crows to prevent delays in progeny.",
+    "Mars / Mangal_5": "Donate red lentils on Tuesday. Do not keep weapons in the bedroom to prevent miscarriages.",
+    "Rahu / Rahu_5": "Keep a silver square in pocket. Do not accept electrical items as gifts to prevent progeny issues.",
+    "Ketu / Ketu_5": "Feed street dogs daily. Do not wear fragmented jewelry to prevent progeny delays.",
+    "Sun / Surya_5": "Offer water to the Sun daily. Do not consume salt on Sundays to maintain progeny health.",
+    "Saturn / Shani_6": "Float a black mustard oil-filled bottle in a river on Saturday. Serve food to disabled people to ward off chronic debts and prolonged illnesses.",
+    "Mars / Mangal_6": "Donate red masoor dal and batasha (sweet) on Tuesday. Feed a monkey or a red dog to neutralize enemies and prevent aggressive litigation.",
+    "Rahu / Rahu_6": "Float a piece of lead or a black sesame oil bottle in running water on Saturday. Keep a solid silver square in the pocket to avoid deceptive litigation and maternal disputes.",
+    "Ketu / Ketu_6": "Donate a black and white blanket on Tuesday. Feed street dogs regularly to prevent mysterious health ailments and disputes with maternal uncles.",
+    "Sun / Surya_6": "Offer jaggery and wheat to a red cow on Sunday. Donate medicines to a hospital to prevent chronic health issues and conflicts with authorities.",
+    "Saturn / Shani_7": "Do not build a house before age 48. Pour mustard oil on the floor on Saturday to prevent marital discord.",
+    "Mars / Mangal_7": "Donate red lentils on Tuesday. Do not keep weapons in the bedroom to prevent marital violence.",
+    "Rahu / Rahu_7": "Keep a silver square in pocket. Do not accept electrical items as gifts to prevent marital deception.",
+    "Ketu / Ketu_7": "Feed street dogs daily. Do not keep fragmented items in the bedroom to prevent marital separation.",
+    "Sun / Surya_7": "Offer water to the Sun daily. Do not consume salt on Sundays to maintain marital peace.",
+    "Saturn / Shani_8": "Do not build a house before age 48. Drop 8 kilograms of raw coal in running water on a Saturday to prevent hospitalization.",
+    "Mars / Mangal_8": "Feed sweet bread (roti) to a red dog on Tuesday. Keep a square piece of red copper in the house to prevent sudden trauma.",
+    "Rahu / Rahu_8": "Keep a solid silver square piece in the pocket. Float four coconuts in a river on Saturday to mitigate sudden litigation.",
+    "Ketu / Ketu_8": "Donate a black and white blanket. Feed street dogs regularly to prevent genetic health complications.",
+    "Sun / Surya_8": "Offer jaggery and wheat to a red cow on Sunday. Keep a copper pot filled with water in the bedroom at night and pour it into a plant in the morning.",
+    "Saturn / Shani_10": "Do not consume non-veg on Saturday. Feed black crows to prevent career stagnation.",
+    "Mars / Mangal_10": "Donate red lentils on Tuesday. Do not keep weapons in the office to prevent career conflicts.",
+    "Rahu / Rahu_10": "Keep a silver square in pocket. Do not accept electrical items as gifts to prevent career deception.",
+    "Ketu / Ketu_10": "Feed street dogs daily. Do not wear fragmented jewelry to prevent career instability.",
+    "Sun / Surya_10": "Offer water to the Sun daily. Do not consume salt on Sundays to maintain career status.",
+    "Saturn / Shani_12": "Keep a square piece of silver in pocket. Do not consume alcohol or non-vegetarian food on Saturdays to prevent insomnia.",
+    "Mars / Mangal_12": "Float a piece of red copper in flowing water on Tuesday. Do not keep weapons in the bedroom to prevent night terrors.",
+    "Rahu / Rahu_12": "Donate a black blanket to a homeless person. Keep a dog as a pet to absorb environmental malefic energy.",
+    "Ketu / Ketu_12": "Bury a pair of ivory pieces in a graveyard or at a crossroad. Avoid wearing fragmented or broken jewelry.",
+    "Sun / Surya_12": "Keep a copper coin in a visible spot in the house. Do not consume salt on Sundays to prevent immune system collapse."
 }
 
 # ==========================================
@@ -110,13 +155,11 @@ def calculate_vargas(natal_planets_dict):
         sign_idx = int(lon // 30) % 12
         deg_in_sign = lon % 30
         
-        # D-9 Navamsha
         navamsha_idx_in_sign = int(deg_in_sign // (30/9))
         navamsha_start_sign = navamsha_start_map[sign_idx % 4]
         d9_sign_idx = (navamsha_start_sign + navamsha_idx_in_sign) % 12
         d9_sign = ZODIAC_SIGNS[d9_sign_idx]
         
-        # D-10 Dashamsha
         dashamsha_idx_in_sign = int(deg_in_sign // 3)
         if sign_idx % 2 == 0:
             d10_sign_idx = (sign_idx + dashamsha_idx_in_sign) % 12
@@ -274,12 +317,25 @@ def get_lal_kitab_remedy(houses_dict, planets_dict):
         if p_data.get("dignity", "").startswith("Debilitated"):
             key = f"{p_name}_Debilitated"
             if key in LAL_KITAB_DICT: remedies.append(f"{p_name} Debilitated: {LAL_KITAB_DICT[key]}")
-    return list(dict.fromkeys(remedies))[:4]
+            
+    for h_num in range(1, 13):
+        occ = houses_dict[h_num]["occupants"]
+        malefics_in_house = [p for p in occ if p in ["Saturn / Shani", "Mars / Mangal", "Rahu / Rahu", "Ketu / Ketu", "Sun / Surya"]]
+        for p_name in malefics_in_house:
+            key = f"{p_name}_{h_num}"
+            if key in LAL_KITAB_DICT: 
+                remedy_text = LAL_KITAB_DICT[key]
+                if len(malefics_in_house) > 1:
+                    remedy_text += " (Warning: Malefic conjunction detected. Do not perform gemstone therapy for these planets.)"
+                remedies.append(f"{p_name} in House {h_num}: {remedy_text}")
+                
+    return list(dict.fromkeys(remedies))[:5]
 
 def detect_yogas(houses_dict, planets_dict, sign_lords):
     yogas = []
     moon_house = get_house_of_planet(houses_dict, "Moon / Chandra")
     jup_house = get_house_of_planet(houses_dict, "Jupiter / Guru")
+    
     if moon_house and jup_house:
         if abs(jup_house - moon_house) in [0, 3, 6, 9]:
             yogas.append("Gaja Kesari Yoga (Jupiter in Kendra from Moon): Grants high intelligence, fame, and robust moral fortitude.")
@@ -321,7 +377,9 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     logic_summary += f"\n[DETECTED YOGAS]:\n - " + "\n - ".join(yogas) if yogas else "\n[DETECTED YOGAS]: None."
     
     logic_summary += f"\n[DIVISIONAL VARGAS (D-9 & D-10)]: {json.dumps(calculate_vargas(planets_full))}\n[FULL SARVASHTAKAVARGA (SAV) MATRIX]: {json.dumps(calculate_full_sav(houses))}"
-    logic_summary += f"\n[LAL KITAB RULES]:\n - " + "\n - ".join(get_lal_kitab_remedy(houses, planets_full))
+    
+    lal_rules = get_lal_kitab_remedy(houses, planets_full)
+    logic_summary += f"\n[LAL KITAB RULES]:\n - " + "\n - ".join(lal_rules) if lal_rules else "\n[LAL KITAB RULES]: None applicable."
 
     return logic_summary, age
 
@@ -363,6 +421,89 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
 # ==========================================
 # VISUAL RENDERERS (PURE PYTHON SVG)
 # ==========================================
+def generate_cover_page_svg(native_name="Native", birth_str=""):
+    svg = f"""
+    <svg viewBox="0 0 800 1130" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100vh; font-family: 'Noto Sans', sans-serif;">
+        <rect width="800" height="1130" fill="#fdfbf7" />
+        <!-- Elegant Borders -->
+        <rect x="30" y="30" width="740" height="1070" fill="none" stroke="#4A154B" stroke-width="2" rx="12" />
+        <rect x="40" y="40" width="720" height="1050" fill="none" stroke="#D4AF37" stroke-width="1" rx="8" />
+        
+        <!-- Top Om Symbol -->
+        <text x="400" y="150" font-size="72" fill="#4A154B" text-anchor="middle" font-weight="bold">ॐ</text>
+        
+        <!-- Swastik Symbol (Geometric Paths) -->
+        <g transform="translate(400, 250)">
+            <!-- Center Cross -->
+            <rect x="-12.5" y="-60" width="25" height="120" fill="#D4AF37" rx="4"/>
+            <rect x="-60" y="-12.5" width="120" height="25" fill="#D4AF37" rx="4"/>
+            <!-- Arms -->
+            <path d="M 12.5 -60 L 40 -60 L 40 -35 L 12.5 -35 Z" fill="#D4AF37"/>
+            <path d="M 60 -12.5 L 60 12.5 L 35 12.5 L 35 -12.5 Z" fill="#D4AF37"/>
+            <path d="M -12.5 60 L -40 60 L -40 35 L -12.5 35 Z" fill="#D4AF37"/>
+            <path d="M -60 12.5 L -60 -12.5 L -35 -12.5 L -35 12.5 Z" fill="#D4AF37"/>
+        </g>
+        
+        <!-- Title Typography -->
+        <text x="400" y="420" font-size="36" fill="#4A154B" text-anchor="middle" font-weight="bold" letter-spacing="2">FORENSIC ASTROLOGICAL</text>
+        <text x="400" y="470" font-size="36" fill="#4A154B" text-anchor="middle" font-weight="bold" letter-spacing="2">DOSSIER</text>
+        
+        <!-- Divider -->
+        <line x1="300" y1="500" x2="500" y2="500" stroke="#D4AF37" stroke-width="2"/>
+        <text x="400" y="540" font-size="14" fill="#666666" text-anchor="middle" letter-spacing="1">KARMIC ARCHITECTURE &amp; STRATEGIC INTELLIGENCE</text>
+        
+        <!-- Native Details -->
+        <text x="400" y="650" font-size="18" fill="#222222" text-anchor="middle" font-weight="bold">{native_name}</text>
+        <text x="400" y="680" font-size="14" fill="#666666" text-anchor="middle">{birth_str}</text>
+        
+        <!-- Bottom Om Symbol -->
+        <text x="400" y="1020" font-size="48" fill="#4A154B" text-anchor="middle" font-weight="bold">ॐ</text>
+        <text x="400" y="1050" font-size="10" fill="#999999" text-anchor="middle">Generated via Pure Mathematical Precision</text>
+    </svg>
+    """
+    return svg
+
+def generate_rasi_chart_svg(planet_positions, asc_sign, chart_title="Rasi Chart (D-1)"):
+    width = 400; height = 420
+    asc_idx = ZODIAC_SIGNS.index(asc_sign)
+    # Centroids for the 12 houses in a 360x360 grid
+    h_coords = {
+        1: (180, 60), 2: (90, 30), 3: (30, 90), 4: (60, 180),
+        5: (30, 270), 6: (90, 330), 7: (180, 300), 8: (270, 330),
+        9: (330, 270), 10: (300, 180), 11: (330, 90), 12: (270, 30)
+    }
+    
+    house_planets = {i: [] for i in range(1, 13)}
+    for p_name, data in planet_positions.items():
+        p_sign = data.get("sign", "Aries")
+        p_sign_idx = ZODIAC_SIGNS.index(p_sign)
+        h_num = ((p_sign_idx - asc_idx + 12) % 12) + 1
+        abbr = p_name.split("/")[0].strip()[:2]
+        if data.get("retro"):
+            abbr += "®"
+        house_planets[h_num].append(abbr)
+        
+    svg = [
+        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; font-family: sans-serif;">',
+        f'<text x="200" y="20" font-size="14" font-weight="bold" fill="#4A154B" text-anchor="middle">{chart_title}</text>',
+        '<g transform="translate(20, 40)">',
+        '<rect x="0" y="0" width="360" height="360" fill="#ffffff" stroke="#4A154B" stroke-width="3" rx="4"/>',
+        # Inner Diamond
+        '<polygon points="180,0 360,180 180,360 0,180" fill="none" stroke="#4A154B" stroke-width="2"/>',
+        # Diagonals
+        '<line x1="0" y1="0" x2="360" y2="360" stroke="#4A154B" stroke-width="1.5"/>',
+        '<line x1="360" y1="0" x2="0" y2="360" stroke="#4A154B" stroke-width="1.5"/>'
+    ]
+    
+    for h_num, (x, y) in h_coords.items():
+        sign_num = ((asc_idx + (h_num - 1)) % 12) + 1
+        svg.append(f'<text x="{x}" y="{y-15}" font-size="9" fill="#999999" text-anchor="middle">{sign_num}</text>')
+        if house_planets[h_num]:
+            svg.append(f'<text x="{x}" y="{y+5}" font-size="11" font-weight="bold" fill="#4A154B" text-anchor="middle">{", ".join(house_planets[h_num])}</text>')
+            
+    svg.append('</g></svg>')
+    return "\n".join(svg)
+
 def generate_sav_heatmap_svg(sav_dict):
     width = 600; height = 280; margin_top = 30; margin_bottom = 45
     chart_height = height - margin_top - margin_bottom; y_scale = chart_height / 50 
@@ -386,71 +527,6 @@ def generate_sav_heatmap_svg(sav_dict):
         
     svg_parts.append('</svg>')
     return "\n".join(svg_parts)
-
-def generate_north_indian_chart_svg(planet_positions, asc_sign, chart_title="Rasi Chart (D-1)"):
-    width = 400; height = 420
-    asc_idx = ZODIAC_SIGNS.index(asc_sign)
-    
-    h_coords = {
-        1: (180, 60), 2: (90, 30), 3: (30, 90), 4: (60, 180),
-        5: (30, 270), 6: (90, 330), 7: (180, 300), 8: (270, 330),
-        9: (330, 270), 10: (300, 180), 11: (330, 90), 12: (270, 30)
-    }
-    
-    house_planets = {i: [] for i in range(1, 13)}
-    for p_name, data in planet_positions.items():
-        p_sign = data.get("sign", "Aries")
-        p_sign_idx = ZODIAC_SIGNS.index(p_sign)
-        h_num = ((p_sign_idx - asc_idx + 12) % 12) + 1
-        abbr = p_name.split("/")[0].strip()[:2]
-        if data.get("retro"): abbr += "®"
-        house_planets[h_num].append(abbr)
-        
-    svg = [
-        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; font-family: sans-serif;">',
-        f'<text x="200" y="20" font-size="14" font-weight="bold" fill="#4A154B" text-anchor="middle">{chart_title}</text>',
-        '<g transform="translate(20, 40)">',
-        '<rect x="0" y="0" width="360" height="360" fill="#ffffff" stroke="#4A154B" stroke-width="3" rx="4"/>',
-        '<polygon points="180,0 360,180 180,360 0,180" fill="none" stroke="#4A154B" stroke-width="2"/>',
-        '<line x1="0" y1="0" x2="360" y2="360" stroke="#4A154B" stroke-width="1.5"/>',
-        '<line x1="360" y1="0" x2="0" y2="360" stroke="#4A154B" stroke-width="1.5"/>'
-    ]
-    
-    for h_num, (x, y) in h_coords.items():
-        sign_num = ((asc_idx + (h_num - 1)) % 12) + 1
-        svg.append(f'<text x="{x}" y="{y-15}" font-size="9" fill="#999999" text-anchor="middle">{sign_num}</text>')
-        if house_planets[h_num]:
-            svg.append(f'<text x="{x}" y="{y+5}" font-size="11" font-weight="bold" fill="#4A154B" text-anchor="middle">{", ".join(house_planets[h_num])}</text>')
-            
-    svg.append('</g></svg>')
-    return "\n".join(svg)
-
-def generate_cover_page_svg(native_name="Native", birth_str=""):
-    svg = f"""
-    <svg viewBox="0 0 800 1130" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100vh; font-family: 'Noto Sans', sans-serif;">
-        <rect width="800" height="1130" fill="#fdfbf7" />
-        <rect x="30" y="30" width="740" height="1070" fill="none" stroke="#4A154B" stroke-width="2" rx="12" />
-        <rect x="40" y="40" width="720" height="1050" fill="none" stroke="#D4AF37" stroke-width="1" rx="8" />
-        <text x="400" y="150" font-size="72" fill="#4A154B" text-anchor="middle" font-weight="bold">ॐ</text>
-        <g transform="translate(400, 250)">
-            <rect x="-12.5" y="-60" width="25" height="120" fill="#D4AF37" rx="4"/>
-            <rect x="-60" y="-12.5" width="120" height="25" fill="#D4AF37" rx="4"/>
-            <path d="M 12.5 -60 L 40 -60 L 40 -35 L 12.5 -35 Z" fill="#D4AF37"/>
-            <path d="M 60 -12.5 L 60 12.5 L 35 12.5 L 35 -12.5 Z" fill="#D4AF37"/>
-            <path d="M -12.5 60 L -40 60 L -40 35 L -12.5 35 Z" fill="#D4AF37"/>
-            <path d="M -60 12.5 L -60 -12.5 L -35 -12.5 L -35 12.5 Z" fill="#D4AF37"/>
-        </g>
-        <text x="400" y="420" font-size="36" fill="#4A154B" text-anchor="middle" font-weight="bold" letter-spacing="2">FORENSIC ASTROLOGICAL</text>
-        <text x="400" y="470" font-size="36" fill="#4A154B" text-anchor="middle" font-weight="bold" letter-spacing="2">DOSSIER</text>
-        <line x1="300" y1="500" x2="500" y2="500" stroke="#D4AF37" stroke-width="2"/>
-        <text x="400" y="540" font-size="14" fill="#666666" text-anchor="middle" letter-spacing="1">KARMIC ARCHITECTURE & STRATEGIC INTELLIGENCE</text>
-        <text x="400" y="650" font-size="18" fill="#222222" text-anchor="middle" font-weight="bold">{native_name}</text>
-        <text x="400" y="680" font-size="14" fill="#666666" text-anchor="middle">{birth_str}</text>
-        <text x="400" y="1020" font-size="48" fill="#4A154B" text-anchor="middle" font-weight="bold">ॐ</text>
-        <text x="400" y="1050" font-size="10" fill="#999999" text-anchor="middle">Generated via Pure Mathematical Precision</text>
-    </svg>
-    """
-    return svg
 
 # ==========================================
 # PDF GENERATION ENGINE
@@ -485,7 +561,8 @@ def call_groq_agent(system_prompt, user_prompt, models_list, json_mode=False):
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
     
     for model_name in models_list:
-        payload = payload_base.copy(); payload["model"] = model_name
+        payload = payload_base.copy()
+        payload["model"] = model_name
         for attempt in range(2):
             try:
                 res = requests.post(groq_url, headers=headers, json=payload, timeout=180)
@@ -496,7 +573,8 @@ def call_groq_agent(system_prompt, user_prompt, models_list, json_mode=False):
                     time.sleep(20)
                     continue
                 else: break
-            except: break
+            except Exception as e:
+                break
     return json.dumps({"error": "API_ERROR"}) if json_mode else "[ERROR: ALL MODELS FAILED]"
 
 def llm_output_firewall(text):
@@ -506,22 +584,15 @@ def llm_output_firewall(text):
 
 def process_background_task(chat_id, session_data):
     MASTER_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "groq/compound"]
-    send_message(chat_id, "⏳ Initiating Agentic Swarm Pipeline (Overhauled Dossier Mode)...")
+    send_message(chat_id, "⏳ Initiating Agentic Swarm Pipeline (Premium Dossier Mode)...")
 
     base_cognitive_rules = """You are an Elite Vedic Astrological Strategic Advisor.
     [ABSOLUTE LAWS]
-    1. NAMING STANDARD: Use clean bilingual headers formatted strictly as 'English Name / Hindi Name' (e.g., 'Moon / Chandra'). Never use parentheses.
-    2. NARRATIVE DECOUPLING: Frame afflictions as 'karmic friction' and dignities as 'strategic assets'. Avoid fatalism.
+    1. NAMING STANDARD: Use clean bilingual headers formatted strictly as 'English Name / Hindi Name' (e.g., 'Moon / Chandra').
+    2. MARKDOWN TABLES: Format your structural outputs strictly using clear Markdown Tables with columns (e.g. Area | Risk Vector | Strategic Asset | Synthesis) where applicable. DO NOT USE RAW ARRAYS or BRACKETS for data.
     3. JSON OUTPUT ONLY: Output a valid JSON object matching the requested schema without markdown wrappers."""
 
     base_user_msg = f"[INPUT DATA]\n{session_data['logic_breakdown']}\n[PLANETARY ARRAY]\nAscendant: {session_data['asc_sign']}\n{session_data['planet_summary']}"
-
-    remediation_rules = """You are an Elite Vedic Astrological Strategic Advisor.
-    [YOUR MISSION]
-    1. Analyze the [MANDATORY LAL KITAB REFERENCE] and planetary dignities.
-    2. Output ONLY a JSON object with the ROOT key 'remediation_protocol' containing nested keys: 'suppressing_afflictions', 'amplifying_assets'.
-    3. 'suppressing_afflictions' MUST be a bulleted list of Lal Kitab remedies. 'amplifying_assets' MUST recommend gemstones and mantras.
-    4. Output ONLY valid JSON."""
 
     swarm_chapters = {
         "temporal_narrative": base_cognitive_rules + "\nOutput JSON with key 'temporal_narrative' containing keys: 'psychological_baseline', 'historical_trajectory', 'expected_survival'. Values MUST be single formatted strings.",
@@ -530,7 +601,7 @@ def process_background_task(chat_id, session_data):
         "dashamsha_career_vector": base_cognitive_rules + "\nOutput JSON with key 'dashamsha_career_vector' containing a single key 'professional_apex_potential'. The value MUST be a single string formatted as a Markdown table with columns: | Planet (D-10 Sign) | Strategic Asset / Karmic Friction | Professional Impact |. Do NOT output JSON arrays.",
         "pratyantardasha_24_month_plan": base_cognitive_rules + "\nOutput JSON with key 'pratyantardasha_24_month_plan' containing a single key 'high_probability_events'. The value MUST be a single string formatted as a Markdown table with columns: | Timeframe | Event | Strategic Focus / Karmic Friction |. Do NOT output JSON arrays.",
         "ayurvedic_audit": base_cognitive_rules + "\nNOTE: The English/Hindi naming rule applies only to Planets and Zodiac Signs, NOT to Ayurvedic Doshas. \nOutput JSON with key 'ayurvedic_audit' containing a single string diagnosing the Dosha and lifestyle shifts.",
-        "remediation_protocol": remediation_rules + "\nCRITICAL: The values for 'suppressing_afflictions' and 'amplifying_assets' MUST be a single formatted string using '\\n' for line breaks and markdown bullets ('- '), NOT a JSON array or list.",
+        "remediation_protocol": base_cognitive_rules + "\nAnalyze the [LAL KITAB RULES] in the input data. Output JSON with key 'remediation_protocol' containing keys: 'suppressing_afflictions', 'amplifying_assets'. Values MUST be a single formatted string using '\\n' for line breaks and markdown bullets ('- '), NOT a JSON array or list.",
         "lal_kitab_architecture": base_cognitive_rules + "\nOutput JSON with key 'lal_kitab_architecture' containing keys: 'environmental_hazards_to_avoid', 'home_structure_remedies'. Values MUST be single formatted strings using markdown bullets."
     }
 
@@ -544,7 +615,8 @@ def process_background_task(chat_id, session_data):
         if res.endswith("```"): res = res[:-3]
         try:
             eng_data.update(json.loads(res.strip()))
-        except: pass
+        except Exception as e:
+            pass
         time.sleep(15)
 
     if not eng_data:
@@ -558,12 +630,15 @@ def process_background_task(chat_id, session_data):
         return data
 
     eng_data = recursive_firewall(eng_data)
-    def md_to_html(t):
-        if isinstance(t, list):
-            t = "\n".join([f"- {item}" if isinstance(item, str) else f"- {json.dumps(item)}" for item in t])
-        elif isinstance(t, dict):
-            t = json.dumps(t, indent=2)
-        return markdown2.markdown(str(t), extras=["fenced-code-blocks", "tables"])
+    
+    def md_to_html(text):
+        # FAILSAFE: If LLM ignores string mandate and returns a list/dict, flatten it safely
+        if isinstance(text, list):
+            text = "\n".join([f"- {item}" if isinstance(item, str) else f"- {json.dumps(item)}" for item in text])
+        elif isinstance(text, dict):
+            text = json.dumps(text, indent=2)
+        # Enable 'tables' extra to render markdown pipe tables into beautiful HTML grids
+        return markdown2.markdown(str(text), extras=["fenced-code-blocks", "tables"])
 
     heatmap_svg, rasi_svg = "", ""
     sav_match = re.search(r'\[FULL SARVASHTAKAVARGA \(SAV\) MATRIX\]:\s*(\{.*?\})', session_data['logic_breakdown'])
@@ -571,79 +646,95 @@ def process_background_task(chat_id, session_data):
         try: heatmap_svg = generate_sav_heatmap_svg({int(k): v for k, v in json.loads(sav_match.group(1)).items()})
         except: pass
 
-    rasi_svg = generate_north_indian_chart_svg(session_data['planet_data'], session_data['asc_sign'], "Rasi Ascendant (D-1)")
-    native_name = session_data.get('native_name', 'Native Profile')
-    birth_str = session_data.get('birth_str', '')
-    cover_svg = generate_cover_page_svg(native_name, birth_str)
+    rasi_svg = generate_rasi_chart_svg(session_data['planet_data'], session_data['asc_sign'])
+    birth_str = session_data.get("birth_str", "")
+    cover_svg = generate_cover_page_svg(native_name="Confidential Dossier", birth_str=birth_str)
 
     html_body = f"""
-    <div class="cover-page">{cover_svg}</div>
+    <div class="cover-page" style="text-align: center; margin: 0; padding: 0;">
+        {cover_svg}
+    </div>
+    
     <div class="content">
-        <div class="page-break"></div>
+        <div style="text-align: center; margin-bottom: 30px; margin-top: 20px;">
+            <h1 style="font-size: 24pt; color: #4A154B; margin-bottom: 5px;">STRUCTURAL INTEGRITY & CHARTS</h1>
+            <hr style="width: 40%; border: 1px solid #4A154B; margin-top: 15px;">
+        </div>
+        
         <div class="chart-container">
-            <h2 class="section-title">I. The Astronomical Matrix</h2>
-            <div class="chart-box">{rasi_svg}</div>
+            <div class="chart-box" style="margin-bottom: 40px;">
+                {rasi_svg}
+            </div>
         </div>
-        
-        <div class="page-break"></div>
-        <h2 class="section-title">II. Temporal-Psychological Narrative</h2>
-        <div class="narrative-block">
-            <h3 class="sub-title">Psychological Baseline & Historical Trajectory</h3>
-            {md_to_html(safe_get(eng_data, ["temporal_narrative", "psychological_baseline"]))}
-            <br>
-            {md_to_html(safe_get(eng_data, ["temporal_narrative", "historical_trajectory"]))}
-            <h3 class="sub-title">Expected State & Survival</h3>
-            {md_to_html(safe_get(eng_data, ["temporal_narrative", "expected_survival"]))}
-        </div>
-        
-        <div class="page-break"></div>
-        <h2 class="section-title">III. Structural Integrity Analysis</h2>
+
         <div class="sav-box">
-            <h3 class="sub-title" style="text-align: center; margin-top: 0;">Sarvashtakavarga (SAV) Karmic Heatmap</h3>
+            <h3 style="text-align: center; margin-top: 0; color: #4A154B;">Sarvashtakavarga (SAV) Karmic Heatmap</h3>
             {heatmap_svg}
         </div>
-        <h3 class="sub-title">Wealth, Career & Structural Stability</h3>
-        {md_to_html(safe_get(eng_data, ["structural_analysis", "wealth_and_career"]))}
-        
-        <div class="page-break"></div>
-        <h2 class="section-title">IV. Divisional Charts (Varga Deep Dive)</h2>
-        <h3 class="sub-title">D-9 Navamsha (Relational & Subconscious Reality)</h3>
-        {md_to_html(safe_get(eng_data, ["navamsha_relational_audit", "marital_karma_and_friction"]))}
-        <br>
-        <h3 class="sub-title">D-10 Dashamsha (Career & Public Power)</h3>
-        {md_to_html(safe_get(eng_data, ["dashamsha_career_vector", "professional_apex_potential"]))}
 
         <div class="page-break"></div>
-        <h2 class="section-title">V. 24-Month Tactical Forecast</h2>
-        {md_to_html(safe_get(eng_data, ["pratyantardasha_24_month_plan", "high_probability_events"]))}
+        <h2 class="section-title">I. TEMPORAL-PSYCHOLOGICAL NARRATIVE</h2>
+        <h3 class="sub-title">The Psychological Baseline</h3>
+        {md_to_html(safe_get(eng_data, ["temporal_narrative", "psychological_baseline"]))}
+        <h3 class="sub-title">Expected Survival & Forecast</h3>
+        {md_to_html(safe_get(eng_data, ["temporal_narrative", "expected_survival"]))}
         
         <div class="page-break"></div>
-        <h2 class="section-title">VI. Ayurvedic & Neurological Audit</h2>
-        {md_to_html(safe_get(eng_data, ["ayurvedic_audit"]))}
+        <h2 class="section-title">II. STRUCTURAL INTEGRITY ANALYSIS</h2>
+        <h3 class="sub-title">Wealth & Career Pillar</h3>
+        {md_to_html(safe_get(eng_data, ["structural_analysis", "wealth_and_career"]))}
+        <h3 class="sub-title">Vitality & Subconscious Pillar</h3>
+        {md_to_html(safe_get(eng_data, ["structural_analysis", "vitality_and_subconscious"]))}
         
         <div class="page-break"></div>
-        <h2 class="section-title">VII. Consolidated Upayas (Remediation Protocol)</h2>
+        <h2 class="section-title">III. DIVISIONAL CHART (VARGA) DEEP DIVE</h2>
+        <div class="varga-block">
+            <h3 class="sub-title">Marital Karma & Friction (D-9)</h3>
+            {md_to_html(safe_get(eng_data, ["navamsha_relational_audit", "marital_karma_and_friction"]))}
+        </div>
+        <div class="varga-block">
+            <h3 class="sub-title">Professional Apex Potential (D-10)</h3>
+            {md_to_html(safe_get(eng_data, ["dashamsha_career_vector", "professional_apex_potential"]))}
+        </div>
+        
+        <div class="page-break"></div>
+        <h2 class="section-title">IV. FORECAST & NEUROLOGICAL AUDIT</h2>
+        <div class="narrative-block">
+            <h3 class="sub-title">24-Month Tactical Forecast</h3>
+            {md_to_html(safe_get(eng_data, ["pratyantardasha_24_month_plan", "high_probability_events"]))}
+        </div>
+        <div class="narrative-block">
+            <h3 class="sub-title">Ayurvedic Audit</h3>
+            {md_to_html(safe_get(eng_data, ["ayurvedic_audit"]))}
+        </div>
+        
+        <div class="page-break"></div>
+        <h2 class="section-title">V. REMEDIATION PROTOCOL</h2>
         <div class="remedy-box affliction">
-            <strong>A. Suppressing Afflictions:</strong>
+            <h3 style="margin-top: 0; color: #c62828;">Suppressing Afflictions</h3>
             {md_to_html(safe_get(eng_data, ["remediation_protocol", "suppressing_afflictions"]))}
         </div>
         <div class="remedy-box asset">
-            <strong>B. Amplifying Assets:</strong>
+            <h3 style="margin-top: 0; color: #2e7d32;">Amplifying Assets</h3>
             {md_to_html(safe_get(eng_data, ["remediation_protocol", "amplifying_assets"]))}
         </div>
-        <br>
-        <h3 class="sub-title">C. Lal Kitab Environmental Protocols (Vastu)</h3>
-        {md_to_html(safe_get(eng_data, ["lal_kitab_architecture", "environmental_hazards_to_avoid"]))}
-        <br>
-        {md_to_html(safe_get(eng_data, ["lal_kitab_architecture", "home_structure_remedies"]))}
+
+        <h3 class="sub-title" style="margin-top: 30px;">Lal Kitab Environmental Protocols (Vastu)</h3>
+        <div style="margin-bottom: 15px;">
+            <strong>Hazards to Avoid:</strong>
+            {md_to_html(safe_get(eng_data, ["lal_kitab_architecture", "environmental_hazards_to_avoid"]))}
+        </div>
+        <div>
+            <strong>Structural Remedies:</strong>
+            {md_to_html(safe_get(eng_data, ["lal_kitab_architecture", "home_structure_remedies"]))}
+        </div>
     </div>
     """
 
     css = """
-    @page { size: A4; margin: 0; }
-    body { font-family: 'Noto Sans', 'Noto Sans Devanagari', serif; font-size: 11pt; line-height: 1.6; color: #2c2c2c; margin: 0; padding: 0; }
-    .cover-page { page-break-after: always; height: 100vh; }
-    .content { padding: 50px 60px; }
+    @page { size: letter; margin: 2.54cm; }
+    body { font-family: 'Noto Sans', 'Helvetica', sans-serif; font-size: 10pt; line-height: 1.6; color: #222; margin: 0; padding: 0; }
+    .cover-page { height: 100vh; }
     .page-break { page-break-before: always; }
     h1 { color: #4A154B; font-size: 24pt; border-bottom: 2px solid #D4AF37; padding-bottom: 10px; }
     h2.section-title { color: #4A154B; font-size: 16pt; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px; margin-bottom: 20px; }
@@ -651,9 +742,10 @@ def process_background_task(chat_id, session_data):
     strong { color: #111; font-weight: 600; }
     ul { padding-left: 20px; margin-bottom: 15px; }
     li { margin-bottom: 6px; }
+    /* PREMIUM TABLE STYLING */
     table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 10pt; }
     th { background-color: #4A154B; color: #ffffff; padding: 10px; text-align: left; border: 1px solid #4A154B; }
-    td { padding: 10px; border: 1px solid #e0e0e0; }
+    td { padding: 10px; border: 1px solid #e0e0e0; vertical-align: top; }
     tr:nth-child(even) { background-color: #faf9f6; }
     .chart-container { text-align: center; }
     .chart-box { width: 350px; margin: 0 auto; }
@@ -665,20 +757,14 @@ def process_background_task(chat_id, session_data):
     """
     full_html = f"<html><head><style>{css}</style></head><body>{html_body}</body></html>"
     
-    send_message(chat_id, "⏳ Compiling Overhauled Strategic Dossier PDF...")
+    send_message(chat_id, "⏳ Compiling Premium Overhauled PDF...")
     pdf_path = f"/tmp/Astrological_Dossier_{int(time.time())}.pdf"
     
     if generate_pdf_weasyprint(full_html, pdf_path) and os.path.exists(pdf_path):
         send_document(chat_id, pdf_path)
-        send_message(chat_id, "📄 **Astrological Dossier PDF attached above!** ⬆️")
+        send_message(chat_id, "📄 **Strategic Dossier PDF attached above!** ⬆️")
     else:
-        send_message(chat_id, "⚠️ PDF generation failed. Sending text report.")
-        for k, v in eng_data.items():
-            if isinstance(v, dict):
-                for sub_k, sub_v in v.items():
-                    send_message(chat_id, f"{sub_k.replace('_', ' ').title()}:\n{sub_v}")
-            else:
-                send_message(chat_id, f"{k.replace('_', ' ').title()}:\n{v}")
+        send_message(chat_id, "⚠️ PDF generation failed.")
 
 # ==========================================
 # FLASK WEBHOOK
@@ -686,7 +772,7 @@ def process_background_task(chat_id, session_data):
 @app.route('/', methods=['POST', 'GET'])
 @app.route(f'/{TELEGRAM_BOT_TOKEN}', methods=['POST', 'GET'])
 def webhook():
-    if request.method == 'GET': return "Active Overhauled Server", 200
+    if request.method == 'GET': return "Active Premium Overhauled Server", 200
     try:
         update = request.get_json(silent=True)
         if not update or "message" not in update or "text" not in update["message"]: return jsonify(status="ignored"), 200
@@ -696,37 +782,16 @@ def webhook():
             
         if user_text.startswith("/start"):
             clear_session(chat_id)
-            send_message(chat_id, "Welcome to the Overhauled Dossier Bot. Send birth details: `DD-MM-YYYY HH:MM City`")
+            send_message(chat_id, "Welcome to the Premium Dossier Bot. Send birth details: `DD-MM-YYYY HH:MM City`")
             return jsonify(status="success"), 200
                 
         match = re.search(r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{2,4})\s+(\d{1,2}):(\d{1,2})\s+(.+)', user_text)
-        session = get_session(chat_id)
-            
-        if match and session and session.get("state") == "awaiting_partner":
-            day, month, year, hour, minute, city_input = match.groups()
-            year = int(year) + (1900 if int(year) > 25 else 2000) if int(year) < 100 else int(year)
-            send_message(chat_id, "⏳ Partner chart calculating in background...")
-            try:
-                res = requests.get(f"https://nominatim.openstreetmap.org/search?q={city_input}&format=json&limit=1", headers={'User-Agent': 'Bot/1.0'}, timeout=5).json()
-                lat, lon = float(res[0]['lat']), float(res[0]['lon'])
-            except: lat, lon = 30.7333, 76.7794
-            
-            p2_asc, p2_planets, p2_logic, p2_age = calculate_sidereal_chart(int(day), int(month), int(year), int(hour), int(minute), lat, lon)
-            p1_moon_idx, _, _, _ = get_nakshatra_info(session['planet_data']["Moon / Chandra"]["lon"])
-            p2_moon_idx, _, _, _ = get_nakshatra_info(p2_planets["Moon / Chandra"]["lon"])
-            nadi_dosha = (p1_moon_idx % 3) == (p2_moon_idx % 3)
-            session["synastry"] = f"Partner Compatibility: {'NADI DOSHA DETECTED (High risk).' if nadi_dosha else 'No Nadi Dosha.'}"
-            session["state"] = "ready_to_generate"
-            save_session(chat_id, session)
-            threading.Thread(target=process_background_task, args=(chat_id, session)).start()
-            return jsonify(status="success"), 200
-
-        elif match:
+        if match:
             day, month, year, hour, minute, city_input = match.groups()
             year = int(year) + (1900 if int(year) > 25 else 2000) if int(year) < 100 else int(year)
             send_message(chat_id, "⏳ Calculating geometric and astronomical arrays...")
             try:
-                res = requests.get(f"https://nominatim.openstreetmap.org/search?q={city_input}&format=json&limit=1", headers={'User-Agent': 'Bot/1.0'}, timeout=5).json()
+                res = requests.get(f"[https://nominatim.openstreetmap.org/search?q=](https://nominatim.openstreetmap.org/search?q=){city_input}&format=json&limit=1", headers={'User-Agent': 'Bot/1.0'}, timeout=5).json()
                 lat, lon = float(res[0]['lat']), float(res[0]['lon'])
                 city_clean = res[0].get('display_name', city_input).split(',')[0]
             except: 
@@ -735,43 +800,23 @@ def webhook():
                     
             asc_sign, planets, logic_breakdown, age = calculate_sidereal_chart(int(day), int(month), int(year), int(hour), int(minute), lat, lon)
             session = {
-                "state": "ready_to_generate", "asc_sign": asc_sign, "planet_data": planets,
+                "state": "ready", 
+                "asc_sign": asc_sign, 
+                "planet_data": planets,
                 "planet_summary": "\n".join([f"- {p}: {d['hindi_sign']} | Dignity: {d['dignity']}" for p, d in planets.items()]),
-                "logic_breakdown": logic_breakdown, 
-                "birth_str": f"{day}-{month}-{year} at {hour}:{minute} in {city_clean} (Age: {age})"
+                "logic_breakdown": logic_breakdown,
+                "birth_str": f"{day:02d}-{month:02d}-{year} at {hour:02d}:{minute:02d} in {city_clean} (Age: {age})"
             }
             save_session(chat_id, session)
             threading.Thread(target=process_background_task, args=(chat_id, session)).start()
             return jsonify(status="success"), 200
-
-        elif session and session.get("state") == "awaiting_partner" and user_text.lower() == 'skip':
-            session["state"] = "ready_to_generate"
-            save_session(chat_id, session)
-            threading.Thread(target=process_background_task, args=(chat_id, session)).start()
-            return jsonify(status="success"), 200
-                
-        elif session and session.get("state") == "ready_to_generate":
-            send_message(chat_id, "Running follow-up analysis...")
-            q_system_msg = """You are an Elite Vedic Astrological Strategic Advisor. Answer the user's follow-up question directly based on the provided chart data. 
-            Use the exact format 'English Name / Hindi Name' for all planets. Frame risks as 'karmic friction' and assets as 'strategic buffers'. Cite exact dates."""
-            q_prompt = f"[CHART DATA]\n{session['logic_breakdown']}\n[USER QUESTION]\n{user_text}"
-            FOLLOWUP_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "groq/compound"]
-            answer = call_groq_agent(q_system_msg, q_prompt, FOLLOWUP_MODELS, json_mode=False)
-            if answer and not answer.startswith("[ERROR"):
-                for i in range(0, len(answer), 3900): send_message(chat_id, answer[i:i + 3900]); time.sleep(0.5)
-            else: 
-                send_message(chat_id, "Error processing your question.")
-            return jsonify(status="success"), 200
-           
-        else:
-            send_message(chat_id, "Please send birth details: `DD-MM-YYYY HH:MM City`")
-            return jsonify(status="success"), 200
-
+            
     except Exception as e:
         print(f"CRITICAL Webhook Error: {str(e)}", flush=True)
         
     return jsonify(status="success"), 200
 
 init_db()
-if __name__ == '__main__':
+
+if __name__ == '__main__': 
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
