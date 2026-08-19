@@ -698,27 +698,27 @@ def process_background_task(chat_id, session_data):
     TRANSLATOR_MODELS = ["openai/gpt-oss-120b", "groq/compound", "qwen/qwen3.6-27b"]
     
 send_message(chat_id, "⏳ Initiating Agentic Swarm Pipeline (Dossier Mode)...")
-    
-    base_cognitive_rules = """You are an Elite Vedic Astrological Strategic Advisor.
+
+base_cognitive_rules = """You are an Elite Vedic Astrological Strategic Advisor.
     [ABSOLUTE LAWS]
     1. THE NAMING PROTOCOL: You MUST use the exact format: "English Name (Hindi Name)". Never omit the English word.
     2. NARRATIVE DECOUPLING: Frame afflictions as "karmic friction" and dignities as "strategic assets". No remedies in the diagnosis.
     3. JSON OUTPUT STRICTLY ENFORCED: Output ONLY a valid JSON object matching the exact schema requested. No markdown text outside the JSON."""
 
     logic = session_data['logic_breakdown']
-    planet_summary = session_data['planet_summary']
-    base_user_msg = f"[INPUT DATA]\n- Baseline Date: {datetime.now().strftime('%B %d, %Y')}\n{logic}\n[PLANETARY ARRAY]\nAscendant (Lagna): {session_data['asc_sign']}\n{planet_summary}"
+planet_summary = session_data['planet_summary']
+base_user_msg = f"[INPUT DATA]\n- Baseline Date: {datetime.now().strftime('%B %d, %Y')}\n{logic}\n[PLANETARY ARRAY]\nAscendant (Lagna): {session_data['asc_sign']}\n{planet_summary}"
 
-    swarm_chapters = {
+swarm_chapters = {
         "temporal_narrative": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'temporal_narrative' containing: 'psychological_baseline', 'historical_trajectory', 'present_trigger', 'expected_survival'.",
         "structural_analysis": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'structural_analysis' containing: 'wealth_and_career', 'relationships_and_property', 'vitality_and_subconscious'. Format each inside as a bulleted list with '- **The Risk Vector**', '- **The Strategic Asset**', '- **The Synthesis**'.",
         "ayurvedic_audit": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'ayurvedic_audit' containing a single string diagnosing the Dosha and lifestyle shifts.",
         "remediation_protocol": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'remediation_protocol' containing: 'suppressing_afflictions', 'amplifying_assets'. Inject Lal Kitab remedies into suppressing_afflictions."
     }
 
-    eng_data = {}
+eng_data = {}
 
-    for chapter_key, system_prompt in swarm_chapters.items():
+for chapter_key, system_prompt in swarm_chapters.items():
         send_message(chat_id, f"🧠 Swarm Agent analyzing: {chapter_key.replace('_', ' ').title()}...")
         
         chapter_response = call_groq_agent(system_prompt, base_user_msg, MASTER_MODELS, json_mode=False)
@@ -735,7 +735,7 @@ send_message(chat_id, "⏳ Initiating Agentic Swarm Pipeline (Dossier Mode)...")
         except Exception as e:
             print(f"JSON Parse failed for {chapter_key}: {e}", flush=True)
 
-    if not eng_data:
+if not eng_data:
         send_message(chat_id, "⚠️ Swarm Agents failed to generate data.")
         return
         
