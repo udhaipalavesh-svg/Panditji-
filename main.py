@@ -697,104 +697,48 @@ def process_background_task(chat_id, session_data):
     MASTER_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "groq/compound"]
     TRANSLATOR_MODELS = ["openai/gpt-oss-120b", "groq/compound", "qwen/qwen3.6-27b"]
     
-    send_message(chat_id, "⏳ Initiating Structural Integrity Audit Pipeline...")
+send_message(chat_id, "⏳ Initiating Agentic Swarm Pipeline (Dossier Mode)...")
     
-    # THE NEW SYSTEM PROMPT (Decoupled, Strategic, Anti-Token-Drop)
-    system_msg = """You are an Elite Vedic Astrological Strategic Advisor. Your role is to synthesize complex planetary mathematics into a grounded, objective, and highly strategic audit.
+    base_cognitive_rules = """You are an Elite Vedic Astrological Strategic Advisor.
+    [ABSOLUTE LAWS]
+    1. THE NAMING PROTOCOL: You MUST use the exact format: "English Name (Hindi Name)". Never omit the English word.
+    2. NARRATIVE DECOUPLING: Frame afflictions as "karmic friction" and dignities as "strategic assets". No remedies in the diagnosis.
+    3. JSON OUTPUT STRICTLY ENFORCED: Output ONLY a valid JSON object matching the exact schema requested. No markdown text outside the JSON."""
 
-[ABSOLUTE LAWS - VIOLATION = FAILURE]
-1. THE NAMING PROTOCOL (ANTI-TOKEN-DROP):
-You are strictly forbidden from omitting the English name of a planet or sign to save tokens. 
-You MUST use the exact format: "English Name (Hindi Name)".
-- CORRECT: "Moon (Chandra) is debilitated"
-- INCORRECT: "(Chandra) is debilitated"
-- INCORRECT: "Moon is debilitated"
-- INCORRECT: "(mind) is debilitated"
-Never leave empty brackets. Never substitute the planet's English name with a psychological function.
-
-2. NARRATIVE DECOUPLING (NO REMEDIES IN PILLARS):
-The "structural_analysis" section (Pillars 1, 2, and 3) is strictly diagnostic. 
-You are forbidden from mentioning Lal Kitab, gemstones, mantras, or donations inside the "structural_analysis" object. 
-Pillars must synthesize the planetary math into a cohesive narrative of risks and assets.
-ALL actionable remedies must be deduplicated and placed exclusively in the "remediation_protocol" object.
-
-3. TONE RECALIBRATION (STRATEGIC, NOT ALARMIST):
-You are a high-level strategic advisor. 
-- Frame afflictions as "karmic friction," "probabilistic risk vectors," or "structural vulnerabilities."
-- Frame dignities as "latent resilience," "strategic assets," or "karmic buffers."
-- Do NOT use fatalistic, fearful, or alarmist language.
-
-4. THREAT-FIRST SEQUENCING:
-For every key inside "structural_analysis", format as a strict bulleted list:
-   - **The Risk Vector (Friction First):** State severe afflictions and exact timeline.
-   - **The Strategic Asset (Support):** State positive placements acting as a buffer.
-   - **The Synthesis:** Explain how to combine Support to navigate Risk.
-
-5. AYURVEDIC ACCURACY:
-In "ayurvedic_audit", diagnose the exact physical Dosha based on [AYURVEDIC DOSHA] data.
-
-6. CONSOLIDATED UPAYAS (REMEDICATION PROTOCOL):
-   A. "suppressing_afflictions": Deduplicated master list of hardcoded Lal Kitab remedies from [MANDATORY LAL KITAB REFERENCE] + Daan for current transits.
-   B. "amplifying_assets": Gemstones, Beej Mantras for positive assets identified.
-
-7. JSON OUTPUT STRICTLY ENFORCED:
-Output ONLY a valid JSON object matching the exact schema provided.
-"""
-    
     logic = session_data['logic_breakdown']
     planet_summary = session_data['planet_summary']
-    
-    user_msg_eng = f"""[INPUT DATA]
-- Baseline Date: {datetime.now().strftime("%B %d, %Y")}
-{logic}
-[PLANETARY ARRAY]
-Ascendant (Lagna): {session_data['asc_sign']}
-{planet_summary}
+    base_user_msg = f"[INPUT DATA]\n- Baseline Date: {datetime.now().strftime('%B %d, %Y')}\n{logic}\n[PLANETARY ARRAY]\nAscendant (Lagna): {session_data['asc_sign']}\n{planet_summary}"
 
-[OUTPUT TEMPLATE - FOLLOW EXACTLY]
-{{
-  "temporal_narrative": {{
-    "psychological_baseline": "...",
-    "historical_trajectory": "...",
-    "present_trigger": "...",
-    "expected_survival": "..."
-  }},
-  "structural_analysis": {{
-    "wealth_and_career": "...",
-    "relationships_and_property": "...",
-    "vitality_and_subconscious": "..."
-  }},
-  "ayurvedic_audit": "...",
-  "remediation_protocol": {{
-    "suppressing_afflictions": "...",
-    "amplifying_assets": "..."
-  }}
-}}
-"""
-    
-    # 1. Master Synthesizer Agent
-    english_json_str = call_groq_agent(system_msg, user_msg_eng, MASTER_MODELS, json_mode=True)
-    
-    # Strip markdown code blocks if LLM adds them despite instructions
-    english_json_str = english_json_str.strip()
-    if english_json_str.startswith("```json"):
-        english_json_str = english_json_str[7:]
-    elif english_json_str.startswith("```"):
-        english_json_str = english_json_str[3:]
-    if english_json_str.endswith("```"):
-        english_json_str = english_json_str[:-3]
-    english_json_str = english_json_str.strip()
+    swarm_chapters = {
+        "temporal_narrative": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'temporal_narrative' containing: 'psychological_baseline', 'historical_trajectory', 'present_trigger', 'expected_survival'.",
+        "structural_analysis": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'structural_analysis' containing: 'wealth_and_career', 'relationships_and_property', 'vitality_and_subconscious'. Format each inside as a bulleted list with '- **The Risk Vector**', '- **The Strategic Asset**', '- **The Synthesis**'.",
+        "ayurvedic_audit": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'ayurvedic_audit' containing a single string diagnosing the Dosha and lifestyle shifts.",
+        "remediation_protocol": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'remediation_protocol' containing: 'suppressing_afflictions', 'amplifying_assets'. Inject Lal Kitab remedies into suppressing_afflictions."
+    }
 
-    try:
-        eng_data = json.loads(english_json_str)
-        if "error" in eng_data:
-            send_message(chat_id, f"⚠️ Master Agent API Error: {eng_data.get('details', 'Unknown Error')}")
-            return
-    except json.JSONDecodeError:
-        send_message(chat_id, "⚠️ JSON Parsing failed from Master Agent. Check server logs.")
-        print(f"JSON PARSE FAIL. RAW OUTPUT:\n{english_json_str[:2000]}", flush=True)
+    eng_data = {}
+
+    for chapter_key, system_prompt in swarm_chapters.items():
+        send_message(chat_id, f"🧠 Swarm Agent analyzing: {chapter_key.replace('_', ' ').title()}...")
+        
+        chapter_response = call_groq_agent(system_prompt, base_user_msg, MASTER_MODELS, json_mode=False)
+        
+        # Clean markdown wrappers safely
+        chapter_response = chapter_response.strip()
+        if chapter_response.startswith("```json"): chapter_response = chapter_response[7:]
+        elif chapter_response.startswith("```"): chapter_response = chapter_response[3:]
+        if chapter_response.endswith("```"): chapter_response = chapter_response[:-3]
+        
+        try:
+            chapter_json = json.loads(chapter_response.strip())
+            eng_data.update(chapter_json)
+        except Exception as e:
+            print(f"JSON Parse failed for {chapter_key}: {e}", flush=True)
+
+    if not eng_data:
+        send_message(chat_id, "⚠️ Swarm Agents failed to generate data.")
         return
-
+        
     # Apply the smart firewall to all values in the English JSON
     for k, v in eng_data.items():
         if isinstance(v, dict):
