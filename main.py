@@ -265,7 +265,7 @@ def calculate_vimshottari_timeline(moon_lon, birth_dt):
                             next_a_start_jd = a_end_jd
                             next_a_end_jd = next_a_start_jd + (next_a_years * days_per_year)
                             
-                            return f"Current AD: {m_lord}-{a_lord} [{fmt_jd_to_mon_year(a_start_jd)} to {fmt_jd_to_mon_year(a_end_jd)}] | Current PAD: {pa_lord} [{fmt_jd_to_mon_year(pa_start_jd)} to {fmt_jd_to_mon_year(pa_end_jd)}]"
+                            return f"Current AD: {m_lord}-{a_lord} [{fmt_jd_to_mon_year(a_start_jd)} to {fmt_jd_to_mon_year(a_end_jd)}] | Current PAD: {pa_lord} [{fmt_jd_to_mon_year(pa_start_jd)} to {fmt_jd_to_mon_year(pa_end_jd)}] | Next AD: {m_lord}-{DASHA_LORDS[next_a_idx][0]} [{fmt_jd_to_mon_year(next_a_start_jd)} to {fmt_jd_to_mon_year(next_a_end_jd)}]"
                         
                         pa_start_jd = pa_end_jd
                         pa_idx = (pa_idx + 1) % 9
@@ -422,51 +422,40 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
 # VISUAL RENDERERS (PURE PYTHON SVG)
 # ==========================================
 def generate_cover_page_svg(native_name="Native", birth_str=""):
-    svg = f"""
+    return f"""
     <svg viewBox="0 0 800 1130" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100vh; font-family: 'Noto Sans', sans-serif;">
         <rect width="800" height="1130" fill="#fdfbf7" />
-        <!-- Elegant Borders -->
         <rect x="30" y="30" width="740" height="1070" fill="none" stroke="#4A154B" stroke-width="2" rx="12" />
         <rect x="40" y="40" width="720" height="1050" fill="none" stroke="#D4AF37" stroke-width="1" rx="8" />
         
-        <!-- Top Om Symbol -->
         <text x="400" y="150" font-size="72" fill="#4A154B" text-anchor="middle" font-weight="bold">ॐ</text>
         
-        <!-- Swastik Symbol (Geometric Paths) -->
         <g transform="translate(400, 250)">
-            <!-- Center Cross -->
             <rect x="-12.5" y="-60" width="25" height="120" fill="#D4AF37" rx="4"/>
             <rect x="-60" y="-12.5" width="120" height="25" fill="#D4AF37" rx="4"/>
-            <!-- Arms -->
             <path d="M 12.5 -60 L 40 -60 L 40 -35 L 12.5 -35 Z" fill="#D4AF37"/>
             <path d="M 60 -12.5 L 60 12.5 L 35 12.5 L 35 -12.5 Z" fill="#D4AF37"/>
             <path d="M -12.5 60 L -40 60 L -40 35 L -12.5 35 Z" fill="#D4AF37"/>
             <path d="M -60 12.5 L -60 -12.5 L -35 -12.5 L -35 12.5 Z" fill="#D4AF37"/>
         </g>
         
-        <!-- Title Typography -->
         <text x="400" y="420" font-size="36" fill="#4A154B" text-anchor="middle" font-weight="bold" letter-spacing="2">FORENSIC ASTROLOGICAL</text>
         <text x="400" y="470" font-size="36" fill="#4A154B" text-anchor="middle" font-weight="bold" letter-spacing="2">DOSSIER</text>
         
-        <!-- Divider -->
         <line x1="300" y1="500" x2="500" y2="500" stroke="#D4AF37" stroke-width="2"/>
         <text x="400" y="540" font-size="14" fill="#666666" text-anchor="middle" letter-spacing="1">KARMIC ARCHITECTURE &amp; STRATEGIC INTELLIGENCE</text>
         
-        <!-- Native Details -->
         <text x="400" y="650" font-size="18" fill="#222222" text-anchor="middle" font-weight="bold">{native_name}</text>
         <text x="400" y="680" font-size="14" fill="#666666" text-anchor="middle">{birth_str}</text>
         
-        <!-- Bottom Om Symbol -->
         <text x="400" y="1020" font-size="48" fill="#4A154B" text-anchor="middle" font-weight="bold">ॐ</text>
         <text x="400" y="1050" font-size="10" fill="#999999" text-anchor="middle">Generated via Pure Mathematical Precision</text>
     </svg>
     """
-    return svg
 
 def generate_rasi_chart_svg(planet_positions, asc_sign, chart_title="Rasi Chart (D-1)"):
     width = 400; height = 420
     asc_idx = ZODIAC_SIGNS.index(asc_sign)
-    # Centroids for the 12 houses in a 360x360 grid
     h_coords = {
         1: (180, 60), 2: (90, 30), 3: (30, 90), 4: (60, 180),
         5: (30, 270), 6: (90, 330), 7: (180, 300), 8: (270, 330),
@@ -488,9 +477,7 @@ def generate_rasi_chart_svg(planet_positions, asc_sign, chart_title="Rasi Chart 
         f'<text x="200" y="20" font-size="14" font-weight="bold" fill="#4A154B" text-anchor="middle">{chart_title}</text>',
         '<g transform="translate(20, 40)">',
         '<rect x="0" y="0" width="360" height="360" fill="#ffffff" stroke="#4A154B" stroke-width="3" rx="4"/>',
-        # Inner Diamond
         '<polygon points="180,0 360,180 180,360 0,180" fill="none" stroke="#4A154B" stroke-width="2"/>',
-        # Diagonals
         '<line x1="0" y1="0" x2="360" y2="360" stroke="#4A154B" stroke-width="1.5"/>',
         '<line x1="360" y1="0" x2="0" y2="360" stroke="#4A154B" stroke-width="1.5"/>'
     ]
@@ -632,12 +619,10 @@ def process_background_task(chat_id, session_data):
     eng_data = recursive_firewall(eng_data)
     
     def md_to_html(text):
-        # FAILSAFE: If LLM ignores string mandate and returns a list/dict, flatten it safely
         if isinstance(text, list):
             text = "\n".join([f"- {item}" if isinstance(item, str) else f"- {json.dumps(item)}" for item in text])
         elif isinstance(text, dict):
             text = json.dumps(text, indent=2)
-        # Enable 'tables' extra to render markdown pipe tables into beautiful HTML grids
         return markdown2.markdown(str(text), extras=["fenced-code-blocks", "tables"])
 
     heatmap_svg, rasi_svg = "", ""
