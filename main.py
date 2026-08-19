@@ -150,7 +150,6 @@ def safe_get(data, keys, default="*Data Unavailable*"):
 # ASTROLOGY MATH ENGINE
 # ==========================================
 def calculate_vargas(natal_planets_dict):
-    """Calculates D-9 (Navamsha) and D-10 (Dashamsha) signs for each planet."""
     vargas = {}
     navamsha_start_map = [0, 9, 6, 3] 
     for planet, data in natal_planets_dict.items():
@@ -176,7 +175,6 @@ def calculate_vargas(natal_planets_dict):
     return vargas
 
 def calculate_full_sav(houses_dict):
-    """Calculates total Sarvashtakavarga (SAV) score for 12 houses."""
     planets_for_sav = ["Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Mercury (Budh)", "Jupiter (Guru)", "Venus (Shukra)", "Saturn (Shani)"]
     sav_scores = {}
     for house_num in range(1, 13):
@@ -482,7 +480,6 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     yogas = detect_yogas(houses, planets_full, sign_lords)
     logic_summary += f"\n[DETECTED YOGAS (KARMIC ASSETS)]:\n - " + "\n - ".join(yogas) if yogas else "\n[DETECTED YOGAS]: None."
     
-    # NEW MATHEMATICAL MODELS INTEGRATION
     vargas_data = calculate_vargas(planets_full)
     sav_data = calculate_full_sav(houses)
     logic_summary += f"\n[DIVISIONAL VARGAS (D-9 & D-10)]: {json.dumps(vargas_data)}\n[FULL SARVASHTAKAVARGA (SAV) MATRIX]: {json.dumps(sav_data)}"
@@ -544,6 +541,48 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     logic_breakdown, age = calculate_chart_logic(asc_sign, positions, dt_ist)
     
     return asc_sign, asc_nak, asc_pada, positions, logic_breakdown, age
+
+def generate_sav_heatmap_svg(sav_dict):
+    """
+    Generates a dynamic SVG bar chart for the Sarvashtakavarga (SAV) matrix.
+    """
+    width = 600
+    height = 300
+    margin_top = 30
+    margin_bottom = 50
+    chart_height = height - margin_top - margin_bottom
+    
+    max_scale = 50 
+    y_scale = chart_height / max_scale
+    baseline_y = height - margin_bottom - (28 * y_scale)
+    
+    svg_parts = [
+        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; font-family: sans-serif;">',
+        '<rect width="100%" height="100%" fill="#ffffff" />',
+        f'<line x1="30" y1="{baseline_y:.2f}" x2="{width-30}" y2="{baseline_y:.2f}" stroke="#999999" stroke-width="1.5" stroke-dasharray="5,5" />',
+        f'<text x="{width-35}" y="{baseline_y-6:.2f}" font-size="10" fill="#666666" text-anchor="end" font-weight="bold">Karmic Baseline (28)</text>'
+    ]
+    
+    bar_width = 32
+    step = 42
+    start_x = 40
+    
+    for i in range(1, 13):
+        score = sav_dict.get(i, 0)
+        visual_score = max(0, min(score, max_scale))
+        bar_height = visual_score * y_scale
+        x = start_x + ((i - 1) * step)
+        y = height - margin_bottom - bar_height
+        
+        color = "#2e7d32" if score >= 28 else "#c62828"
+        
+        svg_parts.append(f'<rect x="{x:.2f}" y="{y:.2f}" width="{bar_width}" height="{bar_height:.2f}" fill="{color}" rx="2" ry="2" />')
+        svg_parts.append(f'<text x="{x + bar_width/2:.2f}" y="{y - 5:.2f}" font-size="11" font-weight="bold" fill="#333333" text-anchor="middle">{score}</text>')
+        svg_parts.append(f'<text x="{x + bar_width/2:.2f}" y="{height - margin_bottom + 20}" font-size="11" fill="#555555" text-anchor="middle">H{i}</text>')
+        
+    svg_parts.append('</svg>')
+    return "\n".join(svg_parts)
+
 
 # ==========================================
 # LLM ORCHESTRATION & PDF PIPELINE
@@ -641,12 +680,18 @@ def process_background_task(chat_id, session_data):
     planet_summary = session_data['planet_summary']
     base_user_msg = f"[INPUT DATA]\n- Baseline Date: {datetime.now().strftime('%B %d, %Y')}\n{logic}\n[PLANETARY ARRAY]\nAscendant (Lagna): {session_data['asc_sign']}\n{planet_summary}"
 
-    # THE PATCHED SWARM CHAPTERS DICTIONARY
+    remediation_rules = """You are an Elite Vedic Astrological Strategic Advisor.
+    [YOUR MISSION]
+    1. Analyze the [MANDATORY LAL KITAB REFERENCE] and planetary dignities.
+    2. Output ONLY a JSON object with the ROOT key 'remediation_protocol' containing nested keys: 'suppressing_afflictions', 'amplifying_assets'.
+    3. 'suppressing_afflictions' MUST be a bulleted list of Lal Kitab remedies. 'amplifying_assets' MUST recommend gemstones and mantras.
+    4. Output ONLY valid JSON."""
+
     swarm_chapters = {
         "temporal_narrative": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the ROOT key 'temporal_narrative' containing nested keys: 'psychological_baseline', 'historical_trajectory', 'present_trigger', 'expected_survival'.",
         "structural_analysis": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the ROOT key 'structural_analysis' containing nested keys: 'wealth_and_career', 'relationships_and_property', 'vitality_and_subconscious'. Format each inside as a bulleted list with '- **The Risk Vector**', '- **The Strategic Asset**', '- **The Synthesis**'.",
         "ayurvedic_audit": base_cognitive_rules + "\nNOTE: The English/Hindi naming rule applies only to Planets and Zodiac Signs, NOT to Ayurvedic Doshas. \n[YOUR MISSION] Output a JSON object with the ROOT key 'ayurvedic_audit' containing a single string diagnosing the Dosha and lifestyle shifts.",
-        "remediation_protocol": base_cognitive_rules + "\n[YOUR MISSION - EXCEPTION TO RULE 2: YOU ARE THE REMEDIATION AGENT. YOU MUST PROVIDE REMEDIES.] Analyze the [MANDATORY LAL KITAB REFERENCE] provided in the input data. Output a JSON object with the ROOT key 'remediation_protocol' containing nested keys: 'suppressing_afflictions', 'amplifying_assets'. 'suppressing_afflictions' MUST be a string containing a bulleted list of the exact Lal Kitab remedies. 'amplifying_assets' MUST be a string recommending specific gemstones and mantras."
+        "remediation_protocol": remediation_rules
     }
 
     eng_data = {}
@@ -692,6 +737,17 @@ def process_background_task(chat_id, session_data):
     def md_to_html(text):
         return markdown2.markdown(str(text), extras=["fenced-code-blocks"])
 
+    # Extract SAV matrix from logic string for the SVG Heatmap
+    heatmap_svg = ""
+    sav_match = re.search(r'\[FULL SARVASHTAKAVARGA \(SAV\) MATRIX\]:\s*(\{.*?\})', logic)
+    if sav_match:
+        try:
+            sav_dict_str_keys = json.loads(sav_match.group(1))
+            sav_dict = {int(k): v for k, v in sav_dict_str_keys.items()}
+            heatmap_svg = generate_sav_heatmap_svg(sav_dict)
+        except Exception as e:
+            print(f"SVG Generation failed: {e}", flush=True)
+
     html_body = f"""
     <h1>Astrological Audit</h1>
     <p><em>Disclaimer: This audit maps karmic tendencies, assets, and probabilistic risk vectors based on planetary mathematics.</em></p>
@@ -707,6 +763,11 @@ def process_background_task(chat_id, session_data):
     {md_to_html(safe_get(eng_data, ["temporal_narrative", "expected_survival"]))}
     
     <h2>II. STRUCTURAL INTEGRITY ANALYSIS</h2>
+    <div style="margin: 20px 0; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: #fff;">
+        <h3 style="text-align: center; margin-top: 0; color: #4A154B;">Sarvashtakavarga (SAV) Karmic Heatmap</h3>
+        {heatmap_svg}
+    </div>
+    
     <h3>Pillar 1: Wealth, Career & Structural Stability</h3>
     {md_to_html(safe_get(eng_data, ["structural_analysis", "wealth_and_career"]))}
     <h3>Pillar 2: Relationship, Property & Progeny Dynamics</h3>
@@ -740,6 +801,11 @@ def process_background_task(chat_id, session_data):
         {md_to_html(safe_get(hin_data, ["temporal_narrative", "expected_survival"]))}
         
         <h2>II. संरचनात्मक अखंडता विश्लेषण</h2>
+        <div style="margin: 20px 0; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: #fff;">
+            <h3 style="text-align: center; margin-top: 0; color: #4A154B;">सर्वाष्टकवर्ग (SAV) कार्मिक हीटमैप</h3>
+            {heatmap_svg}
+        </div>
+        
         <h3>पिलर 1: धन, करियर और संरचनात्मक स्थिरता</h3>
         {md_to_html(safe_get(hin_data, ["structural_analysis", "wealth_and_career"]))}
         <h3>पिलर 2: संबंध, संपत्ति और संतान गतिशीलता</h3>
