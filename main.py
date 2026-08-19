@@ -716,14 +716,20 @@ def process_background_task(chat_id, session_data):
         send_message(chat_id, "⚠️ Swarm Agents failed to generate data.")
         return
         
-    for k, v in eng_data.items():
-        if isinstance(v, dict):
-            for sub_k, sub_v in v.items():
-                eng_data[k][sub_k] = llm_output_firewall(sub_v)
-        else:
-            eng_data[k] = llm_output_firewall(v)
+    # APPLY RECURSIVE SMART FIREWALL
+    def recursive_firewall(data):
+        if isinstance(data, dict):
+            return {key: recursive_firewall(val) for key, val in data.items()}
+        elif isinstance(data, list):
+            return [recursive_firewall(val) for val in data]
+        elif isinstance(data, str):
+            return llm_output_firewall(data)
+        return data
+        
+    eng_data = recursive_firewall(eng_data)
 
-    translator_system_msg = """You are an expert astrological translator. Translate the provided English JSON object into Hindi. 
+    translator_system_msg = """You are an expert astrological translator. Translate the provided English JSON object into Hindi.
+    
     CRITICAL: You MUST NOT translate the JSON keys. The keys must remain exactly in English. Only translate the string values into Hindi. 
     Output ONLY a valid JSON object with the EXACT SAME ENGLISH KEYS."""
     
