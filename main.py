@@ -769,12 +769,18 @@ def webhook():
             clear_session(chat_id)
             send_message(chat_id, "Welcome to the Premium Dossier Bot. Send birth details: `DD-MM-YYYY HH:MM City`")
             return jsonify(status="success"), 200
-                
+
         match = re.search(r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{2,4})\s+(\d{1,2}):(\d{1,2})\s+(.+)', user_text)
         if match:
             day, month, year, hour, minute, city_input = match.groups()
-            year = int(year) + (1900 if int(year) > 25 else 2000) if int(year) < 100 else int(year)
+            
+            # [CRITICAL PATCH]: Cast all regex string outputs to integers immediately
+            day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
+            if year < 100: 
+                year += 1900 if year > 25 else 2000
+                
             send_message(chat_id, "⏳ Calculating geometric and astronomical arrays...")
+      
             try:
                 res = requests.get(f"[https://nominatim.openstreetmap.org/search?q=](https://nominatim.openstreetmap.org/search?q=){city_input}&format=json&limit=1", headers={'User-Agent': 'Bot/1.0'}, timeout=5).json()
                 lat, lon = float(res[0]['lat']), float(res[0]['lon'])
