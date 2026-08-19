@@ -1,11 +1,6 @@
 # ==========================================
 # CORE IMPORTS & APP INITIALIZATION
 # ==========================================
-# Flask: Web framework to receive Telegram webhooks instantly.
-# swisseph: The gold standard C-library for astronomical calculations.
-# weasyprint: Converts HTML strings into physical PDF documents.
-# markdown2: Converts LLM markdown output into HTML for the PDF.
-
 import os
 import requests
 import re
@@ -26,11 +21,9 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 DB_PATH = os.environ.get("DB_PATH", "/tmp/bot.db")
 
-
 # ==========================================
 # CORE ASTROLOGY CONSTANTS & MATH TABLES
 # ==========================================
-# These dictionaries map astronomical data to human-readable Vedic concepts.
 ZODIAC_SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
 HINDI_SIGNS = {"Aries": "Aries (Mesha)", "Taurus": "Taurus (Vrishabha)", "Gemini": "Gemini (Mithuna)", "Cancer": "Cancer (Karka)", "Leo": "Leo (Simha)", "Virgo": "Virgo (Kanya)", "Libra": "Libra (Tula)", "Scorpio": "Scorpio (Vrishchika)", "Sagittarius": "Sagittarius (Dhanu)", "Capricorn": "Capricorn (Makara)", "Aquarius": "Aquarius (Kumbha)", "Pisces": "Pisces (Meena)"}
 NAKSHATRAS = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"]
@@ -43,7 +36,6 @@ MALEFICS = ["Saturn (Shani)", "Mars (Mangal)", "Rahu", "Ketu", "Sun (Surya)"]
 NAK_LORDS = ["Ketu", "Venus (Shukra)", "Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Rahu", "Jupiter (Guru)", "Saturn (Shani)", "Mercury (Budh)"]
 DOSHA_MAP = {"Aries": "Pitta", "Taurus": "Kapha", "Gemini": "Vata", "Cancer": "Kapha", "Leo": "Pitta", "Virgo": "Vata", "Libra": "Vata", "Scorpio": "Kapha", "Sagittarius": "Pitta", "Capricorn": "Vata", "Aquarius": "Vata", "Pisces": "Kapha"}
 
-# Ashtakavarga (BAV) tables for each planet.
 BAV_TABLES = {
     "Sun (Surya)": [0,0,1,1,0,0,1,1, 1,0,0,0,1,1,0,0, 0,1,1,0,0,1,1,0, 0,0,1,1,0,0,1,1, 1,0,0,1,1,0,0,1, 0,1,1,0,0,1,1,0, 1,0,0,1,1,0,0,1, 0,1,1,0,0,1,1,0, 0,0,0,1,1,1,1,0, 1,1,1,0,0,0,0,1, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0],
     "Moon (Chandra)": [0,1,0,1,1,0,1,0, 1,0,1,0,0,1,0,1, 1,1,0,0,1,1,0,0, 0,1,1,0,1,0,1,0, 1,0,1,1,0,1,0,1, 0,1,0,1,1,0,1,0, 1,1,0,1,0,1,1,0, 0,0,1,1,1,1,0,0, 1,1,0,0,0,0,1,1, 0,0,1,1,1,1,0,0, 1,0,1,0,0,1,0,1, 0,1,0,1,1,0,1,0],
@@ -54,7 +46,6 @@ BAV_TABLES = {
     "Saturn (Shani)": [0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0, 0,0,1,0,0,1,1,0, 0,1,0,1,1,0,0,1, 1,0,1,0,1,0,0,1, 0,1,0,1,0,1,1,0, 0,0,1,1,0,0,1,1, 1,1,0,0,1,1,0,0]
 }
 
-# Hardcoded Lal Kitab remedy database mapped to planetary afflictions.
 LAL_KITAB_DICT = {
     "Saturn (Shani)_Combust": "Donate black sesame oil on Saturday. Keep a square piece of silver in wallet to prevent liquid cash evaporation.",
     "Mars (Mangal)_Combust": "Donate red masoor dal on Tuesday. Avoid keeping iron tools under the bed to prevent surgical interventions.",
@@ -114,13 +105,9 @@ LAL_KITAB_DICT = {
     "Sun (Surya)_12": "Keep a copper coin in a visible spot in the house. Do not consume salt on Sundays to prevent immune system collapse."
 }
 
-
 # ==========================================
 # DATABASE MANAGER (SQLite Stateless Architecture)
 # ==========================================
-# We use a local SQLite DB to store user session states. 
-# This allows the webhook to respond instantly to Telegram while processing heavy tasks in the background.
-
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -150,7 +137,6 @@ def clear_session(chat_id):
     conn.commit()
     conn.close()
 
-# Safe getter to prevent PDF generation crashes if LLM omits a JSON key.
 def safe_get(data, keys, default="*Data Unavailable*"):
     if not isinstance(data, dict): return default
     current = data
@@ -160,64 +146,45 @@ def safe_get(data, keys, default="*Data Unavailable*"):
         else: return default
     return current if current else default
 
-
 # ==========================================
 # ASTROLOGY MATH ENGINE
 # ==========================================
-# All functions below convert raw astronomical longitude into Vedic astrological concepts.
-
 def calculate_vargas(natal_planets_dict):
-    """
-    Calculates D-9 (Navamsha) and D-10 (Dashamsha) signs for each planet.
-    D-9: 1 Navamsha = 3°20' (30/9). Count starts from Aries if sign is Movable, Leo if Fixed, Sagittarius if Dual.
-    D-10: 1 Dashamsha = 3° (30/10). Odd signs start from the sign itself; Even signs start from the 9th sign.
-    """
+    """Calculates D-9 (Navamsha) and D-10 (Dashamsha) signs for each planet."""
     vargas = {}
+    navamsha_start_map = [0, 9, 6, 3] 
     for planet, data in natal_planets_dict.items():
         lon = data.get("lon", 0.0) % 360.0
-        
-        # D-9 Navamsha Calculation
         sign_idx = int(lon // 30) % 12
         deg_in_sign = lon % 30
-        navamsha_idx_in_sign = int(deg_in_sign // (30/9))  # 0 to 8
         
-        # Navamsha start sign: Movable (0=Aries), Fixed (4=Leo), Dual (8=Sagittarius)
-        navamsha_start_sign = (sign_idx // 4) * 4 
+        # D-9 Navamsha
+        navamsha_idx_in_sign = int(deg_in_sign // (30/9))
+        navamsha_start_sign = navamsha_start_map[sign_idx % 4]
         d9_sign_idx = (navamsha_start_sign + navamsha_idx_in_sign) % 12
         d9_sign = ZODIAC_SIGNS[d9_sign_idx]
         
-        # D-10 Dashamsha Calculation
-        dashamsha_idx_in_sign = int(deg_in_sign // 3)  # 0 to 9
-        
-        # Odd signs (0-indexed even) start from themselves. Even signs (0-indexed odd) start from 9th sign.
-        if sign_idx % 2 == 0:  # Odd sign (Aries=0, Gemini=2, etc.)
+        # D-10 Dashamsha
+        dashamsha_idx_in_sign = int(deg_in_sign // 3)
+        if sign_idx % 2 == 0:
             d10_sign_idx = (sign_idx + dashamsha_idx_in_sign) % 12
-        else:                  # Even sign (Taurus=1, Cancer=3, etc.)
+        else:
             d10_sign_idx = (sign_idx + 8 + dashamsha_idx_in_sign) % 12
-            
         d10_sign = ZODIAC_SIGNS[d10_sign_idx]
         
         vargas[planet] = {"D9": d9_sign, "D10": d10_sign}
-        
     return vargas
 
 def calculate_full_sav(houses_dict):
-    """
-    Calculates the total Sarvashtakavarga (SAV) score for all 12 houses.
-    Iterates through 7 standard planets (excluding Rahu/Ketu) and sums their BAV.
-    """
+    """Calculates total Sarvashtakavarga (SAV) score for 12 houses."""
     planets_for_sav = ["Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Mercury (Budh)", "Jupiter (Guru)", "Venus (Shukra)", "Saturn (Shani)"]
     sav_scores = {}
-    
     for house_num in range(1, 13):
         house_total = 0
         for planet in planets_for_sav:
-            # calculate_bav takes (planet_name, target_house, houses_dict)
             house_total += calculate_bav(planet, house_num, houses_dict)
         sav_scores[house_num] = house_total
-        
     return sav_scores
-
 
 def get_nakshatra_info(lon):
     nak_span = 360.0 / 27.0
@@ -259,7 +226,6 @@ def fmt_jd_to_mon_year(jd):
     return f"{m:02d}/{y}"
 
 def calculate_vimshottari_timeline(moon_lon, birth_dt):
-    # Calculates the exact Mahadasha, Antardasha, and Pratyantardasha based on Moon's longitude.
     nak_span = 360.0 / 27.0
     nak_idx, _, _, rem = get_nakshatra_info(moon_lon)
     lord_idx = (nak_idx // 3) % 9
@@ -349,7 +315,6 @@ def calculate_charadasha(asc_sign, planets_full):
     return " -> ".join(dashas)
 
 def calculate_transit_timings():
-    # Scans the next 730 days to find when Jupiter, Saturn, or Rahu change signs.
     now_dt = datetime.now()
     swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     dt_utc = now_dt - timedelta(hours=5, minutes=30)
@@ -379,7 +344,6 @@ def calculate_transit_timings():
     return "; ".join(timings) if timings else "No major ingress in next 2 years"
 
 def calculate_transit_bav(natal_moon_sign, natal_asc_sign, houses_dict):
-    # Calculates the Ashtakavarga score of transiting Saturn and Jupiter relative to natal Moon and Lagna.
     now_dt = datetime.now()
     swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     dt_utc = now_dt - timedelta(hours=5, minutes=30)
@@ -408,7 +372,6 @@ def calculate_transit_bav(natal_moon_sign, natal_asc_sign, houses_dict):
     return f"Saturn in {HINDI_SIGNS[sat_sign]} (H{sat_house_moon} from Moon, BAV:{sat_bav_moon}/8 - {sat_friction}; H{sat_house_asc} from Lagna, BAV:{sat_bav_asc}/8). Jupiter in {HINDI_SIGNS[jup_sign]} (H{jup_house_moon} from Moon, BAV:{jup_bav_moon}/8 - {jup_relief}; H{jup_house_asc} from Lagna, BAV:{jup_bav_asc}/8)."
 
 def get_lal_kitab_remedy(houses_dict, planets_dict):
-    # Matches chart afflictions to the hardcoded LAL_KITAB_DICT.
     remedies = []
     for p_name, p_data in planets_dict.items():
         if p_data.get("combust"):
@@ -433,7 +396,6 @@ def get_lal_kitab_remedy(houses_dict, planets_dict):
     return unique_remedies[:5]
 
 def detect_yogas(houses_dict, planets_dict, sign_lords):
-    # Scans the chart for specific planetary combinations (Yogas).
     yogas = []
     moon_house = get_house_of_planet(houses_dict, "Moon (Chandra)")
     jup_house = get_house_of_planet(houses_dict, "Jupiter (Guru)")
@@ -469,7 +431,6 @@ def detect_yogas(houses_dict, planets_dict, sign_lords):
     return yogas
 
 def calculate_chart_logic(asc_sign, planets_full, birth_dt):
-    # The master function that compiles all astrology math into a single text string for the LLM.
     now = datetime.now()
     age = (now - birth_dt).days // 365
     if age < 18: life_stage = f"CHILD (Age {age}): STRICTLY focus on House 4, 5, 9."
@@ -485,9 +446,11 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
         house_num = i + 1
         sign = ZODIAC_SIGNS[(asc_idx + i) % 12]
         houses[house_num] = {"sign": sign, "hindi_sign": HINDI_SIGNS[sign], "ruler": sign_lords.get(sign, ""), "occupants": [], "aspected_by": []}
+    
     for p_name, p_data in planets_full.items():
         for h_num, h_data in houses.items():
             if h_data["sign"] == p_data["sign"]: h_data["occupants"].append(p_name); break
+            
     for p_name, p_data in planets_full.items():
         occ_house = get_house_of_planet(houses, p_name)
         if occ_house:
@@ -500,7 +463,6 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
         fact_sheet += f"- House {h} ({data['hindi_sign']}): Occ: {occ_str}. Asp: {asp_str}.\n"
     
     logic_summary = f"[LIFE STAGE FILTER]: {life_stage}\n{fact_sheet}"
-    
     dasha_timeline = calculate_vimshottari_timeline(planets_full["Moon (Chandra)"]["lon"], birth_dt)
     logic_summary += f"\n[VIMSHOTTARI TIMELINE]: {dasha_timeline}"
     
@@ -520,9 +482,7 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     yogas = detect_yogas(houses, planets_full, sign_lords)
     logic_summary += f"\n[DETECTED YOGAS (KARMIC ASSETS)]:\n - " + "\n - ".join(yogas) if yogas else "\n[DETECTED YOGAS]: None."
     
-    # ==========================================
-    # INJECTION POINT: NEW MATHEMATICAL MODELS
-    # ==========================================
+    # NEW MATHEMATICAL MODELS INTEGRATION
     vargas_data = calculate_vargas(planets_full)
     sav_data = calculate_full_sav(houses)
     logic_summary += f"\n[DIVISIONAL VARGAS (D-9 & D-10)]: {json.dumps(vargas_data)}\n[FULL SARVASHTAKAVARGA (SAV) MATRIX]: {json.dumps(sav_data)}"
@@ -533,7 +493,6 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
     return logic_summary, age
 
 def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
-    # Uses Swiss Ephemeris to calculate exact planetary longitudes.
     swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     dt_ist = datetime(year, month, day, hour, minute)
     dt_utc = dt_ist - timedelta(hours=5, minutes=30)
@@ -586,11 +545,9 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     
     return asc_sign, asc_nak, asc_pada, positions, logic_breakdown, age
 
-
 # ==========================================
 # LLM ORCHESTRATION & PDF PIPELINE
 # ==========================================
-
 def send_message(chat_id, text):
     url = f"{TELEGRAM_API_URL}/sendMessage"
     payload = {"chat_id": chat_id, "text": text}
@@ -604,17 +561,11 @@ def send_document(chat_id, file_path):
             requests.post(url, data={'chat_id': chat_id}, files={'document': f}, timeout=30)
     except: pass
 
-# BULLETPROOF GROQ AGENT WITH MODEL FALLBACK LOOP
 def call_groq_agent(system_prompt, user_prompt, models_list, json_mode=False):
-    """
-    Accepts a list of Groq models and iterates through them.
-    If a model is decommissioned or fails (400/404/429), it catches the error and tries the next model.
-    """
     groq_key = os.environ.get("GROQ_API_KEY")
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
     
-    if isinstance(models_list, str):
-        models_list = [models_list]
+    if isinstance(models_list, str): models_list = [models_list]
         
     payload_base = {
         "messages": [
@@ -623,8 +574,7 @@ def call_groq_agent(system_prompt, user_prompt, models_list, json_mode=False):
         ], 
         "temperature": 0.3
     }
-    # NOTE: "response_format" is intentionally omitted. Several Groq models reject it with a 400 error.
-        
+    
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
     
     for model_name in models_list:
@@ -635,23 +585,16 @@ def call_groq_agent(system_prompt, user_prompt, models_list, json_mode=False):
             if res.status_code == 200:
                 return res.json()['choices'][0]['message']['content']
             elif res.status_code in [400, 403, 404, 429, 413]:
-                print(f"WARNING: Model '{model_name}' failed with status {res.status_code}. Trying next model...", flush=True)
+                print(f"WARNING: Model '{model_name}' failed with status {res.status_code}.", flush=True)
                 continue
             else:
-                print(f"WARNING: Model '{model_name}' returned unexpected status {res.status_code}. Trying next model...", flush=True)
                 continue
         except Exception as e:
-            print(f"WARNING: Model '{model_name}' encountered an exception: {str(e)}. Trying next model...", flush=True)
             continue
             
-    return json.dumps({"error": "API_ERROR", "details": "All Groq models failed or are decommissioned."}) if json_mode else "[ERROR: ALL MODELS FAILED]"
+    return json.dumps({"error": "API_ERROR"}) if json_mode else "[ERROR: ALL MODELS FAILED]"
 
-# SMART REGEX FIREWALL
 def llm_output_firewall(text):
-    """
-    Cleans LLM output to enforce strict clinical tone.
-    Uses a conditional capture group to preserve Vedic Yogas while replacing standalone 'yoga' (exercise).
-    """
     replacements = {
         r"\bpotentially\b": "", r"\bpossibly\b": "", r"\bsuggesting that\b": "indicating that",
         r"\bsuggests that\b": "indicates that", r"\bsuggests a need\b": "mandates a need",
@@ -662,19 +605,15 @@ def llm_output_firewall(text):
     for pattern, replacement in replacements.items():
         clean_text = re.compile(pattern, re.IGNORECASE).sub(replacement, clean_text)
     
-    # SMART REGEX FOR "YOGA"
     vedic_prefixes = r"(?:raja|neecha|bhanga|gaja|kesari|maha|panch|mahapurusha|chandra|surya|budha|guru|shukra|shani|mangal)[\s\-]+"
     yoga_pattern = re.compile(r"\b(" + vedic_prefixes + r")?(yoga)\b", re.IGNORECASE)
     
     def yoga_replacer(match):
         prefix = match.group(1)
-        if prefix:
-            return match.group(0) # Preserve Vedic Yoga
-        else:
-            return "Ayurvedic physical routines" # Replace standalone yoga
+        if prefix: return match.group(0)
+        else: return "Ayurvedic physical routines"
             
     clean_text = yoga_pattern.sub(yoga_replacer, clean_text)
-    
     clean_text = re.sub(r'\s+', ' ', clean_text).strip()
     return clean_text
 
@@ -687,43 +626,35 @@ def generate_pdf_weasyprint(html_content, pdf_path):
         return False
 
 def process_background_task(chat_id, session_data):
-    """
-    The Master Pipeline. Runs in a separate thread so the webhook can respond instantly.
-    1. Calls Groq to generate English JSON.
-    2. Calls Groq to translate to Hindi.
-    3. Converts both to HTML and compiles a PDF.
-    """
-    # Verified working models for this specific Groq workspace tier.
     MASTER_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "groq/compound"]
     TRANSLATOR_MODELS = ["openai/gpt-oss-120b", "groq/compound", "qwen/qwen3.6-27b"]
     
-send_message(chat_id, "⏳ Initiating Agentic Swarm Pipeline (Dossier Mode)...")
+    send_message(chat_id, "⏳ Initiating Agentic Swarm Pipeline (Dossier Mode)...")
 
-base_cognitive_rules = """You are an Elite Vedic Astrological Strategic Advisor.
+    base_cognitive_rules = """You are an Elite Vedic Astrological Strategic Advisor.
     [ABSOLUTE LAWS]
     1. THE NAMING PROTOCOL: You MUST use the exact format: "English Name (Hindi Name)". Never omit the English word.
     2. NARRATIVE DECOUPLING: Frame afflictions as "karmic friction" and dignities as "strategic assets". No remedies in the diagnosis.
     3. JSON OUTPUT STRICTLY ENFORCED: Output ONLY a valid JSON object matching the exact schema requested. No markdown text outside the JSON."""
 
     logic = session_data['logic_breakdown']
-planet_summary = session_data['planet_summary']
-base_user_msg = f"[INPUT DATA]\n- Baseline Date: {datetime.now().strftime('%B %d, %Y')}\n{logic}\n[PLANETARY ARRAY]\nAscendant (Lagna): {session_data['asc_sign']}\n{planet_summary}"
+    planet_summary = session_data['planet_summary']
+    base_user_msg = f"[INPUT DATA]\n- Baseline Date: {datetime.now().strftime('%B %d, %Y')}\n{logic}\n[PLANETARY ARRAY]\nAscendant (Lagna): {session_data['asc_sign']}\n{planet_summary}"
 
-swarm_chapters = {
+    swarm_chapters = {
         "temporal_narrative": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'temporal_narrative' containing: 'psychological_baseline', 'historical_trajectory', 'present_trigger', 'expected_survival'.",
         "structural_analysis": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'structural_analysis' containing: 'wealth_and_career', 'relationships_and_property', 'vitality_and_subconscious'. Format each inside as a bulleted list with '- **The Risk Vector**', '- **The Strategic Asset**', '- **The Synthesis**'.",
         "ayurvedic_audit": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'ayurvedic_audit' containing a single string diagnosing the Dosha and lifestyle shifts.",
         "remediation_protocol": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'remediation_protocol' containing: 'suppressing_afflictions', 'amplifying_assets'. Inject Lal Kitab remedies into suppressing_afflictions."
     }
 
-eng_data = {}
+    eng_data = {}
 
-for chapter_key, system_prompt in swarm_chapters.items():
+    for chapter_key, system_prompt in swarm_chapters.items():
         send_message(chat_id, f"🧠 Swarm Agent analyzing: {chapter_key.replace('_', ' ').title()}...")
         
         chapter_response = call_groq_agent(system_prompt, base_user_msg, MASTER_MODELS, json_mode=False)
         
-        # Clean markdown wrappers safely
         chapter_response = chapter_response.strip()
         if chapter_response.startswith("```json"): chapter_response = chapter_response[7:]
         elif chapter_response.startswith("```"): chapter_response = chapter_response[3:]
@@ -735,11 +666,10 @@ for chapter_key, system_prompt in swarm_chapters.items():
         except Exception as e:
             print(f"JSON Parse failed for {chapter_key}: {e}", flush=True)
 
-if not eng_data:
+    if not eng_data:
         send_message(chat_id, "⚠️ Swarm Agents failed to generate data.")
         return
         
-    # Apply the smart firewall to all values in the English JSON
     for k, v in eng_data.items():
         if isinstance(v, dict):
             for sub_k, sub_v in v.items():
@@ -751,7 +681,6 @@ if not eng_data:
     CRITICAL: You MUST NOT translate the JSON keys. The keys must remain exactly in English. Only translate the string values into Hindi. 
     Output ONLY a valid JSON object with the EXACT SAME ENGLISH KEYS."""
     
-    # 2. Translator Agent
     hindi_json_str = call_groq_agent(translator_system_msg, json.dumps(eng_data), TRANSLATOR_MODELS, json_mode=True)
     
     try:
@@ -762,7 +691,6 @@ if not eng_data:
     def md_to_html(text):
         return markdown2.markdown(str(text), extras=["fenced-code-blocks"])
 
-    # Build the PDF HTML structure
     html_body = f"""
     <h1>Astrological Audit</h1>
     <p><em>Disclaimer: This audit maps karmic tendencies, assets, and probabilistic risk vectors based on planetary mathematics.</em></p>
@@ -852,7 +780,6 @@ if not eng_data:
         send_document(chat_id, pdf_path)
         send_message(chat_id, "📄 **Astrological Audit PDF attached above!** ⬆️")
     else:
-        # Fallback to text if PDF library fails
         send_message(chat_id, "⚠️ PDF generation failed. Sending text report:")
         for k, v in eng_data.items():
             if isinstance(v, dict):
@@ -860,7 +787,6 @@ if not eng_data:
                     send_message(chat_id, f"{sub_k.replace('_', ' ').title()}:\n{sub_v}")
             else:
                 send_message(chat_id, f"{k.replace('_', ' ').title()}:\n{v}")
-
 
 # ==========================================
 # FLASK WEBHOOK (Instant Return + Threading)
@@ -883,11 +809,9 @@ def webhook():
                 send_message(chat_id, "Welcome! Send your birth details to begin your **Astrological Audit**:\n`DD-MM-YYYY HH:MM City`\n(e.g., `05-09-1981 12:16 Amritsar`)")
                 return jsonify(status="success"), 200
                 
-            # Regex to extract birth details from user input
             match = re.search(r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{2,4})\s+(\d{1,2}):(\d{1,2})\s+(.+)', user_text)
             session = get_session(chat_id)
             
-            # BLOCK 1: Partner details provided after initial chart was calculated
             if match and session and session.get("state") == "awaiting_partner":
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
@@ -895,7 +819,7 @@ def webhook():
                 
                 send_message(chat_id, "⏳ Partner chart calculating in background...")
                 
-                url = f"https://nominatim.openstreetmap.org/search?q={city_input}&format=json&limit=1"
+                url = f"[https://nominatim.openstreetmap.org/search?q=](https://nominatim.openstreetmap.org/search?q=){city_input}&format=json&limit=1"
                 try:
                     res = requests.get(url, headers={'User-Agent': 'PanditjiBot/1.0'}, timeout=5).json()
                     lat, lon = float(res[0]['lat']), float(res[0]['lon'])
@@ -915,7 +839,6 @@ def webhook():
                 threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
 
-            # BLOCK 2: BRAND NEW USERS (STATE 0 SECURED)
             elif match:
                 day, month, year, hour, minute, city_input = match.groups()
                 day, month, year, hour, minute = int(day), int(month), int(year), int(hour), int(minute)
@@ -923,7 +846,7 @@ def webhook():
                 
                 send_message(chat_id, "⏳ Calculating...")
                 
-                url = f"https://nominatim.openstreetmap.org/search?q={city_input}&format=json&limit=1"
+                url = f"[https://nominatim.openstreetmap.org/search?q=](https://nominatim.openstreetmap.org/search?q=){city_input}&format=json&limit=1"
                 try:
                     res = requests.get(url, headers={'User-Agent': 'PanditjiBot/1.0'}, timeout=5).json()
                     lat, lon = float(res[0]['lat']), float(res[0]['lon'])
@@ -946,14 +869,12 @@ def webhook():
                 threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
 
-            # BLOCK 3: User skips partner compatibility
             elif session and session.get("state") == "awaiting_partner" and user_text.lower() == 'skip':
                 session["state"] = "ready_to_generate"
                 save_session(chat_id, session)
                 threading.Thread(target=process_background_task, args=(chat_id, session)).start()
                 return jsonify(status="success"), 200
                 
-            # BLOCK 4: Follow-up questions based on the already generated chart
             elif session and session.get("state") == "ready_to_generate":
                 send_message(chat_id, "Running follow-up analysis...")
                 
@@ -961,20 +882,16 @@ def webhook():
                 Use the exact format "English Name (Hindi Name)" for all planets. Frame risks as 'karmic friction' and assets as 'strategic buffers'. Cite exact dates."""
                 
                 q_prompt = f"[CHART DATA]\n{session['logic_breakdown']}\n[USER QUESTION]\n{user_text}"
-                
                 FOLLOWUP_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "groq/compound"]
                 
-                # Use the fallback loop for the follow-up as well
                 answer = call_groq_agent(q_system_msg, q_prompt, FOLLOWUP_MODELS, json_mode=False)
                 
                 if answer and not answer.startswith("[ERROR"):
-                    # Chunk the response to bypass Telegram's 4096 character limit
                     for i in range(0, len(answer), 3900): send_message(chat_id, answer[i:i + 3900]); time.sleep(0.5)
                 else: 
                     send_message(chat_id, "Error processing your question.")
                 return jsonify(status="success"), 200
            
-            # BLOCK 5: Unrecognized input
             else:
                 send_message(chat_id, "Please send birth details: `DD-MM-YYYY HH:MM City`")
                 return jsonify(status="success"), 200
@@ -984,7 +901,6 @@ def webhook():
         
     return jsonify(status="success"), 200
 
-# Initialize DB on script load (Required for Gunicorn environments like Render)
 init_db()
 
 if __name__ == '__main__':
