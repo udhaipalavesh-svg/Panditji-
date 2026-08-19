@@ -641,11 +641,12 @@ def process_background_task(chat_id, session_data):
     planet_summary = session_data['planet_summary']
     base_user_msg = f"[INPUT DATA]\n- Baseline Date: {datetime.now().strftime('%B %d, %Y')}\n{logic}\n[PLANETARY ARRAY]\nAscendant (Lagna): {session_data['asc_sign']}\n{planet_summary}"
 
+    # THE PATCHED SWARM CHAPTERS DICTIONARY
     swarm_chapters = {
-        "temporal_narrative": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'temporal_narrative' containing: 'psychological_baseline', 'historical_trajectory', 'present_trigger', 'expected_survival'.",
-        "structural_analysis": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'structural_analysis' containing: 'wealth_and_career', 'relationships_and_property', 'vitality_and_subconscious'. Format each inside as a bulleted list with '- **The Risk Vector**', '- **The Strategic Asset**', '- **The Synthesis**'.",
-        "ayurvedic_audit": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'ayurvedic_audit' containing a single string diagnosing the Dosha and lifestyle shifts.",
-        "remediation_protocol": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the key 'remediation_protocol' containing: 'suppressing_afflictions', 'amplifying_assets'. Inject Lal Kitab remedies into suppressing_afflictions."
+        "temporal_narrative": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the ROOT key 'temporal_narrative' containing nested keys: 'psychological_baseline', 'historical_trajectory', 'present_trigger', 'expected_survival'.",
+        "structural_analysis": base_cognitive_rules + "\n[YOUR MISSION] Output a JSON object with the ROOT key 'structural_analysis' containing nested keys: 'wealth_and_career', 'relationships_and_property', 'vitality_and_subconscious'. Format each inside as a bulleted list with '- **The Risk Vector**', '- **The Strategic Asset**', '- **The Synthesis**'.",
+        "ayurvedic_audit": base_cognitive_rules + "\nNOTE: The English/Hindi naming rule applies only to Planets and Zodiac Signs, NOT to Ayurvedic Doshas. \n[YOUR MISSION] Output a JSON object with the ROOT key 'ayurvedic_audit' containing a single string diagnosing the Dosha and lifestyle shifts.",
+        "remediation_protocol": base_cognitive_rules + "\n[YOUR MISSION - EXCEPTION TO RULE 2: YOU ARE THE REMEDIATION AGENT. YOU MUST PROVIDE REMEDIES.] Analyze the [MANDATORY LAL KITAB REFERENCE] provided in the input data. Output a JSON object with the ROOT key 'remediation_protocol' containing nested keys: 'suppressing_afflictions', 'amplifying_assets'. 'suppressing_afflictions' MUST be a string containing a bulleted list of the exact Lal Kitab remedies. 'amplifying_assets' MUST be a string recommending specific gemstones and mantras."
     }
 
     eng_data = {}
