@@ -166,6 +166,59 @@ def safe_get(data, keys, default="*Data Unavailable*"):
 # ==========================================
 # All functions below convert raw astronomical longitude into Vedic astrological concepts.
 
+def calculate_vargas(natal_planets_dict):
+    """
+    Calculates D-9 (Navamsha) and D-10 (Dashamsha) signs for each planet.
+    D-9: 1 Navamsha = 3°20' (30/9). Count starts from Aries if sign is Movable, Leo if Fixed, Sagittarius if Dual.
+    D-10: 1 Dashamsha = 3° (30/10). Odd signs start from the sign itself; Even signs start from the 9th sign.
+    """
+    vargas = {}
+    for planet, data in natal_planets_dict.items():
+        lon = data.get("lon", 0.0) % 360.0
+        
+        # D-9 Navamsha Calculation
+        sign_idx = int(lon // 30) % 12
+        deg_in_sign = lon % 30
+        navamsha_idx_in_sign = int(deg_in_sign // (30/9))  # 0 to 8
+        
+        # Navamsha start sign: Movable (0=Aries), Fixed (4=Leo), Dual (8=Sagittarius)
+        navamsha_start_sign = (sign_idx // 4) * 4 
+        d9_sign_idx = (navamsha_start_sign + navamsha_idx_in_sign) % 12
+        d9_sign = ZODIAC_SIGNS[d9_sign_idx]
+        
+        # D-10 Dashamsha Calculation
+        dashamsha_idx_in_sign = int(deg_in_sign // 3)  # 0 to 9
+        
+        # Odd signs (0-indexed even) start from themselves. Even signs (0-indexed odd) start from 9th sign.
+        if sign_idx % 2 == 0:  # Odd sign (Aries=0, Gemini=2, etc.)
+            d10_sign_idx = (sign_idx + dashamsha_idx_in_sign) % 12
+        else:                  # Even sign (Taurus=1, Cancer=3, etc.)
+            d10_sign_idx = (sign_idx + 8 + dashamsha_idx_in_sign) % 12
+            
+        d10_sign = ZODIAC_SIGNS[d10_sign_idx]
+        
+        vargas[planet] = {"D9": d9_sign, "D10": d10_sign}
+        
+    return vargas
+
+def calculate_full_sav(houses_dict):
+    """
+    Calculates the total Sarvashtakavarga (SAV) score for all 12 houses.
+    Iterates through 7 standard planets (excluding Rahu/Ketu) and sums their BAV.
+    """
+    planets_for_sav = ["Sun (Surya)", "Moon (Chandra)", "Mars (Mangal)", "Mercury (Budh)", "Jupiter (Guru)", "Venus (Shukra)", "Saturn (Shani)"]
+    sav_scores = {}
+    
+    for house_num in range(1, 13):
+        house_total = 0
+        for planet in planets_for_sav:
+            # calculate_bav takes (planet_name, target_house, houses_dict)
+            house_total += calculate_bav(planet, house_num, houses_dict)
+        sav_scores[house_num] = house_total
+        
+    return sav_scores
+
+
 def get_nakshatra_info(lon):
     nak_span = 360.0 / 27.0
     nak_idx = int(lon / nak_span) % 27
@@ -466,6 +519,13 @@ def calculate_chart_logic(asc_sign, planets_full, birth_dt):
 
     yogas = detect_yogas(houses, planets_full, sign_lords)
     logic_summary += f"\n[DETECTED YOGAS (KARMIC ASSETS)]:\n - " + "\n - ".join(yogas) if yogas else "\n[DETECTED YOGAS]: None."
+    
+    # ==========================================
+    # INJECTION POINT: NEW MATHEMATICAL MODELS
+    # ==========================================
+    vargas_data = calculate_vargas(planets_full)
+    sav_data = calculate_full_sav(houses)
+    logic_summary += f"\n[DIVISIONAL VARGAS (D-9 & D-10)]: {json.dumps(vargas_data)}\n[FULL SARVASHTAKAVARGA (SAV) MATRIX]: {json.dumps(sav_data)}"
     
     lal_kitab_rules = get_lal_kitab_remedy(houses, planets_full)
     logic_summary += f"\n[MANDATORY LAL KITAB REFERENCE]:\n - " + "\n - ".join(lal_kitab_rules) if lal_kitab_rules else "\n[MANDATORY LAL KITAB REFERENCE]: None."
