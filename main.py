@@ -656,14 +656,6 @@ def llm_output_firewall(text):
     clean_text = re.sub(r'\s+', ' ', clean_text).strip()
     return clean_text
 
-def generate_pdf_weasyprint(html_content, pdf_path):
-    try:
-        HTML(string=html_content).write_pdf(pdf_path)
-        return True
-    except Exception as e:
-        print(f"WEASYPRINT ERROR: {e}", flush=True)
-        return False
-
 def process_background_task(chat_id, session_data):
     MASTER_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "groq/compound"]
     TRANSLATOR_MODELS = ["openai/gpt-oss-120b", "groq/compound", "qwen/qwen3.6-27b"]
@@ -711,12 +703,15 @@ def process_background_task(chat_id, session_data):
             eng_data.update(chapter_json)
         except Exception as e:
             print(f"JSON Parse failed for {chapter_key}: {e}", flush=True)
+            
+        # [CRITICAL PATCH]: API Rate Limit Throttle. Prevents Groq 429 TPM/RPM block.
+        time.sleep(5)
 
     if not eng_data:
-        send_message(chat_id, "⚠️ Swarm Agents failed to generate data.")
+        send_message(chat_id, "⚠️ Swarm Agents failed to generate data. Groq API may be experiencing an outage.")
         return
         
-    # APPLY RECURSIVE SMART FIREWALL
+    # [CRITICAL PATCH]: The Recursive Firewall prevents nested dictionary JSON hallucinations from crashing the regex parser.
     def recursive_firewall(data):
         if isinstance(data, dict):
             return {key: recursive_firewall(val) for key, val in data.items()}
@@ -725,11 +720,10 @@ def process_background_task(chat_id, session_data):
         elif isinstance(data, str):
             return llm_output_firewall(data)
         return data
-        
+
     eng_data = recursive_firewall(eng_data)
 
-    translator_system_msg = """You are an expert astrological translator. Translate the provided English JSON object into Hindi.
-    
+    translator_system_msg = """You are an expert astrological translator. Translate the provided English JSON object into Hindi. 
     CRITICAL: You MUST NOT translate the JSON keys. The keys must remain exactly in English. Only translate the string values into Hindi. 
     Output ONLY a valid JSON object with the EXACT SAME ENGLISH KEYS."""
     
