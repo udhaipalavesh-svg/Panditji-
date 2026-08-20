@@ -1,5 +1,5 @@
 # ==========================================
-# THE CELESTIAL STRATEGY DOSSIER (MASTER ARCHITECTURE - UNCOMPRESSED)
+# THE CELESTIAL STRATEGY DOSSIER (OPTION A: SHADOW & SACRED BUILD)
 # ==========================================
 import os
 import requests
@@ -65,9 +65,8 @@ VEDIC_UPAYAS = {
     "Ketu / Ketu": "Donate to spiritual ascetic orders. Feed multi-colored dogs. Meditate on Ganesha."
 }
 
-# 140+ ENTRY MASTER LAL KITAB DATABASE
+# FULL 140+ LAL KITAB DATABASE
 LAL_KITAB_DICT = {
-    # COMBUSTION & DEBILITATION
     "Saturn / Shani_Combust": "Donate black sesame oil on Saturday.", "Mars / Mangal_Combust": "Avoid keeping iron tools under the bed.",
     "Jupiter / Guru_Combust": "Apply a tilak of saffron on the forehead daily.", "Venus / Shukra_Combust": "Donate pure ghee to a temple on Friday.",
     "Mercury / Budh_Combust": "Clean teeth with fitkari (alum) daily.", "Sun / Surya_Debilitated": "Offer water to the Sun. Avoid salt on Sundays.",
@@ -76,7 +75,6 @@ LAL_KITAB_DICT = {
     "Venus / Shukra_Debilitated": "Donate white sweets to young girls on Friday.", "Saturn / Shani_Debilitated": "Serve food to disabled people on Saturday.",
     "Rahu / Rahu_Debilitated": "Keep a square silver piece in your pocket.", "Ketu / Ketu_Debilitated": "Feed a two-colored dog.",
     
-    # SUN (1-12)
     "Sun / Surya_1": "Offer water to the Sun daily.", "Sun / Surya_2": "Donate wheat and jaggery on Sunday.",
     "Sun / Surya_3": "Keep good relations with younger siblings.", "Sun / Surya_4": "Do not consume salt on Sundays.",
     "Sun / Surya_5": "Keep a red handkerchief in your pocket.", "Sun / Surya_6": "Feed a red cow on Sundays.",
@@ -84,7 +82,6 @@ LAL_KITAB_DICT = {
     "Sun / Surya_9": "Use brass utensils for eating.", "Sun / Surya_10": "Wear a copper coin around the neck.",
     "Sun / Surya_11": "Drink water from a copper vessel.", "Sun / Surya_12": "Keep the courtyard or entrance of your home clean.",
 
-    # MOON (1-12)
     "Moon / Chandra_1": "Drink milk from a silver glass.", "Moon / Chandra_2": "Keep a square piece of silver in the house.",
     "Moon / Chandra_3": "Offer green gram to birds.", "Moon / Chandra_4": "Do not trade in milk or dairy products.",
     "Moon / Chandra_5": "Serve your mother and seek her blessings.", "Moon / Chandra_6": "Serve water to patients in a hospital.",
@@ -92,7 +89,6 @@ LAL_KITAB_DICT = {
     "Moon / Chandra_9": "Visit religious places frequently.", "Moon / Chandra_10": "Avoid drinking milk at night.",
     "Moon / Chandra_11": "Donate milk to a temple on Mondays.", "Moon / Chandra_12": "Keep rainwater stored in a glass bottle at home.",
 
-    # MARS (1-12)
     "Mars / Mangal_1": "Avoid keeping large weapons in the house.", "Mars / Mangal_2": "Donate red masoor dal on Tuesday.",
     "Mars / Mangal_3": "Wear a silver ring. Maintain good relation with siblings.", "Mars / Mangal_4": "Keep a square piece of red copper in the house.",
     "Mars / Mangal_5": "Keep a pot of water by your bedside.", "Mars / Mangal_6": "Donate red masoor dal and batasha on Tuesday.",
@@ -100,31 +96,6 @@ LAL_KITAB_DICT = {
     "Mars / Mangal_9": "Offer milk to a banyan tree.", "Mars / Mangal_10": "Offer sweet milk to a blind person.",
     "Mars / Mangal_11": "Keep a red handkerchief in your pocket.", "Mars / Mangal_12": "Float a piece of red copper in flowing water.",
 
-    # MERCURY (1-12)
-    "Mercury / Budh_1": "Avoid consuming alcohol.", "Mercury / Budh_2": "Keep a pet dog.",
-    "Mercury / Budh_3": "Clean your teeth with fitkari.", "Mercury / Budh_4": "Wear a silver chain for mental peace.",
-    "Mercury / Budh_5": "Wear a copper coin on a white thread.", "Mercury / Budh_6": "Bury a bottle filled with Ganga water in agricultural land.",
-    "Mercury / Budh_7": "Avoid business partnerships with female relatives.", "Mercury / Budh_8": "Keep rainwater in an earthen pot on the roof.",
-    "Mercury / Budh_9": "Wear green colors sparingly.", "Mercury / Budh_10": "Do not keep broad-leaved plants in the office.",
-    "Mercury / Budh_11": "Wear an unjointed iron ring.", "Mercury / Budh_12": "Wear a yellow thread around the neck.",
-
-    # JUPITER (1-12)
-    "Jupiter / Guru_1": "Apply a saffron tilak on the forehead.", "Jupiter / Guru_2": "Fill a pit with mud on the street.",
-    "Jupiter / Guru_3": "Worship Goddess Durga.", "Jupiter / Guru_4": "Do not establish a temple inside your house.",
-    "Jupiter / Guru_5": "Plant a peepal tree in a temple.", "Jupiter / Guru_6": "Donate yellow clothes to a priest.",
-    "Jupiter / Guru_7": "Avoid keeping idols of gods at home.", "Jupiter / Guru_8": "Wear gold on the neck.",
-    "Jupiter / Guru_9": "Visit religious places regularly.", "Jupiter / Guru_10": "Clean your nose before starting any work.",
-    "Jupiter / Guru_11": "Wear a copper coin.", "Jupiter / Guru_12": "Serve ascetics and saints.",
-
-    # VENUS (1-12)
-    "Venus / Shukra_1": "Do not marry before age 25.", "Venus / Shukra_2": "Keep a solid silver ball in your pocket.",
-    "Venus / Shukra_3": "Respect women and avoid polygamy.", "Venus / Shukra_4": "Change the name of your spouse after marriage.",
-    "Venus / Shukra_5": "Maintain absolute fidelity to your spouse.", "Venus / Shukra_6": "Keep a white dog.",
-    "Venus / Shukra_7": "Throw a blue flower in a dirty drain.", "Venus / Shukra_8": "Throw a copper coin in a gutter.",
-    "Venus / Shukra_9": "Bury a silver square under a neem tree.", "Venus / Shukra_10": "Wash your private parts with curd.",
-    "Venus / Shukra_11": "Donate mustard oil.", "Venus / Shukra_12": "Keep a blue glass bottle in the house.",
-
-    # SATURN (1-12)
     "Saturn / Shani_1": "Do not consume alcohol or non-veg. Feed black crows.", "Saturn / Shani_2": "Apply an oil tilak to your forehead.",
     "Saturn / Shani_3": "Keep three dogs as pets or feed street dogs.", "Saturn / Shani_4": "Do not build a house before age 48.",
     "Saturn / Shani_5": "Keep almonds in your home. Feed black crows.", "Saturn / Shani_6": "Float a black mustard oil-filled bottle in a river.",
@@ -132,7 +103,6 @@ LAL_KITAB_DICT = {
     "Saturn / Shani_9": "Keep a square piece of silver.", "Saturn / Shani_10": "Feed black crows daily. Maintain strict punctuality.",
     "Saturn / Shani_11": "Place a vessel filled with mustard oil in your house.", "Saturn / Shani_12": "Tie twelve almonds in a black cloth.",
 
-    # RAHU (1-12)
     "Rahu / Rahu_1": "Keep a silver square in your pocket.", "Rahu / Rahu_2": "Keep a solid silver ball in your pocket.",
     "Rahu / Rahu_3": "Keep ivory items out of the house.", "Rahu / Rahu_4": "Do not remodel the kitchen frequently.",
     "Rahu / Rahu_5": "Keep a silver elephant statue in the house.", "Rahu / Rahu_6": "Float a piece of lead in running water.",
@@ -140,7 +110,6 @@ LAL_KITAB_DICT = {
     "Rahu / Rahu_9": "Apply a saffron tilak.", "Rahu / Rahu_10": "Wear a blue or black cap.",
     "Rahu / Rahu_11": "Drink water from a silver glass.", "Rahu / Rahu_12": "Keep a pouch of fennel under the pillow.",
 
-    # KETU (1-12)
     "Ketu / Ketu_1": "Feed a two-colored dog.", "Ketu / Ketu_2": "Maintain absolute honesty in financial ledgers.",
     "Ketu / Ketu_3": "Float rice mixed with milk in a river.", "Ketu / Ketu_4": "Do not keep fragmented glass in the house.",
     "Ketu / Ketu_5": "Donate a black and white blanket.", "Ketu / Ketu_6": "Wear a gold ring on the left hand.",
@@ -156,13 +125,15 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS sessions (chat_id INTEGER PRIMARY KEY, session_data TEXT)''')
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 
 def save_session(chat_id, data):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("INSERT OR REPLACE INTO sessions (chat_id, session_data) VALUES (?, ?)", (chat_id, json.dumps(data)))
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 
 def get_session(chat_id):
     conn = sqlite3.connect(DB_PATH)
@@ -176,7 +147,8 @@ def clear_session(chat_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("DELETE FROM sessions WHERE chat_id=?", (chat_id,))
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 
 def safe_get(data, keys, default=""):
     if not isinstance(data, dict): return default
@@ -254,7 +226,7 @@ def calculate_vimshottari_timeline(moon_lon, birth_dt_iso):
     while True:
         curr_m_end_jd = curr_m_start_jd + (curr_m_years * 365.25)
         if curr_m_end_jd > now_jd:
-            m_lord = DASHA_LORDS[curr_m_idx][0].split('/')[0].strip()
+            m_lord = DASHA_LORDS[curr_m_idx][0]
             a_idx = curr_m_idx
             a_years = (DASHA_LORDS[a_idx][1] * DASHA_LORDS[curr_m_idx][1]) / 120.0
             if curr_m_idx == lord_idx: a_years *= fraction_remaining
@@ -264,7 +236,7 @@ def calculate_vimshottari_timeline(moon_lon, birth_dt_iso):
             while periods_found < 4:
                 a_end_jd = a_start_jd + (a_years * 365.25)
                 if a_end_jd > now_jd or periods_found > 0:
-                    a_lord = DASHA_LORDS[a_idx][0].split('/')[0].strip()
+                    a_lord = DASHA_LORDS[a_idx][0]
                     sy, sm, sd = swe.revjul(a_start_jd)[:3]
                     ey, em, ed = swe.revjul(a_end_jd)[:3]
                     phase_name = "Current Antardasha" if periods_found == 0 else f"Next Phase {periods_found}"
@@ -287,7 +259,7 @@ def calculate_transit_timings():
     jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour + dt_utc.minute/60.0)
     flags = swe.FLG_SWIEPH + swe.FLG_SPEED + swe.FLG_SIDEREAL
     
-    planets_to_track = {"Saturn": swe.SATURN, "Jupiter": swe.JUPITER, "Rahu": swe.MEAN_NODE}
+    planets_to_track = {"Saturn / Shani": swe.SATURN, "Jupiter / Guru": swe.JUPITER, "Rahu / Rahu": swe.MEAN_NODE}
     timings = []
     for name, p_id in planets_to_track.items():
         calc = swe.calc_ut(jdut, p_id, flags)
@@ -355,12 +327,13 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
 # NATIVE PYTHON HTML & SVG CONSTRUCTORS
 # ==========================================
 def generate_ephemeris_table_html(planet_positions):
-    html = '<table class="data-table"><tr><th>Planet / Hindi</th><th>Sign</th><th>Degree</th><th>Nakshatra</th><th>Condition</th></tr>'
+    html = '<table class="data-table"><tr><th>Planet / Graha</th><th>Sign</th><th>Degree</th><th>Nakshatra</th><th>Condition</th></tr>'
     for p_name, data in planet_positions.items():
         deg = f"{int(data['lon'] % 30)}° {int((data['lon'] % 1) * 60)}'"
         cond = [data['dignity'].split('/')[0].strip()] if data['dignity'] != "Neutral" else []
         if data.get('combust'): cond.append("Combust")
         cond_str = ", ".join(cond) if cond else "Neutral"
+        # BILINGUAL RETENTION: Passing p_name natively (e.g., "Saturn / Shani")
         html += f"<tr><td><strong>{p_name}</strong></td><td>{data['sign']}</td><td>{deg}</td><td>{data['nak']}</td><td>{cond_str}</td></tr>"
     html += '</table>'
     return html
@@ -418,7 +391,8 @@ def generate_cover_page_svg(native_name="Confidential Dossier", birth_str=""):
         <circle cx="400" cy="565" r="300" fill="none" stroke="#B68A3A" stroke-width="0.5" stroke-dasharray="4,8" opacity="0.4"/>
         <circle cx="400" cy="565" r="200" fill="none" stroke="#B68A3A" stroke-width="0.5" stroke-dasharray="2,4" opacity="0.3"/>
         
-        <text x="400" y="240" font-size="90" fill="#B68A3A" text-anchor="middle" font-family="sans-serif">ॐ   卐</text>
+        <!-- SACRED GEOMETRY (Fixed Font Rendering) -->
+        <text x="400" y="240" font-size="90" fill="#B68A3A" text-anchor="middle" font-family="'Arial Unicode MS', 'DejaVu Sans', sans-serif">ॐ   卐</text>
         
         <text x="400" y="420" font-size="28" fill="#F5F0E6" text-anchor="middle" font-weight="300" letter-spacing="4">THE CELESTIAL STRATEGY</text>
         <text x="400" y="480" font-size="48" fill="#B68A3A" text-anchor="middle" font-weight="bold" letter-spacing="6">DOSSIER</text>
@@ -523,23 +497,26 @@ def call_groq_agent(system_prompt, user_prompt, models_list):
 
 def process_background_task(chat_id, session_data):
     MASTER_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "groq/compound"]
-    send_message(chat_id, "⏳ Compiling The Celestial Strategy Dossier (Master Holistic Build)...")
+    send_message(chat_id, "⏳ Compiling The Celestial Strategy Dossier (Shadow-Integrated Build)...")
 
+    # SHADOW-INTEGRATED COGNITIVE RULES
     base_cognitive_rules = """You are an Elite Executive Astrological Advisor writing for a premium editorial magazine.
     [ABSOLUTE LAWS]
-    1. MEDICAL DISCLAIMER: Never predict lifespan, cure conditions, or make clinical diagnoses. Frame insights as "traditionally associated with".
-    2. NARRATIVE DECOUPLING: DO NOT list or suggest any remedies (e.g. silver, fasting) in your analysis.
-    3. FORMATTING: Output a JSON object with a single key 'content'. The value MUST be rich HTML (<p>, <b>, <i>). Do NOT use markdown tables.
-    4. TONE: Profound, strategic, highly analytical, and flowing."""
+    1. NO SUGARCOATING: You must conduct a shadow-integrated analysis. Explicitly detail karmic friction, psychological neuroses, structural weaknesses, and professional threats alongside strengths. Do not be overly positive.
+    2. TONE: Dark, precise, premium, and relentlessly objective.
+    3. NOMENCLATURE: Always use the bilingual planetary names provided in the data (e.g., 'Saturn / Shani').
+    4. MEDICAL DISCLAIMER: Never predict lifespan or cure conditions. Frame health insights as 'traditional energetic rhythms'.
+    5. NARRATIVE DECOUPLING: DO NOT list or suggest any remedies (e.g., silver, fasting).
+    6. FORMATTING: Output a JSON object with a single key 'content'. The value MUST be rich HTML (<p>, <b>, <i>). Do NOT use markdown tables."""
 
     base_user_msg = f"Ascendant: {session_data['asc_sign']}\nData: {session_data['logic_breakdown']}"
 
     swarm_chapters = {
-        "psychology": base_cognitive_rules + "\nWrite a deep 3-paragraph synthesis of the native's psychological operating system, drive, and cognitive style.",
-        "career_wealth": base_cognitive_rules + "\nWrite a deep 3-paragraph synthesis of the native's career apex, leadership style, and wealth potential based on D-10 and Yogas.",
-        "relational_karma": base_cognitive_rules + "\nWrite a profound 3-paragraph analysis of relationship karma, intimacy constraints, and emotional expression based on D-9 Navamsha.",
-        "forecast": base_cognitive_rules + "\nWrite a 2-paragraph narrative forecast of the underlying themes for the upcoming 24 months based on the timeline.",
-        "ayurvedic_audit": base_cognitive_rules + "\nAnalyze the planetary elements to determine the primary Ayurvedic Dosha (Vata, Pitta, Kapha). Write a 2-paragraph reflection on how this dosha shapes the native's physical vitality and mental energy. Frame as 'traditional lifestyle rhythms', strictly avoiding medical diagnoses."
+        "psychology": base_cognitive_rules + "\nWrite a deep 3-paragraph synthesis of the native's psychological operating system. Analyze the neuroses, hidden fears, and cognitive frictions alongside their drive.",
+        "career_wealth": base_cognitive_rules + "\nWrite a deep 3-paragraph synthesis of the native's career apex and wealth potential based on D-10 and Yogas. Expose professional blind spots, leadership flaws, and wealth-destruction risks alongside the apex potential.",
+        "relational_karma": base_cognitive_rules + "\nWrite a profound 3-paragraph analysis of relationship karma based on D-9 Navamsha. Unpack intimacy constraints, emotional unavailability, and karmic relationship baggage.",
+        "forecast": base_cognitive_rules + "\nWrite a 2-paragraph narrative forecast of the underlying themes for the upcoming 24 months based on the timeline. Detail the specific structural threats, delays, and opportunities.",
+        "ayurvedic_audit": base_cognitive_rules + "\nAnalyze the planetary elements to determine the primary Ayurvedic Dosha (Vata, Pitta, Kapha). Write a 2-paragraph reflection on how this dosha shapes the native's physical vitality. Identify energy drains and physiological friction without medical diagnoses."
     }
 
     eng_data = {}
@@ -639,8 +616,8 @@ def process_background_task(chat_id, session_data):
     @page { 
         size: letter; margin: 2.54cm; 
         @top-center {
-            content: "ॐ   卐";
-            font-family: 'Helvetica', sans-serif;
+            content: "\\0950   \\534D";
+            font-family: 'Arial Unicode MS', 'DejaVu Sans', 'Helvetica', sans-serif;
             font-size: 16pt;
             color: #B68A3A;
             margin-bottom: 20px;
@@ -728,7 +705,6 @@ def webhook():
         
     return jsonify(status="success"), 200
 
-init_db()
-
 if __name__ == '__main__': 
+    init_db()
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
