@@ -142,6 +142,13 @@ def get_session(chat_id):
     conn.close()
     return json.loads(row[0]) if row else None
 
+def clear_session(chat_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM sessions WHERE chat_id=?", (chat_id,))
+    conn.commit()
+    conn.close()
+
 def safe_get(data, keys, default=""):
     if not isinstance(data, dict): return default
     current = data
@@ -149,7 +156,7 @@ def safe_get(data, keys, default=""):
         if isinstance(current, dict) and key in current: current = current[key]
         else: return default
     return current if current else default
-
+    
 # ==========================================
 # NATIVE PYTHON HTML CONSTRUCTORS (The Math Layer)
 # ==========================================
