@@ -5,12 +5,12 @@ import os
 import requests
 import json
 import time
+import re
 
 def call_groq_agent(system_prompt, user_prompt, models_list):
     groq_key = os.environ.get("GROQ_API_KEY")
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
     
-    # Enforcing strict JSON output at the API level
     payload_base = {
         "messages": [
             {"role": "system", "content": system_prompt}, 
@@ -39,17 +39,16 @@ def call_groq_agent(system_prompt, user_prompt, models_list):
     return '{"error": "Failed"}'
 
 def generate_dialectic_insights(session_data, chat_id, send_message_func):
-    # Using reliable, fast Groq models
-    MASTER_MODELS = ["llama3-70b-8192", "mixtral-8x7b-32768", "gemma2-9b-it"]
+    # Using strictly LLaMA 3 for flawless JSON adherence
+    MASTER_MODELS = ["llama3-70b-8192", "llama3-8b-8192"]
     
     base_cognitive_rules = """You are an Elite Executive Astrological Advisor.
     [DIALECTIC LAWS]
-    1. OBJECTIVITY: Frame negative traits as 'Strategic Vulnerabilities' to be managed. Do not be overly fatalistic or apocalyptic.
-    2. THE BRIDGE: Incorporate the psychological rationale for the provided physical remedies into your advice.
-    3. FORMATTING: You MUST output a valid, raw JSON object. The text values inside the JSON must use HTML bullet points (<ul><li>) and bold tags (<b>) for scannability. DO NOT wrap the output in markdown blocks like ```json."""
+    1. OBJECTIVITY: Frame negative traits as 'Strategic Vulnerabilities' to be managed. Do not be overly fatalistic.
+    2. THE PIVOT: Provide purely behavioral and psychological strategic advice in the 'executive_pivot'. DO NOT list physical rituals or remedies (like copper, silver, etc.).
+    3. FORMATTING: You MUST output a valid, raw JSON object. The text values inside the JSON must use HTML bullet points (<ul><li>) and bold tags (<b>) for scannability."""
 
-    remedies_text = " | ".join(session_data.get('remedies', []))
-    base_user_msg = f"Ascendant: {session_data['asc_sign']}\nData: {session_data['logic_breakdown']}\nPRESCRIBED REMEDIES TO EXPLAIN: {remedies_text}"
+    base_user_msg = f"Ascendant: {session_data['asc_sign']}\nData: {session_data['logic_breakdown']}"
 
     swarm_chapters = {
         "psychology": base_cognitive_rules + "\nAnalyze the native's psychological operating system. Output JSON with EXACTLY these keys: 'asset', 'vulnerability', 'executive_pivot'.",
@@ -64,22 +63,19 @@ def generate_dialectic_insights(session_data, chat_id, send_message_func):
         send_message_func(chat_id, f"🧠 Synthesizing: {chapter_key.replace('_', ' ').title()}...")
         raw_res = call_groq_agent(system_prompt, base_user_msg, MASTER_MODELS).strip()
         
-        # AGGRESSIVE MARKDOWN STRIPPING: Prevents the HTML parser from crashing
-        if raw_res.startswith("```json"): raw_res = raw_res[7:]
-        elif raw_res.startswith("```"): raw_res = raw_res[3:]
-        if raw_res.endswith("```"): raw_res = raw_res[:-3]
-        raw_res = raw_res.strip()
+        # BULLETPROOF REGEX EXTRACTION: Guarantees no markdown poisoning
+        match = re.search(r'\{.*\}', raw_res, re.DOTALL)
+        clean_json = match.group(0) if match else "{}"
         
         try:
-            eng_data[chapter_key] = json.loads(raw_res)
+            eng_data[chapter_key] = json.loads(clean_json)
         except json.JSONDecodeError:
-            # Safe Fallback to prevent PDF compilation failure
             error_html = "<ul><li><b>Data parsing adjustment active. The engine encountered a formatting delay.</b></li></ul>"
             eng_data[chapter_key] = {
                 "asset": error_html, "vulnerability": error_html, "executive_pivot": error_html,
                 "strategic_windows": error_html, "structural_threats": error_html, "executive_summary": error_html
             }
             
-        time.sleep(3)
+        time.sleep(2)
         
     return eng_data
