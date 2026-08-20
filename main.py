@@ -1,5 +1,5 @@
 # ==========================================
-# THE CELESTIAL STRATEGY DOSSIER (EXPANDED LAL KITAB & SYNOPTIC BUILD)
+# THE CELESTIAL STRATEGY DOSSIER (HOLISTIC VEDIC EXPANSION)
 # ==========================================
 import os
 import requests
@@ -43,80 +43,61 @@ BAV_TABLES = {
 }
 
 # ==========================================
-# EXHAUSTIVE LAL KITAB DATABASE (120+ Conditions)
+# REMEDIATION PROTOCOLS (Vedic & Lal Kitab)
 # ==========================================
+VEDIC_MANTRAS = {
+    "Sun / Surya": "Om Hraam Hreem Hroum Sah Suryaya Namah",
+    "Moon / Chandra": "Om Shraam Shreem Shroum Sah Chandraya Namah",
+    "Mars / Mangal": "Om Kraam Kreem Kroum Sah Bhaumaya Namah",
+    "Mercury / Budh": "Om Braam Breem Broum Sah Budhaya Namah",
+    "Jupiter / Guru": "Om Graam Greem Groum Sah Gurve Namah",
+    "Venus / Shukra": "Om Draam Dreem Droum Sah Shukraya Namah",
+    "Saturn / Shani": "Om Praam Preem Proum Sah Shanaishcharaya Namah",
+    "Rahu / Rahu": "Om Bhraam Bhreem Bhroum Sah Rahave Namah",
+    "Ketu / Ketu": "Om Sraam Sreem Sroum Sah Ketave Namah"
+}
+
+VEDIC_UPAYAS = {
+    "Sun / Surya": "Offer Arghya (water with red flowers or roli) to the rising sun. Recite Aditya Hridaya Stotram.",
+    "Moon / Chandra": "Meditate on Shiva. Respect and serve mother figures. Offer milk/water to a Shivling.",
+    "Mars / Mangal": "Recite Hanuman Chalisa daily. Donate blood if healthy, or donate red lentils on Tuesdays.",
+    "Mercury / Budh": "Recite Vishnu Sahasranama. Feed green grass to cows on Wednesdays.",
+    "Jupiter / Guru": "Respect teachers and gurus. Donate yellow clothes or chana dal. Chant Guru Stotram.",
+    "Venus / Shukra": "Maintain respectful relationships with women. Keep your surroundings fragrant and clean. Chant Sri Suktam.",
+    "Saturn / Shani": "Light a mustard oil lamp under a Peepal tree on Saturday evenings. Serve the underprivileged.",
+    "Rahu / Rahu": "Feed birds and street dogs. Donate black blankets to the homeless or ascetics.",
+    "Ketu / Ketu": "Donate to spiritual ascetic orders. Feed multi-colored dogs. Meditate on Ganesha."
+}
+
 LAL_KITAB_DICT = {
-    # DIGNITY & COMBUSTION
     "Saturn / Shani_Combust": "Donate black sesame oil on Saturday. Keep a square piece of silver in wallet.",
     "Mars / Mangal_Combust": "Avoid keeping iron tools under the bed to prevent domestic frustration.",
     "Jupiter / Guru_Combust": "Apply a tilak of saffron or turmeric on the forehead daily to ground intellect.",
     "Venus / Shukra_Combust": "Donate pure ghee to a temple on Friday. Feed wheat dough to a cow.",
-    "Mercury / Budh_Combust": "Clean teeth with fitkari (alum) daily to protect nervous system.",
-    "Sun / Surya_Debilitated": "Offer water to the Sun mixed with a pinch of red sandalwood. Do not consume salt on Sundays.",
-    "Moon / Chandra_Debilitated": "Immerse a square piece of silver in a flowing river on Monday. Drink water only from silver vessels.",
+    "Mercury / Budh_Combust": "Clean teeth with fitkari (alum) daily to protect the nervous system.",
+    "Sun / Surya_Debilitated": "Offer water to the Sun mixed with a pinch of red sandalwood. Avoid salt on Sundays.",
+    "Moon / Chandra_Debilitated": "Immerse a square piece of silver in a flowing river on Monday.",
     "Mars / Mangal_Debilitated": "Float a piece of red copper in a flowing river on Tuesday. Sleep on a white bedsheet.",
-    "Mercury / Budh_Debilitated": "Avoid wearing green clothes. Keep a broad-leaved plant away from your workspace.",
+    "Mercury / Budh_Debilitated": "Avoid wearing green clothes. Keep broad-leaved plants away from workspace.",
     "Jupiter / Guru_Debilitated": "Water a peepal tree on Thursday. Do not accept free yellow clothes.",
     "Venus / Shukra_Debilitated": "Donate white sweets to young girls on Friday. Use a silver glass for drinking water.",
     "Saturn / Shani_Debilitated": "Serve food to visually or physically disabled people. Feed black dogs on Saturday.",
     "Rahu / Rahu_Debilitated": "Keep a square silver piece in your pocket. Do not take electronic goods for free.",
     "Ketu / Ketu_Debilitated": "Feed a two-colored dog. Wear a gold chain or keep a gold piece wrapped in yellow cloth.",
-
-    # SATURN IN HOUSES
     "Saturn / Shani_1": "Do not consume alcohol or non-vegetarian food. Feed black crows daily.",
     "Saturn / Shani_2": "Apply an oil tilak to your forehead. Keep a silver square in your wallet.",
-    "Saturn / Shani_3": "Keep three dogs as pets or feed street dogs. Do not have a dark, unlit entrance.",
     "Saturn / Shani_4": "Do not build a house before age 48. Pour mustard oil on the floor periodically.",
-    "Saturn / Shani_5": "Keep almonds in your home. Feed black crows to protect progeny and investments.",
     "Saturn / Shani_6": "Float a black mustard oil-filled bottle in a river on Saturday.",
-    "Saturn / Shani_7": "Do not build a house before age 48. Keep a flute filled with sugar in a deserted place.",
     "Saturn / Shani_8": "Drop 8 kilograms of raw coal in running water on a Saturday. Avoid walking barefoot.",
-    "Saturn / Shani_9": "Keep a square piece of silver. Avoid arrogance towards mentors.",
-    "Saturn / Shani_10": "Feed black crows daily. Maintain strict punctuality to prevent career stagnation.",
-    "Saturn / Shani_11": "Place a vessel filled with mustard oil in your house. Avoid speculative gambling.",
-    "Saturn / Shani_12": "Do not consume alcohol. Tie twelve almonds in a black cloth and place them in an iron pot.",
-
-    # MARS IN HOUSES
     "Mars / Mangal_1": "Avoid keeping large weapons or rusty iron in the house to prevent unprovoked aggression.",
     "Mars / Mangal_2": "Donate red masoor dal on Tuesday. Avoid engaging in harsh family debates.",
-    "Mars / Mangal_3": "Wear a silver ring. Maintain a good relationship with siblings.",
-    "Mars / Mangal_4": "Keep a square piece of red copper in the house. Ensure the center of the home is clutter-free.",
-    "Mars / Mangal_5": "Keep a pot of water by your bedside. Plant a neem tree.",
     "Mars / Mangal_6": "Donate red masoor dal and batasha on Tuesday. Feed a monkey.",
-    "Mars / Mangal_7": "Build a solid boundary wall around your home. Avoid red colors in the bedroom.",
     "Mars / Mangal_8": "Feed sweet roti to a dog. Wear a silver chain to mitigate sudden traumas.",
-    "Mars / Mangal_9": "Offer milk to a banyan tree. Respect traditional structures.",
-    "Mars / Mangal_10": "Do not keep weapons at the office. Offer sweet milk to a blind person.",
-    "Mars / Mangal_11": "Keep a red handkerchief in your pocket. Do not accept copper items as gifts.",
-    "Mars / Mangal_12": "Float a piece of red copper in flowing water on Tuesday. Avoid taking debt.",
-
-    # RAHU IN HOUSES
     "Rahu / Rahu_1": "Keep a silver square in your pocket. Wear a silver chain.",
     "Rahu / Rahu_2": "Keep a solid silver ball in your pocket or mouth to prevent wealth erosion.",
-    "Rahu / Rahu_3": "Keep ivory items out of the house. Do not store defunct electronics.",
-    "Rahu / Rahu_4": "Do not remodel the kitchen or toilet frequently. Wear silver.",
-    "Rahu / Rahu_5": "Keep a silver elephant statue in the house. Avoid hasty romantic commitments.",
-    "Rahu / Rahu_6": "Float a piece of lead in running water on Saturday. Keep a black dog.",
-    "Rahu / Rahu_7": "Store river water in a dark glass bottle. Do not accept electronic gifts.",
     "Rahu / Rahu_8": "Keep a solid silver square piece in the pocket. Float four coconuts in a river on Saturday.",
-    "Rahu / Rahu_9": "Apply a saffron tilak. Maintain a good relationship with paternal figures.",
-    "Rahu / Rahu_10": "Wear a blue or black cap. Avoid changing professions abruptly.",
-    "Rahu / Rahu_11": "Drink water from a silver glass. Do not consume alcohol.",
-    "Rahu / Rahu_12": "Keep a pouch of fennel (saunf) under the pillow for restful sleep.",
-
-    # KETU IN HOUSES
     "Ketu / Ketu_1": "Feed a two-colored dog. Wear a silver ring on the thumb.",
-    "Ketu / Ketu_2": "Apply saffron tilak. Maintain absolute honesty in financial ledgers.",
-    "Ketu / Ketu_3": "Float rice mixed with milk in a river. Keep a gold coin wrapped in yellow cloth.",
-    "Ketu / Ketu_4": "Do not keep fragmented glass in the house. Feed street dogs daily.",
-    "Ketu / Ketu_5": "Donate a black and white blanket to a temple.",
-    "Ketu / Ketu_6": "Wear a gold ring on the left hand. Drink milk with saffron.",
-    "Ketu / Ketu_7": "Do not make false promises. Keep a piece of iron dipped in water.",
-    "Ketu / Ketu_8": "Donate a black and white blanket. Feed street dogs regularly.",
-    "Ketu / Ketu_9": "Keep a gold brick or coin in the house. Respect elders.",
-    "Ketu / Ketu_10": "Keep a silver pot filled with honey in the house.",
-    "Ketu / Ketu_11": "Keep a black dog. Keep a radish (mooli) near your bed at night and donate it in the morning.",
-    "Ketu / Ketu_12": "Keep a dog as a pet. Do not keep fragmented or broken jewelry."
+    "Ketu / Ketu_3": "Float rice mixed with milk in a river. Keep a gold coin wrapped in yellow cloth."
 }
 
 # ==========================================
@@ -146,8 +127,7 @@ def clear_session(chat_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("DELETE FROM sessions WHERE chat_id=?", (chat_id,))
-    conn.commit()
-    conn.close()
+    conn.commit(); conn.close()
 
 def safe_get(data, keys, default=""):
     if not isinstance(data, dict): return default
@@ -156,19 +136,19 @@ def safe_get(data, keys, default=""):
         if isinstance(current, dict) and key in current: current = current[key]
         else: return default
     return current if current else default
-    
+
 # ==========================================
 # NATIVE PYTHON HTML CONSTRUCTORS (The Math Layer)
 # ==========================================
 def generate_ephemeris_table_html(planet_positions):
-    html = '<table class="data-table"><tr><th>Planet</th><th>Sign</th><th>Degree</th><th>Nakshatra</th><th>Condition</th></tr>'
+    html = '<table class="data-table"><tr><th>Planet / Hindi</th><th>Sign</th><th>Degree</th><th>Nakshatra</th><th>Condition</th></tr>'
     for p_name, data in planet_positions.items():
-        name_clean = p_name.split('/')[0].strip()
         deg = f"{int(data['lon'] % 30)}° {int((data['lon'] % 1) * 60)}'"
         cond = [data['dignity'].split('/')[0].strip()] if data['dignity'] != "Neutral" else []
         if data.get('combust'): cond.append("Combust")
         cond_str = ", ".join(cond) if cond else "Neutral"
-        html += f"<tr><td><strong>{name_clean}</strong></td><td>{data['sign']}</td><td>{deg}</td><td>{data['nak']}</td><td>{cond_str}</td></tr>"
+        # BILINGUAL RETENTION: p_name naturally contains "Sun / Surya"
+        html += f"<tr><td><strong>{p_name}</strong></td><td>{data['sign']}</td><td>{deg}</td><td>{data['nak']}</td><td>{cond_str}</td></tr>"
     html += '</table>'
     return html
 
@@ -220,16 +200,31 @@ def generate_dasha_table_html(moon_lon, birth_dt_iso):
     html += "</table>"
     return html
 
+def generate_mantra_table_html(planet_data, asc_sign):
+    sign_lords = {"Aries": "Mars / Mangal", "Taurus": "Venus / Shukra", "Gemini": "Mercury / Budh", "Cancer": "Moon / Chandra", "Leo": "Sun / Surya", "Virgo": "Mercury / Budh", "Libra": "Venus / Shukra", "Scorpio": "Mars / Mangal", "Sagittarius": "Jupiter / Guru", "Capricorn": "Saturn / Shani", "Aquarius": "Saturn / Shani", "Pisces": "Jupiter / Guru"}
+    asc_lord = sign_lords.get(asc_sign)
+
+    targets = set()
+    if asc_lord: targets.add(asc_lord)
+    for p, d in planet_data.items():
+        if d.get('combust') or d.get('dignity', '').startswith('Debilitated') or 'Rahu' in p or 'Ketu' in p:
+            targets.add(p)
+
+    html = '<table class="data-table"><tr><th>Afflicted / Key Planet</th><th>Vedic Beej Mantra (Chant 108x)</th><th>Traditional Spiritual Upaya</th></tr>'
+    for p in targets:
+        if p in VEDIC_MANTRAS:
+            html += f"<tr><td><strong>{p}</strong></td><td><em>{VEDIC_MANTRAS[p]}</em></td><td>{VEDIC_UPAYAS[p]}</td></tr>"
+    html += "</table>"
+    return html
+
 def generate_remedies_table_html(houses_dict, planet_data):
-    html = '<table class="data-table"><tr><th>Karmic Friction</th><th>Traditional Practice / Protocol</th><th style="width: 50px; text-align:center;">Done</th></tr>'
+    html = '<table class="data-table"><tr><th>Karmic Friction</th><th>Lal Kitab Behavioral Protocol</th><th style="width: 50px; text-align:center;">Done</th></tr>'
     remedies = []
     
-    # Check Combustions and Debilitations
     for p_name, p_data in planet_data.items():
         if p_data.get("combust") and f"{p_name}_Combust" in LAL_KITAB_DICT: remedies.append(f"{p_name} Combust: {LAL_KITAB_DICT[f'{p_name}_Combust']}")
         if p_data.get("dignity", "").startswith("Debilitated") and f"{p_name}_Debilitated" in LAL_KITAB_DICT: remedies.append(f"{p_name} Debilitated: {LAL_KITAB_DICT[f'{p_name}_Debilitated']}")
     
-    # Check House Placements
     for h_num, data in houses_dict.items():
         for p_name in data["occupants"]:
             if f"{p_name}_{h_num}" in LAL_KITAB_DICT: 
@@ -237,7 +232,7 @@ def generate_remedies_table_html(houses_dict, planet_data):
             
     remedies = list(dict.fromkeys(remedies))
     if not remedies:
-        html += '<tr><td colspan="3">No major structural afflictions detected. Maintain general grounding practices.</td></tr>'
+        html += '<tr><td colspan="3">No major structural Lal Kitab afflictions detected. Maintain general grounding practices.</td></tr>'
     else:
         for r in remedies:
             parts = r.split(':')
@@ -317,17 +312,20 @@ def generate_cover_page_svg(native_name="Confidential Dossier", birth_str=""):
         <circle cx="400" cy="565" r="300" fill="none" stroke="#B68A3A" stroke-width="0.5" stroke-dasharray="4,8" opacity="0.4"/>
         <circle cx="400" cy="565" r="200" fill="none" stroke="#B68A3A" stroke-width="0.5" stroke-dasharray="2,4" opacity="0.3"/>
         
-        <text x="400" y="380" font-size="28" fill="#F5F0E6" text-anchor="middle" font-weight="300" letter-spacing="4">THE CELESTIAL STRATEGY</text>
-        <text x="400" y="440" font-size="48" fill="#B68A3A" text-anchor="middle" font-weight="bold" letter-spacing="6">DOSSIER</text>
+        <!-- Sacred Geometry Centerpiece -->
+        <text x="400" y="240" font-size="90" fill="#B68A3A" text-anchor="middle" font-family="sans-serif">ॐ   卐</text>
         
-        <line x1="300" y1="480" x2="500" y2="480" stroke="#B68A3A" stroke-width="1"/>
-        <text x="400" y="520" font-size="12" fill="#71866B" text-anchor="middle" letter-spacing="2" font-family="'Helvetica', sans-serif;">NATAL ARCHITECTURE • LIFE THEMES • TIMING MAP</text>
+        <text x="400" y="420" font-size="28" fill="#F5F0E6" text-anchor="middle" font-weight="300" letter-spacing="4">THE CELESTIAL STRATEGY</text>
+        <text x="400" y="480" font-size="48" fill="#B68A3A" text-anchor="middle" font-weight="bold" letter-spacing="6">DOSSIER</text>
+        
+        <line x1="300" y1="520" x2="500" y2="520" stroke="#B68A3A" stroke-width="1"/>
+        <text x="400" y="560" font-size="12" fill="#71866B" text-anchor="middle" letter-spacing="2" font-family="'Helvetica', sans-serif;">NATAL ARCHITECTURE • LIFE THEMES • TIMING MAP</text>
         
         <text x="400" y="800" font-size="12" fill="#F5F0E6" text-anchor="middle" letter-spacing="1" font-family="'Helvetica', sans-serif;">PREPARED FOR</text>
         <text x="400" y="830" font-size="18" fill="#B68A3A" text-anchor="middle" font-weight="bold" letter-spacing="2">{native_name}</text>
         <text x="400" y="860" font-size="12" fill="#71866B" text-anchor="middle" font-family="'Helvetica', sans-serif;">{birth_str}</text>
         
-        <text x="400" y="1050" font-size="10" fill="#71866B" text-anchor="middle" font-family="'Helvetica', sans-serif;">An interpretive Vedic-astrology and personal-reflection report.</text>
+        <text x="400" y="1050" font-size="10" fill="#71866B" text-anchor="middle" font-family="'Helvetica', sans-serif;">An interpretive Vedic-astrology and holistic strategy report.</text>
     </svg>
     """
 
@@ -401,7 +399,7 @@ def call_groq_agent(system_prompt, user_prompt, models_list):
 
 def process_background_task(chat_id, session_data):
     MASTER_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "groq/compound"]
-    send_message(chat_id, "⏳ Compiling The Celestial Strategy Dossier (Extended Lal Kitab & Synoptic Build)...")
+    send_message(chat_id, "⏳ Compiling The Celestial Strategy Dossier (Holistic Expansion)...")
 
     base_cognitive_rules = """You are an Elite Executive Astrological Advisor writing for a premium editorial magazine.
     [ABSOLUTE LAWS]
@@ -417,7 +415,7 @@ def process_background_task(chat_id, session_data):
         "career_wealth": base_cognitive_rules + "\nWrite a deep 3-paragraph synthesis of the native's career apex, leadership style, and wealth potential.",
         "relational_karma": base_cognitive_rules + "\nWrite a profound 3-paragraph analysis of relationship karma, intimacy constraints, and emotional expression.",
         "forecast": base_cognitive_rules + "\nWrite a 2-paragraph narrative forecast of the underlying themes for the upcoming 24 months based on the timeline.",
-        "wellbeing": base_cognitive_rules + "\nWrite a 2-paragraph holistic reflection on maintaining energy, mental resilience, and physiological balance without medical claims."
+        "ayurvedic_audit": base_cognitive_rules + "\nAnalyze the planetary elements to determine the primary Ayurvedic Dosha (Vata, Pitta, Kapha). Write a 2-paragraph reflection on how this dosha shapes the native's physical vitality and mental energy. Frame as 'traditional lifestyle rhythms', strictly avoiding medical diagnoses."
     }
 
     eng_data = {}
@@ -435,7 +433,8 @@ def process_background_task(chat_id, session_data):
     rasi_svg = generate_rasi_chart_svg(session_data['planet_data'], session_data['asc_sign'])
     ephemeris_html = generate_ephemeris_table_html(session_data['planet_data'])
     dasha_html = generate_dasha_table_html(session_data['planet_data']['Moon / Chandra']['lon'], session_data['dt_ist_iso'])
-    remedy_html = generate_remedies_table_html(session_data['houses'], session_data['planet_data'])
+    mantra_html = generate_mantra_table_html(session_data['planet_data'], session_data['asc_sign'])
+    lal_kitab_html = generate_remedies_table_html(session_data['houses'], session_data['planet_data'])
 
     html_body = f"""
     <div class="cover-page">{cover_svg}</div>
@@ -482,23 +481,45 @@ def process_background_task(chat_id, session_data):
         </div>
 
         <div class="page-break"></div>
-        <h2 class="section-title">06 — Wellbeing & Action Planner</h2>
-        <p style="font-size:9pt; color:#71866B; border:1px solid #B68A3A; padding:10px; background:#F5F0E6;">For personal reflection. Not medical advice.</p>
-        <div class="editorial-content" style="column-count: 1;">
-            {eng_data.get('wellbeing', '')}
+        <h2 class="section-title">06 — Ayurvedic & Vitality Reflection</h2>
+        <p style="font-size:9pt; color:#71866B; border:1px solid #B68A3A; padding:10px; background:#F5F0E6;">For personal reflection and traditional wellness context. It is not medical advice, diagnosis, or treatment.</p>
+        <div class="editorial-content" style="margin-top:20px;">
+            {eng_data.get('ayurvedic_audit', '')}
         </div>
+
+        <div class="page-break"></div>
+        <h2 class="section-title">07 — Holistic Remediation Planner</h2>
         
-        <h3 class="sub-title" style="margin-top: 30px;">Traditional Practices & Protocols</h3>
-        {remedy_html}
+        <h3 class="sub-title">I. Vedic Mantras & Spiritual Upayas</h3>
+        <p style="font-size:9.5pt; margin-bottom:10px;">The following phonetic frequencies and traditional rituals target the Ascendant Lord and uniquely afflicted nodes within your geometry.</p>
+        {mantra_html}
+        
+        <h3 class="sub-title" style="margin-top: 30px;">II. Lal Kitab Behavioral Protocols</h3>
+        {lal_kitab_html}
+        
         <div class="synopsis" style="margin-top:15px;">
-            <strong>Curator's Note:</strong> Lal Kitab principles treat planets as energetic nodes that can be 'grounded' through physical actions. 
-            These are not mystical spells; they are behavioral and environmental protocols designed to mitigate specific structural frictions in your chart.
+            <strong>Curator's Note:</strong> While Mantras operate on phonetic resonance, Lal Kitab principles treat planets as energetic nodes that can be 'grounded' through physical, behavioral actions. These protocols are designed to mitigate specific structural frictions in your chart.
         </div>
     </div>
     """
 
     css = """
-    @page { size: letter; margin: 2.54cm; }
+    @page { 
+        size: letter; margin: 2.54cm; 
+        @top-center {
+            content: "ॐ   卐";
+            font-family: 'Helvetica', sans-serif;
+            font-size: 16pt;
+            color: #B68A3A;
+            margin-bottom: 20px;
+        }
+        @bottom-right { 
+            content: counter(page); 
+            font-family: 'Helvetica', sans-serif;
+            font-size: 9pt;
+            color: #71866B; 
+        }
+    }
     body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 10.5pt; line-height: 1.8; color: #101827; margin: 0; padding: 0; }
     .cover-page { height: 100vh; }
     .page-break { page-break-before: always; }
