@@ -71,7 +71,7 @@ def calculate_vimshottari_timeline(moon_lon, birth_dt_iso):
     while True:
         curr_m_end_jd = curr_m_start_jd + (curr_m_years * 365.25)
         if curr_m_end_jd > now_jd:
-            m_lord = DASHA_LORDS[curr_m_idx][0]
+            m_lord = DASHA_LORDS[curr_m_idx][0].split('/')[0].strip()
             a_idx = curr_m_idx
             a_years = (DASHA_LORDS[a_idx][1] * DASHA_LORDS[curr_m_idx][1]) / 120.0
             if curr_m_idx == lord_idx: a_years *= fraction_remaining
@@ -81,7 +81,7 @@ def calculate_vimshottari_timeline(moon_lon, birth_dt_iso):
             while periods_found < 4:
                 a_end_jd = a_start_jd + (a_years * 365.25)
                 if a_end_jd > now_jd or periods_found > 0:
-                    a_lord = DASHA_LORDS[a_idx][0]
+                    a_lord = DASHA_LORDS[a_idx][0].split('/')[0].strip()
                     sy, sm, sd = swe.revjul(a_start_jd)[:3]
                     ey, em, ed = swe.revjul(a_end_jd)[:3]
                     phase_name = "Current Phase" if periods_found == 0 else f"Phase {periods_found+1}"
