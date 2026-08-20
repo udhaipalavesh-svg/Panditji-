@@ -45,8 +45,8 @@ def call_groq_agent(system_prompt, user_prompt, models_list):
     return json.dumps({"error": "All AI models timed out or failed."})
 
 def generate_dialectic_insights(session_data, chat_id, send_message_func):
-    # UPDATED TO GROQ'S ACTIVE 3.1 & GEMMA MODELS
-    MASTER_MODELS = ["llama-3.1-8b-instant", "llama-3.1-70b-versatile", "gemma2-9b-it"]
+    # UPDATED TO GROQ'S ACTIVE MODELS (Post-August 2026 Purge)
+    MASTER_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.6-27b"]
     
     base_cognitive_rules = """You are an Elite Executive Astrological Advisor.
     [DIALECTIC LAWS]
