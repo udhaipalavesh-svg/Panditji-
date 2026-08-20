@@ -420,8 +420,7 @@ def call_groq_agent(system_prompt, user_prompt, models_list):
     return json.dumps({"error": "All AI models timed out, failed, or hit token ceilings."})
 
 def generate_dialectic_insights(session_data, chat_id, send_message_func):
-    MASTER_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192"]
-    
+    MASTER_MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
     base_cognitive_rules = """You are an Elite Executive Astrological Advisor.
     [DIALECTIC LAWS]
     1. OBJECTIVITY: Frame negative traits as 'Strategic Vulnerabilities' to be managed. Do not be overly fatalistic.
