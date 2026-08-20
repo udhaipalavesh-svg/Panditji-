@@ -14,12 +14,14 @@ def call_groq_agent(system_prompt, user_prompt, models_list):
         
     groq_url = "https://api.groq.com/openai/v1/chat/completions"
     
+    # UNRESTRICTED TOKEN CEILING (Pushing to 8000 max output)
     payload_base = {
         "messages": [
             {"role": "system", "content": system_prompt}, 
             {"role": "user", "content": user_prompt}
         ], 
         "temperature": 0.2,
+        "max_tokens": 8000, 
         "response_format": {"type": "json_object"}
     }
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
@@ -33,11 +35,11 @@ def call_groq_agent(system_prompt, user_prompt, models_list):
                 if res.status_code == 200: 
                     return res.json()['choices'][0]['message']['content']
                 elif res.status_code == 429: 
-                    time.sleep(15) # Wait out the rate limit
+                    time.sleep(15) 
                     continue
                 else:
                     print(f"API Error {res.status_code} for {model_name}: {res.text}", flush=True)
-                    break # Model failed, try the next one in the list
+                    break 
             except Exception as e: 
                 print(f"Request Exception for {model_name}: {e}", flush=True)
                 break
@@ -45,14 +47,16 @@ def call_groq_agent(system_prompt, user_prompt, models_list):
     return json.dumps({"error": "All AI models timed out or failed."})
 
 def generate_dialectic_insights(session_data, chat_id, send_message_func):
-    # UPDATED TO GROQ'S ACTIVE MODELS (Post-August 2026 Purge)
-    MASTER_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.6-27b"]
+    # Using the most stable, high-capacity API endpoints
+    MASTER_MODELS = ["llama-3.1-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192"]
     
+    # DEPTH & COMPLETENESS RULES ADDED
     base_cognitive_rules = """You are an Elite Executive Astrological Advisor.
     [DIALECTIC LAWS]
     1. OBJECTIVITY: Frame negative traits as 'Strategic Vulnerabilities' to be managed. Do not be overly fatalistic.
     2. THE PIVOT: Provide purely behavioral and psychological strategic advice in the 'executive_pivot'. DO NOT list physical rituals or remedies.
-    3. FORMATTING: You MUST output a valid, raw JSON object. The text values inside the JSON must use HTML bullet points (<ul><li>) and bold tags (<b>) for scannability."""
+    3. FORMATTING: You MUST output a valid, raw JSON object. The text values inside the JSON must use HTML bullet points (<ul><li>) and bold tags (<b>) for scannability.
+    4. DEPTH & COMPLETENESS: Do not restrict your length. Analyze all important planetary data provided. Use as many detailed, high-impact bullet points as necessary to deliver a fully comprehensive executive brief without missing vital astrological elements."""
 
     base_user_msg = f"Ascendant: {session_data['asc_sign']}\nData: {session_data['logic_breakdown']}"
 
@@ -70,18 +74,15 @@ def generate_dialectic_insights(session_data, chat_id, send_message_func):
         
         raw_res = call_groq_agent(system_prompt, base_user_msg, MASTER_MODELS).strip()
         
-        # Aggressive JSON extraction
         match = re.search(r'\{.*\}', raw_res, re.DOTALL)
         clean_json = match.group(0) if match else raw_res
         
         try:
             parsed_data = json.loads(clean_json)
             
-            # Check if the API caught an error
             if "error" in parsed_data:
                 raise ValueError(parsed_data["error"])
                 
-            # Verify keys exist
             if chapter_key == "forecast" and "strategic_windows" not in parsed_data:
                 raise ValueError("Keys missing in Forecast.")
             elif chapter_key != "forecast" and "asset" not in parsed_data:
@@ -100,7 +101,6 @@ def generate_dialectic_insights(session_data, chat_id, send_message_func):
             else:
                 eng_data[chapter_key] = {"asset": error_html, "vulnerability": error_html, "executive_pivot": error_html}
                 
-        # Hard sleep to prevent triggering free-tier limits
-        time.sleep(8)
+        time.sleep(5)
         
     return eng_data
