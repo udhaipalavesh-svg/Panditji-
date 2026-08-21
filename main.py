@@ -189,7 +189,12 @@ LAL_KITAB_DICT = {
     "Ketu / Ketu_5": "Donate milk and sugar. Donate a black and white blanket.", "Ketu / Ketu_6": "Wear a gold ring on the left hand. Drink milk with saffron.",
     "Ketu / Ketu_7": "Do not make false promises. Keep a piece of iron dipped in water.", "Ketu / Ketu_8": "Feed street dogs regularly. Donate a black and white blanket at a temple.",
     "Ketu / Ketu_9": "Keep a gold brick or coin in the house. Respect the elders.", "Ketu / Ketu_10": "Keep a silver pot filled with honey in the house.",
-    "Ketu / Ketu_11": "Keep a radish near your bed at night and donate it in the morning.", "Ketu / Ketu_12": "Do not keep broken jewelry. Keep a dog as a pet."
+    "Ketu / Ketu_11": "Keep a radish near your bed at night and donate it in the morning.", "Ketu / Ketu_12": "Do not keep broken jewelry. Keep a dog as a pet.",
+    # Major Dosha Remedies
+    "Mangalik Dosha": "Keep a square piece of silver. Feed sweet roti to crows or street dogs. Avoid accepting free gifts.",
+    "Shani Sade Sati": "Pour milk on a Banyan tree root and apply the wet soil as a tilak. Do not consume alcohol or non-vegetarian food.",
+    "Kemadruma Yoga": "Keep a solid silver square in your wallet. Drink water exclusively from a silver vessel.",
+    "Kaal Sarp Dosha": "Float a silver metallic snake in running river water. Wear a silver ring on the left hand.",
 }
 
 
@@ -378,13 +383,21 @@ def calculate_full_sav(houses_dict):
 
 def calculate_vargas(natal_planets_dict):
     vargas = {}
-    navamsha_start_map = [0, 9, 6, 3] 
     for planet, data in natal_planets_dict.items():
         lon = data.get("lon", 0.0) % 360.0
         sign_idx = int(lon // 30) % 12
         deg_in_sign = lon % 30
-        d9_sign_idx = (navamsha_start_map[sign_idx % 4] + int(deg_in_sign // (30/9))) % 12
-        d10_sign_idx = (sign_idx + (0 if sign_idx % 2 == 0 else 8) + int(deg_in_sign // 3)) % 12
+        
+        # Navamsha (D9) math fix:
+        if sign_idx % 3 == 0:
+            d9_start = sign_idx
+        elif sign_idx % 3 == 1:
+            d9_start = (sign_idx + 8) % 12
+        else:
+            d9_start = (sign_idx + 4) % 12
+            
+        d9_sign_idx = (d9_start + int(deg_in_sign // (30/9))) % 12
+        d10_sign_idx = (d9_start + int(deg_in_sign // 3)) % 12
         vargas[planet] = {"D9": ZODIAC_SIGNS[d9_sign_idx], "D10": ZODIAC_SIGNS[d10_sign_idx]}
     return vargas
 
@@ -394,6 +407,48 @@ def detect_yogas(houses_dict, planets_dict):
     jup_house = next((h for h, d in houses_dict.items() if "Jupiter / Guru" in d["occupants"]), None)
     if moon_house and jup_house and abs(jup_house - moon_house) in [0, 3, 6, 9]:
         yogas.append("Gaja Kesari Yoga (Jupiter in Kendra from Moon): Indicates intellectual capacity, reputation, and leadership.")
+    return yogas
+
+def detect_toxic_conjunctions(houses_dict):
+    """ Detects toxic planetary conjunctions (Curses) based on same-house occupancy. """
+    conjunctions = []
+    for h_num, h_data in houses_dict.items():
+        occ = set(h_data.get("occupants", []))
+        if "Jupiter / Guru" in occ and ("Rahu / Rahu" in occ or "Ketu / Ketu" in occ):
+            conjunctions.append(f"Guru Chandal Yoga: Jupiter conjunct Rahu/Ketu in House {h_num}")
+        if ("Sun / Surya" in occ or "Moon / Chandra" in occ) and ("Rahu / Rahu" in occ or "Ketu / Ketu" in occ):
+            conjunctions.append(f"Grahan Yoga: Sun/Moon conjunct Rahu/Ketu in House {h_num}")
+        if "Moon / Chandra" in occ and "Saturn / Shani" in occ:
+            conjunctions.append(f"Vish Yoga: Moon conjunct Saturn in House {h_num}")
+        if "Mars / Mangal" in occ and ("Rahu / Rahu" in occ or "Ketu / Ketu" in occ):
+            conjunctions.append(f"Angaraka Yoga: Mars conjunct Rahu/Ketu in House {h_num}")
+    return conjunctions
+
+def detect_mahapurusha_yogas(houses_dict, planet_data):
+    """ Detects Pancha Mahapurusha Yogas. Occurs when Mars, Mercury, Jupiter, Venus, or Saturn 
+    are in a Kendra (1,4,7,10) AND in their Own Sign or Exalted. """
+    yogas = []
+    kendras = [1, 4, 7, 10]
+    mahapurusha_map = {
+        "Mars / Mangal": "Ruchaka Yoga",
+        "Mercury / Budh": "Bhadra Yoga",
+        "Jupiter / Guru": "Hamsa Yoga",
+        "Venus / Shukra": "Malavya Yoga",
+        "Saturn / Shani": "Sasha Yoga"
+    }
+
+    for planet, yoga_name in mahapurusha_map.items():
+        p_house = None
+        for h_num, h_data in houses_dict.items():
+            if planet in h_data.get("occupants", []):
+                p_house = h_num
+                break
+
+        if p_house in kendras:
+            dignity = planet_data.get(planet, {}).get("dignity", "")
+            if dignity.startswith("Exalted") or dignity.startswith("Own Sign"):
+                yogas.append(f"{yoga_name}: {planet.split('/')[0].strip()} in {dignity.split('/')[0].strip()} sign in a Kendra (House {p_house})")
+
     return yogas
 
 def calculate_vimshottari_timeline(moon_lon, birth_dt_iso):
@@ -463,10 +518,10 @@ def calculate_transit_timings():
     return "; ".join(timings) if timings else "No major ingress in next 2 years"
 def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
-    dt_ist = datetime(year, month, day, hour, minute)
-    dt_utc = dt_ist - timedelta(hours=5, minutes=30)
+    dt_local = datetime(year, month, day, hour, minute)
+    offset_hours = lon / 15.0  # Local Mean Time (LMT) UTC offset based on longitude
+    dt_utc = dt_local - timedelta(hours=offset_hours)
     jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour + (dt_utc.minute / 60.0))
-    flags = swe.FLG_SWIEPH + swe.FLG_SPEED + swe.FLG_SIDEREAL
     
     planets = {"Sun / Surya": swe.SUN, "Moon / Chandra": swe.MOON, "Mars / Mangal": swe.MARS, "Mercury / Budh": swe.MERCURY, "Jupiter / Guru": swe.JUPITER, "Venus / Shukra": swe.VENUS, "Saturn / Shani": swe.SATURN, "Rahu / Rahu": swe.MEAN_NODE, "Ketu / Ketu": 10}
     positions = {}; rahu_lon = 0.0; sun_lon = 0.0
@@ -525,16 +580,22 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     # 2. Extract Karakas (Soul/Spouse indicators)
     karakas = calculate_karakas(positions)
     
-    # 3. Detect Karmic Doshas
+   # 3. Detect Karmic Doshas & Toxic Curses
     doshas = detect_structural_doshas(houses, positions)
     if check_kaal_sarp(houses): 
         doshas.append("Kaal Sarp Dosha (All planets within Rahu-Ketu axis)")
-
+        
+    toxic_curses = detect_toxic_conjunctions(houses)
+    doshas.extend(toxic_curses)
+    
     vargas = calculate_vargas(positions)
     sav = calculate_full_sav(houses)
     yogas = detect_yogas(houses, positions)
-    
+    mahapurusha = detect_mahapurusha_yogas(houses, positions)
+    yogas.extend(mahapurusha)
+
     # Send the new metrics to Groq LLM
+    
     logic_summary = f"[VARGAS]: {json.dumps(vargas)}\n[SAV]: {json.dumps(sav)}\n[YOGAS]: {json.dumps(yogas)}\n[DOSHAS]: {json.dumps(doshas)}\n[KARAKAS]: {json.dumps(karakas)}\n[TRANSITS]: {calculate_transit_timings()}\n"
     logic_summary += "\n".join([f"- H{h} ({d['sign']}): Occ: {','.join(d['occupants'])}. Asp: {','.join(d['aspected_by'])}." for h, d in houses.items()])
     
@@ -548,6 +609,17 @@ def get_applicable_remedies(houses_dict, planet_data):
     for h_num, data in houses_dict.items():
         for p_name in data["occupants"]:
             if f"{p_name}_{h_num}" in LAL_KITAB_DICT: remedies.append(f"{p_name} in H{h_num}: {LAL_KITAB_DICT[f'{p_name}_{h_num}']}")
+            
+    # --- PHASE 1 WIRING: DOSHAS TO UPAYAS ---
+    doshas = detect_structural_doshas(houses_dict, planet_data)
+    if check_kaal_sarp(houses_dict): doshas.append("Kaal Sarp Dosha")
+        
+    for d in doshas:
+        if "Mangalik" in d and "Mangalik Dosha" in LAL_KITAB_DICT: remedies.append(f"Mangalik Dosha: {LAL_KITAB_DICT['Mangalik Dosha']}")
+        if "Sade Sati" in d and "Shani Sade Sati" in LAL_KITAB_DICT: remedies.append(f"Shani Sade Sati: {LAL_KITAB_DICT['Shani Sade Sati']}")
+        if "Kemadruma" in d and "Kemadruma Yoga" in LAL_KITAB_DICT: remedies.append(f"Kemadruma Yoga: {LAL_KITAB_DICT['Kemadruma Yoga']}")
+        if "Kaal Sarp" in d and "Kaal Sarp Dosha" in LAL_KITAB_DICT: remedies.append(f"Kaal Sarp Dosha: {LAL_KITAB_DICT['Kaal Sarp Dosha']}")
+
     return list(dict.fromkeys(remedies))
 
 # ==========================================
@@ -798,8 +870,22 @@ def build_and_render_pdf(session_data, eng_data, timeline_data, pdf_path):
     eph_rows = ""
     for p_name, data in session_data['planet_data'].items():
         deg = f"{int(data['lon'] % 30)}° {int((data['lon'] % 1) * 60)}'"
-        cond = [data['dignity'].split('/')[0].strip()] if data['dignity'] != "Neutral" else []
+        dignity_str = data['dignity']
+        is_retro = "[Retrograde]" in dignity_str
+        
+        if is_retro:
+            dignity_str = dignity_str.replace(" [Retrograde]", "")
+            
+        if dignity_str == "Neutral":
+            cond = []
+        elif "/" in dignity_str:
+            cond = [dignity_str.split('/')[0].strip()]
+        else:
+            cond = [dignity_str]
+            
+        if is_retro: cond.append("Retrograde")
         if data.get('combust'): cond.append("Combust")
+        
         eph_rows += f"<tr><td><strong>{p_name}</strong></td><td>{data['sign']}</td><td>{deg}</td><td>{data['nak']}</td><td>{','.join(cond) or 'Neutral'}</td></tr>"
     
     dasha_rows = "".join([f"<tr><td><strong>{r[0]}</strong></td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td></tr>" for r in timeline_data])
