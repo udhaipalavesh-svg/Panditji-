@@ -498,29 +498,66 @@ def calculate_vimshottari_timeline(moon_lon, birth_dt_iso):
         curr_m_idx = (curr_m_idx + 1) % 9
         curr_m_years = DASHA_LORDS[curr_m_idx][1]
     return timeline
-
 def calculate_transit_timings():
     now_dt = datetime.now()
     swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     dt_utc = now_dt - timedelta(hours=5, minutes=30)
     jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour + dt_utc.minute/60.0)
-    flags = swe.FLG_SWIEPH + swe.FLG_SPEED + swe.FLG_SIDEREAL
+    flags = swe.FLG_SWIEPH | swe.FLG_SPEED | swe.FLG_SIDEREAL
     
     planets_to_track = {"Saturn / Shani": swe.SATURN, "Jupiter / Guru": swe.JUPITER, "Rahu / Rahu": swe.MEAN_NODE}
     timings = []
     for name, p_id in planets_to_track.items():
         calc = swe.calc_ut(jdut, p_id, flags)
-        curr_sign = int((calc[0][0] if isinstance(calc[0], tuple) else calc[0]) / 30) % 12
+        curr_sign = int((calc[0][0] if isinstance(calc, tuple) and isinstance(calc[0], tuple) else calc[0]) / 30) % 12
         scan_jd = jdut
         for _ in range(730):
             scan_jd += 1.0
             calc_scan = swe.calc_ut(scan_jd, p_id, flags)
-            scan_sign = int((calc_scan[0][0] if isinstance(calc_scan[0], tuple) else calc_scan[0]) / 30) % 12
+            scan_sign = int((calc_scan[0][0] if isinstance(calc_scan, tuple) and isinstance(calc_scan[0], tuple) else calc_scan[0]) / 30) % 12
             if scan_sign != curr_sign:
                 ingress_date = swe.revjul(scan_jd)
-                timings.append(f"{name} enters {ZODIAC_SIGNS[scan_sign]} on {ingress_date[1]:02d}/{ingress_date[0]}")
-                break
+                timings.append(f"{name} enters {ZODIAC_SIGNS[scan_sign]} on {int(ingress_date[1]):02d}/{int(ingress_date[0])}")
+                # Critical Fix: Update curr_sign to track subsequent retrograde/direct ingresses
+                curr_sign = scan_sign
+                
     return "; ".join(timings) if timings else "No major ingress in next 2 years"
+def detect_graha_yuddha(planet_data):
+    """Detects Planetary War (Graha Yuddha) within 1 degree of absolute longitude."""
+    wars = []
+    # Only physical planets participate in war (exclude Luminaries and Nodes traditionally, but we check standard 5)
+    fighters = ["Mars / Mangal", "Mercury / Budh", "Jupiter / Guru", "Venus / Shukra", "Saturn / Shani"]
+    
+    for i in range(len(fighters)):
+        for j in range(i + 1, len(fighters)):
+            p1, p2 = fighters[i], fighters[j]
+            if p1 in planet_data and p2 in planet_data:
+                lon1 = planet_data[p1]["lon"]
+                lon2 = planet_data[p2]["lon"]
+                
+                # True circular distance
+                diff = abs(lon1 - lon2)
+                dist = min(diff, 360.0 - diff)
+                
+                if dist <= 1.0:
+                    wars.append(f"Graha Yuddha (Planetary War): {p1.split('/')[0].strip()} and {p2.split('/')[0].strip()} are locked in exact combat within 1 degree.")
+    return wars
+
+def calculate_panchanga(jdut, sun_lon, moon_lon):
+    """Calculates strict Vedic Tithi and Vaar (Weekday)."""
+    tithi_num = int(((moon_lon - sun_lon) % 360.0) / 12.0) + 1
+    vaar_idx = int((jdut + 1.5) % 7)
+    weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    return {"Tithi": tithi_num, "Vaar": weekdays[vaar_idx]}
+
+def calculate_kakshya(lon):
+    """Calculates the True Ashtakavarga sub-division (Kakshya) Lord."""
+    deg = lon % 30.0
+    index = int(deg // 3.75)
+    if index > 7: index = 7
+    kakshya_lords = ["Saturn / Shani", "Jupiter / Guru", "Mars / Mangal", "Sun / Surya", "Venus / Shukra", "Mercury / Budh", "Moon / Chandra", "Ascendant"]
+    return kakshya_lords[index]
+
 def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     dt_local = datetime(year, month, day, hour, minute)
@@ -590,15 +627,23 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
             
     # 2. Extract Karakas (Soul/Spouse indicators)
     karakas = calculate_karakas(positions)
-    
-   # 3. Detect Karmic Doshas & Toxic Curses
+
+    # 3. Detect Karmic Doshas, Toxic Curses & Planetary Wars
     doshas = detect_structural_doshas(houses, positions)
-    if check_kaal_sarp(houses): 
+    if check_kaal_sarp(houses):
         doshas.append("Kaal Sarp Dosha (All planets within Rahu-Ketu axis)")
-        
+    
     toxic_curses = detect_toxic_conjunctions(houses)
     doshas.extend(toxic_curses)
     
+    # INJECT SPRINT 7: Graha Yuddha
+    graha_yuddhas = detect_graha_yuddha(positions)
+    doshas.extend(graha_yuddhas)
+
+    # INJECT SPRINT 7: Panchanga Data (To stop Ayurvedic Hallucinations)
+    moon_lon = positions["Moon / Chandra"]["lon"]
+    panchanga_data = calculate_panchanga(jdut, sun_lon, moon_lon)
+
     vargas = calculate_vargas(positions)
     sav = calculate_full_sav(houses)
     yogas = detect_yogas(houses, positions)
@@ -606,12 +651,18 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     yogas.extend(mahapurusha)
 
     # Send the new metrics to Groq LLM
-    
-    logic_summary = f"[VARGAS]: {json.dumps(vargas)}\n[SAV]: {json.dumps(sav)}\n[YOGAS]: {json.dumps(yogas)}\n[DOSHAS]: {json.dumps(doshas)}\n[KARAKAS]: {json.dumps(karakas)}\n[TRANSITS]: {calculate_transit_timings()}\n"
-    logic_summary += "\n".join([f"- H{h} ({d['sign']}): Occ: {','.join(d['occupants'])}. Asp: {','.join(d['aspected_by'])}." for h, d in houses.items()])
-    
-    return asc_sign, positions, houses, sav, logic_summary, dt_local.isoformat()
+    logic_summary = (
+        f"[PANCHANGA]: {json.dumps(panchanga_data)}\n"
+        f"[VARGAS]: {json.dumps(vargas)}\n"
+        f"[SAV]: {json.dumps(sav)}\n"
+        f"[YOGAS]: {json.dumps(yogas)}\n"
+        f"[DOSHAS]: {json.dumps(doshas)}\n"
+        f"[KARAKAS]: {json.dumps(karakas)}\n"
+        f"[TRANSITS]: {calculate_transit_timings()}\n"
+    )
 
+    return asc_sign, positions, houses, sav, logic_summary, dt_local.isoformat()
+  
 def get_applicable_remedies(houses_dict, planet_data):
     remedies = []
     for p_name, p_data in planet_data.items():
