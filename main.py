@@ -522,7 +522,8 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     offset_hours = lon / 15.0  # Local Mean Time (LMT) UTC offset based on longitude
     dt_utc = dt_local - timedelta(hours=offset_hours)
     jdut = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour + (dt_utc.minute / 60.0))
-    
+
+    flags = swe.FLG_SWIEPH | swe.FLG_SPEED | swe.FLG_SIDEREAL
     planets = {"Sun / Surya": swe.SUN, "Moon / Chandra": swe.MOON, "Mars / Mangal": swe.MARS, "Mercury / Budh": swe.MERCURY, "Jupiter / Guru": swe.JUPITER, "Venus / Shukra": swe.VENUS, "Saturn / Shani": swe.SATURN, "Rahu / Rahu": swe.MEAN_NODE, "Ketu / Ketu": 10}
     positions = {}; rahu_lon = 0.0; sun_lon = 0.0
     
@@ -547,12 +548,17 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
         dig = get_planet_dignity(name, sign_name)
         if is_retrograde:
             dig += " [Retrograde]"
-            
+
+        # Calculate true circular angular difference (0 to 180 degrees)
+        diff = abs(lon_val - sun_lon)
+        angular_dist = min(diff, 360.0 - diff)
+        
         positions[name] = {
             "sign": sign_name, "hindi_sign": HINDI_SIGNS[sign_name], "lon": lon_val % 360.0, 
             "nak": nak_name, "dignity": dig,
-            "combust": (abs(lon_val - sun_lon) < COMBUSTION_ORB.get(name, 0)) if name in COMBUSTION_ORB else False
+            "combust": (angular_dist < COMBUSTION_ORB.get(name, 0)) if name in COMBUSTION_ORB else False
         }
+        
         
     try: _, ascmc = swe.houses_ex(jdut, lat, lon, b'W', flags); asc_lon = ascmc[0] % 360.0
     except: asc_lon = 0.0
@@ -599,7 +605,7 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     logic_summary = f"[VARGAS]: {json.dumps(vargas)}\n[SAV]: {json.dumps(sav)}\n[YOGAS]: {json.dumps(yogas)}\n[DOSHAS]: {json.dumps(doshas)}\n[KARAKAS]: {json.dumps(karakas)}\n[TRANSITS]: {calculate_transit_timings()}\n"
     logic_summary += "\n".join([f"- H{h} ({d['sign']}): Occ: {','.join(d['occupants'])}. Asp: {','.join(d['aspected_by'])}." for h, d in houses.items()])
     
-    return asc_sign, positions, houses, sav, logic_summary, dt_ist.isoformat()
+    return asc_sign, positions, houses, sav, logic_summary, dt_local.isoformat()
 
 def get_applicable_remedies(houses_dict, planet_data):
     remedies = []
