@@ -192,13 +192,160 @@ LAL_KITAB_DICT = {
     "Ketu / Ketu_11": "Keep a radish near your bed at night and donate it in the morning.", "Ketu / Ketu_12": "Do not keep broken jewelry. Keep a dog as a pet."
 }
 
-# ==========================================
-# PART 2: PHYSICS ENGINE (Math & Swisseph Logic)
-# (I will provide this block after Part 1)
-# ==========================================
-# ==========================================
-# PART 2: PHYSICS ENGINE (Math & Swisseph Logic)
-# ==========================================
+
+# Standard Sign Rulership Map for Dispositor logic
+SIGN_RULERS = {
+    "Aries": "Mars / Mangal", "Taurus": "Venus / Shukra", "Gemini": "Mercury / Budh",
+    "Cancer": "Moon / Chandra", "Leo": "Sun / Surya", "Virgo": "Mercury / Budh",
+    "Libra": "Venus / Shukra", "Scorpio": "Mars / Mangal", "Sagittarius": "Jupiter / Guru",
+    "Capricorn": "Saturn / Shani", "Aquarius": "Saturn / Shani", "Pisces": "Jupiter / Guru"
+}
+
+def check_retrograde(jdut, p_id):
+    """ Extracts longitudinal speed from Swiss Ephemeris to determine retrograde status. """
+    flags = swe.FLG_SWIEPH | swe.FLG_SPEED | swe.FLG_SIDEREAL
+    try:
+        calc = swe.calc_ut(jdut, p_id, flags)
+        if isinstance(calc, tuple) and len(calc) > 0:
+            if isinstance(calc[0], tuple):
+                lon_speed = calc[0][3]
+            else:
+                lon_speed = calc[3]  
+            return lon_speed < 0.0
+        return False
+    except Exception as e:
+        print(f"Retrograde check failed for {p_id}: {e}")
+        return False
+
+def get_dispositor(planet, sign):
+    """ Returns the ruler of the sign a planet is placed in. """
+    return SIGN_RULERS.get(sign, "Unknown")
+
+def calculate_karakas(positions_dict):
+    """ Calculates Jaimini Atmakaraka (highest degree) and Darakaraka (lowest degree). """
+    physical_planets = {
+        p: data for p, data in positions_dict.items() 
+        if "Rahu" not in p and "Ketu" not in p
+    }
+    if not physical_planets:
+        return {"Atmakaraka": None, "Darakaraka": None}
+    
+    sorted_planets = sorted(
+        physical_planets.items(), 
+        key=lambda item: item[1].get("lon", 0.0) % 30.0, 
+        reverse=True
+    )
+    return {
+        "Atmakaraka": sorted_planets[0][0],
+        "Darakaraka": sorted_planets[-1][0]
+    }
+
+def detect_structural_doshas(houses_dict, planet_data):
+    """ Detects Major Karmic Afflictions (Doshas) based on house geometry. """
+    doshas = []
+    
+    # Set of physical planets to check for Kemadruma (ignoring Rahu/Ketu)
+    physical_planets_set = {
+        "Sun / Surya", "Mars / Mangal", "Mercury / Budh", 
+        "Jupiter / Guru", "Venus / Shukra", "Saturn / Shani"
+    }
+
+    # 1. Mangalik Dosha: Mars in 1, 4, 7, 8, or 12
+    mangalik_houses = [1, 4, 7, 8, 12]
+    for h in mangalik_houses:
+        if "Mars / Mangal" in houses_dict.get(h, {}).get("occupants", []):
+            doshas.append(f"Mangalik Dosha: Mars in House {h}")
+            break # Flag once is sufficient for the report
+
+    # Find Moon's house for Sade Sati and Kemadruma
+    moon_house = None
+    for h, data in houses_dict.items():
+        if "Moon / Chandra" in data.get("occupants", []):
+            moon_house = h
+            break
+
+    if moon_house:
+        # Safe wrap-around for 12-to-1
+        house_before = 12 if moon_house == 1 else moon_house - 1
+        house_after = 1 if moon_house == 12 else moon_house + 1
+        
+        # 2. Shani Sade Sati: Saturn in same house, immediately before, or immediately after Moon
+        sat_in_moon = "Saturn / Shani" in houses_dict[moon_house].get("occupants", [])
+        sat_before = "Saturn / Shani" in houses_dict[house_before].get("occupants", [])
+        sat_after = "Saturn / Shani" in houses_dict[house_after].get("occupants", [])
+        
+        if sat_in_moon or sat_before or sat_after:
+            if sat_in_moon:
+                phase = "Peak Phase"
+            elif sat_before:
+                phase = "Rising Phase"
+            else:
+                phase = "Setting Phase"
+            doshas.append(f"Shani Sade Sati: Saturn in {phase} relative to natal Moon (House {moon_house})")
+
+        # 3. Kemadruma Yoga: No physical planets in houses immediately before or after Moon
+        adj_before_occupants = [p for p in houses_dict[house_before].get("occupants", []) if p in physical_planets_set]
+        adj_after_occupants = [p for p in houses_dict[house_after].get("occupants", []) if p in physical_planets_set]
+        
+        if not adj_before_occupants and not adj_after_occupants:
+            doshas.append("Kemadruma Yoga: No physical planets adjacent to natal Moon")
+
+    return doshas
+def check_neecha_bhanga(planet_name, p_data, houses_dict):
+    """ Checks if a debilitated planet has cancellation of debilitation (Neecha Bhanga).
+    Rule: The dispositor of the debilitated planet's sign is in a Kendra (1, 4, 7, 10). """
+    if not p_data.get("dignity", "").startswith("Debilitated"):
+        return False
+        
+    sign = p_data.get("sign")
+    if not sign:
+        return False
+        
+    dispositor = get_dispositor(planet_name, sign)
+    if not dispositor or dispositor == "Unknown":
+        return False
+        
+    for h_num, h_data in houses_dict.items():
+        if dispositor in h_data.get("occupants", []):
+            if h_num in [1, 4, 7, 10]:
+                return True
+            break
+    return False
+
+def check_kaal_sarp(houses_dict):
+    """ Checks for Kaal Sarp Dosha geometry.
+    Returns True if all 7 physical planets are on one side of the Rahu-Ketu axis. """
+    physical_planets = {
+        "Sun / Surya", "Moon / Chandra", "Mars / Mangal", 
+        "Mercury / Budh", "Jupiter / Guru", "Venus / Shukra", "Saturn / Shani"
+    }
+    rahu_h = None
+    ketu_h = None
+    physical_houses = set()
+    
+    for h_num, h_data in houses_dict.items():
+        occupants = h_data.get("occupants", [])
+        if "Rahu / Rahu" in occupants:
+            rahu_h = h_num
+        if "Ketu / Ketu" in occupants:
+            ketu_h = h_num
+        # Also collect physical planets in this house
+        for p in occupants:
+            if p in physical_planets:
+                physical_houses.add(h_num)
+                
+    if rahu_h is None or ketu_h is None:
+        return False
+        
+    # Generate the two 7-house arcs (inclusive of Rahu and Ketu houses)
+    arc_rahu_to_ketu = [(rahu_h + i - 1) % 12 + 1 for i in range(7)]
+    arc_ketu_to_rahu = [(ketu_h + i - 1) % 12 + 1 for i in range(7)]
+    
+    # Check if all physical planets fall within one of the arcs
+    is_arc_1 = physical_houses.issubset(set(arc_rahu_to_ketu))
+    is_arc_2 = physical_houses.issubset(set(arc_ketu_to_rahu))
+    
+    return is_arc_1 or is_arc_2
 import swisseph as swe
 
 def get_nakshatra_info(lon):
@@ -314,7 +461,6 @@ def calculate_transit_timings():
                 timings.append(f"{name} enters {ZODIAC_SIGNS[scan_sign]} on {ingress_date[1]:02d}/{ingress_date[0]}")
                 break
     return "; ".join(timings) if timings else "No major ingress in next 2 years"
-
 def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     swe.set_ephe_path(None); swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     dt_ist = datetime(year, month, day, hour, minute)
@@ -326,18 +472,30 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     positions = {}; rahu_lon = 0.0; sun_lon = 0.0
     
     for name, p_id in planets.items():
-        if name == "Ketu / Ketu": lon_val = (rahu_lon + 180.0) % 360.0
+        is_retrograde = False
+        if name == "Ketu / Ketu": 
+            lon_val = (rahu_lon + 180.0) % 360.0
         else:
             calc = swe.calc_ut(jdut, p_id, flags)
             lon_val = calc[0][0] if isinstance(calc, tuple) and isinstance(calc[0], tuple) else (calc[0] if isinstance(calc, tuple) else 0.0)
             if name == "Rahu / Rahu": rahu_lon = lon_val
             if name == "Sun / Surya": sun_lon = lon_val
             
+            # Check for retrograde (ignore Nodes & Luminaries)
+            if name not in ["Sun / Surya", "Moon / Chandra", "Rahu / Rahu"]:
+                is_retrograde = check_retrograde(jdut, p_id)
+            
         sign_idx = int(lon_val / 30) % 12; sign_name = ZODIAC_SIGNS[sign_idx]
         _, nak_name = get_nakshatra_info(lon_val)
+        
+        # Append [R] flag for the PDF Renderer
+        dig = get_planet_dignity(name, sign_name)
+        if is_retrograde:
+            dig += " [Retrograde]"
+            
         positions[name] = {
             "sign": sign_name, "hindi_sign": HINDI_SIGNS[sign_name], "lon": lon_val % 360.0, 
-            "nak": nak_name, "dignity": get_planet_dignity(name, sign_name),
+            "nak": nak_name, "dignity": dig,
             "combust": (abs(lon_val - sun_lon) < COMBUSTION_ORB.get(name, 0)) if name in COMBUSTION_ORB else False
         }
         
@@ -347,20 +505,39 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     
     asc_idx = ZODIAC_SIGNS.index(asc_sign)
     houses = {i+1: {"sign": ZODIAC_SIGNS[(asc_idx + i) % 12], "occupants": [], "aspected_by": []} for i in range(12)}
+    
     for p_name, p_data in positions.items():
         for h_num, h_data in houses.items():
             if h_data["sign"] == p_data["sign"]: h_data["occupants"].append(p_name); break
+            
     for p_name, p_data in positions.items():
         occ_h = next((h for h, d in houses.items() if p_name in d["occupants"]), None)
         if occ_h:
             for ah in get_aspects(p_name, occ_h): houses[ah]["aspected_by"].append(p_name)
             
+    # --- PHASE 1 MATH INJECTIONS ---
+    
+    # 1. Neecha Bhanga Cancellation Check
+    for p_name, p_data in positions.items():
+        if check_neecha_bhanga(p_name, p_data, houses):
+            positions[p_name]["dignity"] = "Neecha Bhanga (Cancelled Debilitation)"
+            
+    # 2. Extract Karakas (Soul/Spouse indicators)
+    karakas = calculate_karakas(positions)
+    
+    # 3. Detect Karmic Doshas
+    doshas = detect_structural_doshas(houses, positions)
+    if check_kaal_sarp(houses): 
+        doshas.append("Kaal Sarp Dosha (All planets within Rahu-Ketu axis)")
+
     vargas = calculate_vargas(positions)
     sav = calculate_full_sav(houses)
     yogas = detect_yogas(houses, positions)
     
-    logic_summary = f"[VARGAS]: {json.dumps(vargas)}\n[SAV]: {json.dumps(sav)}\n[YOGAS]: {json.dumps(yogas)}\n[TRANSITS]: {calculate_transit_timings()}\n"
+    # Send the new metrics to Groq LLM
+    logic_summary = f"[VARGAS]: {json.dumps(vargas)}\n[SAV]: {json.dumps(sav)}\n[YOGAS]: {json.dumps(yogas)}\n[DOSHAS]: {json.dumps(doshas)}\n[KARAKAS]: {json.dumps(karakas)}\n[TRANSITS]: {calculate_transit_timings()}\n"
     logic_summary += "\n".join([f"- H{h} ({d['sign']}): Occ: {','.join(d['occupants'])}. Asp: {','.join(d['aspected_by'])}." for h, d in houses.items()])
+    
     return asc_sign, positions, houses, sav, logic_summary, dt_ist.isoformat()
 
 def get_applicable_remedies(houses_dict, planet_data):
