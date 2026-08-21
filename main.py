@@ -380,7 +380,6 @@ def calculate_bav(planet_name, target_house, houses_dict):
 def calculate_full_sav(houses_dict):
     planets_for_sav = ["Sun / Surya", "Moon / Chandra", "Mars / Mangal", "Mercury / Budh", "Jupiter / Guru", "Venus / Shukra", "Saturn / Shani"]
     return {h: sum(calculate_bav(p, h, houses_dict) for p in planets_for_sav) for h in range(1, 13)}
-
 def calculate_vargas(natal_planets_dict):
     vargas = {}
     for planet, data in natal_planets_dict.items():
@@ -395,9 +394,15 @@ def calculate_vargas(natal_planets_dict):
             d9_start = (sign_idx + 8) % 12
         else:
             d9_start = (sign_idx + 4) % 12
-            
         d9_sign_idx = (d9_start + int(deg_in_sign // (30/9))) % 12
-        d10_sign_idx = (d9_start + int(deg_in_sign // 3)) % 12
+        
+        # Dashamsha (D10) math fix (Parashari):
+        if sign_idx % 2 == 1:
+            d10_start = (sign_idx + 8) % 12
+        else:
+            d10_start = sign_idx
+        d10_sign_idx = (d10_start + int(deg_in_sign // 3)) % 12
+        
         vargas[planet] = {"D9": ZODIAC_SIGNS[d9_sign_idx], "D10": ZODIAC_SIGNS[d10_sign_idx]}
     return vargas
 
@@ -619,12 +624,19 @@ def get_applicable_remedies(houses_dict, planet_data):
     # --- PHASE 1 WIRING: DOSHAS TO UPAYAS ---
     doshas = detect_structural_doshas(houses_dict, planet_data)
     if check_kaal_sarp(houses_dict): doshas.append("Kaal Sarp Dosha")
+    
+    toxic_curses = detect_toxic_conjunctions(houses_dict)
+    doshas.extend(toxic_curses)
         
     for d in doshas:
         if "Mangalik" in d and "Mangalik Dosha" in LAL_KITAB_DICT: remedies.append(f"Mangalik Dosha: {LAL_KITAB_DICT['Mangalik Dosha']}")
         if "Sade Sati" in d and "Shani Sade Sati" in LAL_KITAB_DICT: remedies.append(f"Shani Sade Sati: {LAL_KITAB_DICT['Shani Sade Sati']}")
         if "Kemadruma" in d and "Kemadruma Yoga" in LAL_KITAB_DICT: remedies.append(f"Kemadruma Yoga: {LAL_KITAB_DICT['Kemadruma Yoga']}")
         if "Kaal Sarp" in d and "Kaal Sarp Dosha" in LAL_KITAB_DICT: remedies.append(f"Kaal Sarp Dosha: {LAL_KITAB_DICT['Kaal Sarp Dosha']}")
+        if "Guru Chandal" in d: remedies.append("Guru Chandal Yoga: Donate yellow items to an orphanage. Apply a saffron tilak daily.")
+        if "Grahan" in d: remedies.append("Grahan Yoga: Offer water to the Sun/Moon. Do not take major decisions during eclipses.")
+        if "Vish" in d: remedies.append("Vish Yoga: Drink water from a silver vessel. Meditate on Shiva.")
+        if "Angaraka" in d: remedies.append("Angaraka Yoga: Avoid aggressive arguments. Donate red lentils on Tuesday.")
 
     return list(dict.fromkeys(remedies))
 
