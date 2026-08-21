@@ -380,27 +380,28 @@ def calculate_bav(planet_name, target_house, houses_dict):
 def calculate_full_sav(houses_dict):
     planets_for_sav = ["Sun / Surya", "Moon / Chandra", "Mars / Mangal", "Mercury / Budh", "Jupiter / Guru", "Venus / Shukra", "Saturn / Shani"]
     return {h: sum(calculate_bav(p, h, houses_dict) for p in planets_for_sav) for h in range(1, 13)}
-def calculate_vargas(natal_planets_dict):
+
+def calculate_vargas(natal_planets_dict, asc_lon):
     vargas = {}
-    for planet, data in natal_planets_dict.items():
+    
+    # Inject Ascendant into the calculation matrix
+    temp_dict = natal_planets_dict.copy()
+    temp_dict["Ascendant / Lagna"] = {"lon": asc_lon}
+    
+    for planet, data in temp_dict.items():
         lon = data.get("lon", 0.0) % 360.0
         sign_idx = int(lon // 30) % 12
         deg_in_sign = lon % 30
         
-        # Navamsha (D9) math fix:
-        if sign_idx % 3 == 0:
-            d9_start = sign_idx
-        elif sign_idx % 3 == 1:
-            d9_start = (sign_idx + 8) % 12
-        else:
-            d9_start = (sign_idx + 4) % 12
+        # D9 Math
+        if sign_idx % 3 == 0: d9_start = sign_idx
+        elif sign_idx % 3 == 1: d9_start = (sign_idx + 8) % 12
+        else: d9_start = (sign_idx + 4) % 12
         d9_sign_idx = (d9_start + int(deg_in_sign // (30/9))) % 12
         
-        # Dashamsha (D10) math fix (Parashari):
-        if sign_idx % 2 == 1:
-            d10_start = (sign_idx + 8) % 12
-        else:
-            d10_start = sign_idx
+        # D10 Math (Parashari)
+        if sign_idx % 2 == 1: d10_start = (sign_idx + 8) % 12
+        else: d10_start = sign_idx
         d10_sign_idx = (d10_start + int(deg_in_sign // 3)) % 12
         
         vargas[planet] = {"D9": ZODIAC_SIGNS[d9_sign_idx], "D10": ZODIAC_SIGNS[d10_sign_idx]}
@@ -644,7 +645,7 @@ def calculate_sidereal_chart(day, month, year, hour, minute, lat, lon):
     moon_lon = positions["Moon / Chandra"]["lon"]
     panchanga_data = calculate_panchanga(jdut, sun_lon, moon_lon)
 
-    vargas = calculate_vargas(positions)
+    vargas = calculate_vargas(positions, asc_lon)
     sav = calculate_full_sav(houses)
     yogas = detect_yogas(houses, positions)
     mahapurusha = detect_mahapurusha_yogas(houses, positions)
@@ -795,53 +796,58 @@ def generate_dialectic_insights(session_data, chat_id, send_message_func):
 
 # ==========================================
 # PART 4: UI RENDERER (SVGs & WeasyPrint PDF)
-# (I will provide this block after Part 3)
-# ==========================================
-# ==========================================
-# PART 4: UI RENDERER (SVGs & WeasyPrint PDF)
 # ==========================================
 from weasyprint import HTML
 
 def get_sacred_svg_symbols():
+    """Generates centered Om and Swastika sacred geometry for headers."""
     return """
-    <g transform="translate(320, 200) scale(0.6)">
-        <path d="M42.2,46.1c-2.4,0-5.7-0.9-8.4-3.1c-2.7-2.3-4.6-5.8-4.6-10.4c0-5.2,2.4-9.3,5.6-11.8 c3-2.3,6.8-3.4,9.6-3.4c5.8,0,10.6,2.8,13.2,7.3c0.9,1.6,1.4,3.3,1.4,5c0,3.6-2.1,6.8-5.3,8.5v0.2c4.1,1.1,7.2,4.8,7.2,9.3 c0,2.1-0.6,4.3-1.8,6.2c-2.9,4.8-8.6,8.2-15.5,8.2c-5.2,0-10.2-1.9-13.6-5c-2.8-2.5-4.5-6-4.5-9.6c0-2.2,0.6-4.4,1.8-6.1 c0.9-1.4,2.2-2.5,3.7-3.2l2.3,4.4c-0.9,0.5-1.5,1.2-2,2.1c-0.7,1.1-1.1,2.5-1.1,4c0,2.4,1.2,4.7,3.1,6.4c2.4,2.1,6.1,3.4,9.9,3.4 c5,0,9.3-2.4,11.3-5.8c0.8-1.3,1.2-2.8,1.2-4.3c0-3.1-2-5.9-5.1-7.2l-3.3-1.4v-4.8l2.9-1.1c2.6-1.1,4.4-3.5,4.4-6.3 c0-1.2-0.3-2.4-0.9-3.5c-1.8-3.2-5.4-5.2-9.7-5.2c-2.1,0-4.8,0.8-6.9,2.4c-2.2,1.7-3.8,4.5-3.8,8.2c0,3.1,1.2,5.5,3.1,7.1 c1.8,1.5,4,2.2,5.6,2.2l0.2,4.9H42.2z M80.5,23.3c-2.2-3.1-6-5.2-10.4-5.2c-5,0-9.2,2.4-11.4,5.9l4.2,2.6c1.5-2.2,4.2-3.8,7.4-3.8 c3,0,5.5,1.3,7,3.4L80.5,23.3z M71.6,12.7c-2.1,0-3.8-1.7-3.8-3.8s1.7-3.8,3.8-3.8s3.8,1.7,3.8,3.8S73.7,12.7,71.6,12.7z" fill="#B68A3A"/>
-        <g transform="translate(100, 5)" stroke="#B68A3A" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M 40,10 L 40,50 L 90,50" />
-            <path d="M 10,50 L 60,50 L 60,90" />
-            <path d="M 60,10 L 60,50" />
-            <path d="M 40,50 L 40,90" />
-            <circle cx="25" cy="25" r="2" fill="#B68A3A" stroke="none"/>
-            <circle cx="75" cy="25" r="2" fill="#B68A3A" stroke="none"/>
-            <circle cx="25" cy="75" r="2" fill="#B68A3A" stroke="none"/>
-            <circle cx="75" cy="75" r="2" fill="#B68A3A" stroke="none"/>
+    <svg viewBox="0 0 400 60" width="100%" height="100%">
+        <!-- Left Swastika -->
+        <g transform="translate(140, 15) scale(0.9)" stroke="#B68A3A" stroke-width="2.5" fill="none" stroke-linecap="round">
+            <path d="M15,0 L15,30 M0,15 L30,15 M15,0 L30,0 M15,30 L0,30 M0,0 L0,15 M30,30 L30,15"/>
+            <circle cx="7.5" cy="7.5" r="1.5" fill="#B68A3A" stroke="none"/>
+            <circle cx="22.5" cy="7.5" r="1.5" fill="#B68A3A" stroke="none"/>
+            <circle cx="7.5" cy="22.5" r="1.5" fill="#B68A3A" stroke="none"/>
+            <circle cx="22.5" cy="22.5" r="1.5" fill="#B68A3A" stroke="none"/>
         </g>
-    </g>
+        <!-- Center Om -->
+        <text x="200" y="44" font-size="34" font-family="'Helvetica', sans-serif" fill="#B68A3A" text-anchor="middle">ॐ</text>
+        <!-- Right Swastika -->
+        <g transform="translate(230, 15) scale(0.9)" stroke="#B68A3A" stroke-width="2.5" fill="none" stroke-linecap="round">
+            <path d="M15,0 L15,30 M0,15 L30,15 M15,0 L30,0 M15,30 L0,30 M0,0 L0,15 M30,30 L30,15"/>
+            <circle cx="7.5" cy="7.5" r="1.5" fill="#B68A3A" stroke="none"/>
+            <circle cx="22.5" cy="7.5" r="1.5" fill="#B68A3A" stroke="none"/>
+            <circle cx="7.5" cy="22.5" r="1.5" fill="#B68A3A" stroke="none"/>
+            <circle cx="22.5" cy="22.5" r="1.5" fill="#B68A3A" stroke="none"/>
+        </g>
+    </svg>
     """
 
 def generate_cover_page_svg(native_name="Confidential Dossier", birth_str=""):
     sacred_symbols = get_sacred_svg_symbols()
     return f"""
-    <svg viewBox="0 0 800 1130" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100vh; font-family: 'Georgia', serif;">
+    <svg viewBox="0 0 800 1130" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100vh; font-family: 'Cinzel', serif;">
         <rect width="800" height="1130" fill="#0b111a" />
-        <rect x="40" y="40" width="720" height="1050" fill="none" stroke="#B68A3A" stroke-width="1" />
-        <circle cx="400" cy="565" r="300" fill="none" stroke="#B68A3A" stroke-width="0.5" stroke-dasharray="4,8" opacity="0.4"/>
+        <rect x="40" y="40" width="720" height="1050" fill="none" stroke="#B68A3A" stroke-width="1" opacity="0.5"/>
+        <circle cx="400" cy="565" r="300" fill="none" stroke="#B68A3A" stroke-width="0.3" stroke-dasharray="2,6" opacity="0.3"/>
+        <circle cx="400" cy="565" r="280" fill="none" stroke="#B68A3A" stroke-width="0.2" opacity="0.2"/>
         
-        {sacred_symbols}
+        <g transform="translate(0, -50)">{sacred_symbols}</g>
         
-        <text x="400" y="420" font-size="28" fill="#F5F0E6" text-anchor="middle" font-weight="300" letter-spacing="4">THE CELESTIAL STRATEGY</text>
-        <text x="400" y="480" font-size="48" fill="#B68A3A" text-anchor="middle" font-weight="bold" letter-spacing="6">DOSSIER</text>
+        <text x="400" y="420" font-size="22" fill="#F9F8F6" text-anchor="middle" font-weight="300" letter-spacing="6">THE CELESTIAL STRATEGY</text>
+        <text x="400" y="490" font-size="54" fill="#B68A3A" text-anchor="middle" font-weight="bold" letter-spacing="8">DOSSIER</text>
         
-        <line x1="300" y1="520" x2="500" y2="520" stroke="#B68A3A" stroke-width="1"/>
-        <text x="400" y="560" font-size="12" fill="#71866B" text-anchor="middle" letter-spacing="2" font-family="'Helvetica', sans-serif;">NATAL ARCHITECTURE • LIFE THEMES • TIMING MAP</text>
+        <line x1="320" y1="540" x2="480" y2="540" stroke="#B68A3A" stroke-width="1" opacity="0.8"/>
+        <text x="400" y="580" font-size="10" fill="#71866B" text-anchor="middle" letter-spacing="3" font-family="'Montserrat', sans-serif;">EXECUTIVE ARCHITECTURE • TACTICAL TIMING</text>
         
-        <text x="400" y="800" font-size="12" fill="#F5F0E6" text-anchor="middle" letter-spacing="1" font-family="'Helvetica', sans-serif;">PREPARED FOR</text>
-        <text x="400" y="830" font-size="18" fill="#B68A3A" text-anchor="middle" font-weight="bold" letter-spacing="2">{native_name}</text>
-        <text x="400" y="860" font-size="12" fill="#71866B" text-anchor="middle" font-family="'Helvetica', sans-serif;">{birth_str}</text>
+        <text x="400" y="800" font-size="10" fill="#F9F8F6" text-anchor="middle" letter-spacing="2" font-family="'Montserrat', sans-serif;" opacity="0.6">DOSSIER ID // CLEARANCE: EYES ONLY</text>
+        <text x="400" y="830" font-size="20" fill="#B68A3A" text-anchor="middle" font-weight="bold" letter-spacing="3">{native_name}</text>
+        <text x="400" y="860" font-size="11" fill="#71866B" text-anchor="middle" font-family="'Montserrat', sans-serif;">{birth_str}</text>
     </svg>
     """
 
-def generate_rasi_chart_svg(planet_positions, asc_sign):
+def generate_vedic_chart_svg(chart_title, asc_sign, sign_to_planets_dict):
     width = 400; height = 400
     asc_idx = ZODIAC_SIGNS.index(asc_sign)
     h_coords = {
@@ -849,112 +855,127 @@ def generate_rasi_chart_svg(planet_positions, asc_sign):
         5: (50, 300), 6: (100, 350), 7: (200, 300), 8: (300, 350),
         9: (350, 300), 10: (300, 200), 11: (350, 100), 12: (300, 50)
     }
+    
+    # Map to Unicode symbols for a premium look
+    glyph_map = {
+        "Sun": "☉", "Moon": "☽", "Mars": "♂", "Mercury": "☿",
+        "Jupiter": "♃", "Venus": "♀", "Saturn": "♄", "Rahu": "☊", "Ketu": "☋", "Ascendant": "ASC"
+    }
+    
     house_planets = {i: [] for i in range(1, 13)}
-    for p_name, data in planet_positions.items():
-        p_sign_idx = ZODIAC_SIGNS.index(data["sign"])
-        h_num = ((p_sign_idx - asc_idx + 12) % 12) + 1
-        abbr = p_name.split("/")[0].strip()[:2]
-        house_planets[h_num].append(abbr)
-        
+    for sign_name, planets in sign_to_planets_dict.items():
+        if sign_name in ZODIAC_SIGNS:
+            sign_idx = ZODIAC_SIGNS.index(sign_name)
+            h_num = ((sign_idx - asc_idx + 12) % 12) + 1
+            for p in planets:
+                p_base = p.split("/")[0].strip()
+                house_planets[h_num].append(glyph_map.get(p_base, p_base[:2]))
+                
     svg = [
-        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; font-family: Helvetica, sans-serif;">',
-        '<rect x="0" y="0" width="400" height="400" fill="#ffffff" stroke="#101827" stroke-width="1"/>',
-        '<polygon points="200,0 400,200 200,400 0,200" fill="none" stroke="#101827" stroke-width="1"/>',
-        '<line x1="0" y1="0" x2="400" y2="400" stroke="#101827" stroke-width="0.5"/>',
-        '<line x1="400" y1="0" x2="0" y2="400" stroke="#101827" stroke-width="0.5"/>',
-        '<line x1="0" y1="200" x2="400" y2="200" stroke="#101827" stroke-width="0.5"/>',
-        '<line x1="200" y1="0" x2="200" y2="400" stroke="#101827" stroke-width="0.5"/>'
+        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; font-family: \'Cinzel\', serif;">',
+        '<rect x="0" y="0" width="400" height="400" fill="#F9F8F6" stroke="#B68A3A" stroke-width="1.5"/>',
+        '<polygon points="200,0 400,200 200,400 0,200" fill="none" stroke="#B68A3A" stroke-width="1" opacity="0.7"/>',
+        '<line x1="0" y1="0" x2="400" y2="400" stroke="#B68A3A" stroke-width="0.8" opacity="0.7"/>',
+        '<line x1="400" y1="0" x2="0" y2="400" stroke="#B68A3A" stroke-width="0.8" opacity="0.7"/>',
+        '<line x1="0" y1="200" x2="400" y2="200" stroke="#B68A3A" stroke-width="0.8" opacity="0.7"/>',
+        '<line x1="200" y1="0" x2="200" y2="400" stroke="#B68A3A" stroke-width="0.8" opacity="0.7"/>',
+        f'<text x="200" y="25" font-size="14" font-weight="bold" fill="#0b111a" text-anchor="middle" letter-spacing="1">{chart_title}</text>'
     ]
     for h_num, (x, y) in h_coords.items():
         sign_num = ((asc_idx + h_num - 1) % 12) + 1
-        svg.append(f'<text x="{x}" y="{y-12}" font-size="10" fill="#71866B" text-anchor="middle">{sign_num}</text>')
+        svg.append(f'<text x="{x}" y="{y-18}" font-size="10" fill="#71866B" text-anchor="middle" opacity="0.8">{sign_num}</text>')
         if house_planets[h_num]:
-            svg.append(f'<text x="{x}" y="{y+8}" font-size="11" font-weight="bold" fill="#101827" text-anchor="middle">{", ".join(house_planets[h_num])}</text>')
+            svg.append(f'<text x="{x}" y="{y+8}" font-size="16" font-family="sans-serif" font-weight="bold" fill="#0b111a" text-anchor="middle">{ " ".join(house_planets[h_num]) }</text>')
     svg.append('</svg>')
     return "\n".join(svg)
 
 def generate_sav_heatmap_svg(sav_dict):
-    width = 600; height = 250; margin_top = 30; margin_bottom = 45
+    width = 600; height = 200; margin_top = 20; margin_bottom = 40
     chart_height = height - margin_top - margin_bottom; y_scale = chart_height / 50 
     baseline_y = height - margin_bottom - (28 * y_scale)
     
     svg_parts = [
-        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; font-family: sans-serif;">',
-        '<rect width="100%" height="100%" fill="#ffffff" rx="4" stroke="#e0e0e0" stroke-width="1" />',
-        f'<line x1="30" y1="{baseline_y:.2f}" x2="{width-30}" y2="{baseline_y:.2f}" stroke="#B68A3A" stroke-width="1.5" stroke-dasharray="4,4" />',
-        f'<text x="{width-35}" y="{baseline_y-6:.2f}" font-size="9" fill="#B68A3A" text-anchor="end" font-weight="bold">Karmic Baseline (28)</text>'
+        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; font-family: \'Montserrat\', sans-serif;">',
+        '<rect width="100%" height="100%" fill="#F9F8F6" rx="4" stroke="#e0e0e0" stroke-width="1" />',
+        f'<line x1="20" y1="{baseline_y:.2f}" x2="{width-20}" y2="{baseline_y:.2f}" stroke="#A95D45" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.8"/>',
+        f'<text x="{width-25}" y="{baseline_y-8:.2f}" font-size="10" fill="#A95D45" text-anchor="end" font-weight="bold">Karmic Baseline (28)</text>'
     ]
     for i in range(1, 13):
         score = sav_dict.get(i, 0)
         bar_height = max(0, min(score, 50)) * y_scale
-        x = 35 + ((i - 1) * 44); y = height - margin_bottom - bar_height
-        color = "#71866B" if score >= 28 else "#A95D45"
-        svg_parts.append(f'<rect x="{x:.2f}" y="{y:.2f}" width="34" height="{bar_height:.2f}" fill="{color}" rx="2" ry="2" />')
-        svg_parts.append(f'<text x="{x + 17:.2f}" y="{y - 5:.2f}" font-size="10" font-weight="bold" fill="#101827" text-anchor="middle">{score}</text>')
-        svg_parts.append(f'<text x="{x + 17:.2f}" y="{height - margin_bottom + 18}" font-size="10" fill="#71866B" text-anchor="middle">H{i}</text>')
+        x = 35 + ((i - 1) * 45); y = height - margin_bottom - bar_height
+        color = "#B68A3A" if score >= 28 else "#71866B"
+        svg_parts.append(f'<rect x="{x:.2f}" y="{y:.2f}" width="30" height="{bar_height:.2f}" fill="{color}" rx="3" ry="3" opacity="0.9"/>')
+        svg_parts.append(f'<text x="{x + 15:.2f}" y="{y - 6:.2f}" font-size="11" font-weight="bold" fill="#0b111a" text-anchor="middle">{score}</text>')
+        svg_parts.append(f'<text x="{x + 15:.2f}" y="{height - margin_bottom + 20}" font-size="11" fill="#58708C" text-anchor="middle">H{i}</text>')
     svg_parts.append('</svg>')
     return "\n".join(svg_parts)
 
 def build_infographic_module(data_dict, is_forecast=False):
     if is_forecast:
         return f"""
-        <div class="infographic-module">
-            <div class="info-content">
-                <h4 style="color:#71866B;">STRATEGIC WINDOWS</h4>
-                {data_dict.get('strategic_windows', '')}
-            </div>
-            <div class="info-content">
-                <h4 style="color:#A95D45;">STRUCTURAL THREATS</h4>
-                {data_dict.get('structural_threats', '')}
-            </div>
-            <div class="info-pivot">
-                <h4 style="color:#F5F0E6;">EXECUTIVE SUMMARY</h4>
-                {data_dict.get('executive_summary', '')}
-            </div>
+        <div class="info-content">
+            <h4 class="green-heading">STRATEGIC WINDOWS</h4>
+            {data_dict.get('strategic_windows', '')}
+        </div>
+        <div class="info-content">
+            <h4 class="red-heading">STRUCTURAL THREATS</h4>
+            {data_dict.get('structural_threats', '')}
+        </div>
+        <div class="pivot-quote">
+            <h4 class="gold-heading">EXECUTIVE SUMMARY</h4>
+            {data_dict.get('executive_summary', '')}
         </div>"""
     else:
         return f"""
-        <div class="infographic-module">
-            <div class="info-content">
-                <h4 style="color:#71866B;">STRATEGIC ASSET</h4>
-                {data_dict.get('asset', '')}
-            </div>
-            <div class="info-content">
-                <h4 style="color:#A95D45;">STRUCTURAL VULNERABILITY</h4>
-                {data_dict.get('vulnerability', '')}
-            </div>
-            <div class="info-pivot">
-                <h4 style="color:#F5F0E6;">EXECUTIVE PIVOT</h4>
-                {data_dict.get('executive_pivot', '')}
-            </div>
+        <div class="info-content">
+            <h4 class="green-heading">STRATEGIC ASSETS</h4>
+            {data_dict.get('asset', '')}
+        </div>
+        <div class="info-content">
+            <h4 class="red-heading">STRUCTURAL VULNERABILITIES</h4>
+            {data_dict.get('vulnerability', '')}
+        </div>
+        <div class="pivot-quote">
+            <h4 class="gold-heading">EXECUTIVE PIVOT</h4>
+            {data_dict.get('executive_pivot', '')}
         </div>"""
 
 def build_and_render_pdf(session_data, eng_data, timeline_data, pdf_path):
-    cover_svg = generate_cover_page_svg(native_name="Confidential Profile", birth_str=session_data.get("birth_str", ""))
-    rasi_svg = generate_rasi_chart_svg(session_data['planet_data'], session_data['asc_sign'])
+    cover_svg = generate_cover_page_svg(native_name="CONFIDENTIAL DOSSIER", birth_str=session_data.get("birth_str", "").upper())
+    sacred_header = f'<div class="sacred-header"><svg height="45" width="160" viewBox="0 0 400 60">{get_sacred_svg_symbols()}</svg></div>'
+
+    # 1. Prepare D-1 Data
+    d1_signs = {sign: [] for sign in ZODIAC_SIGNS}
+    for p, d in session_data['planet_data'].items():
+        d1_signs[d["sign"]].append(p)
+    rasi_svg = generate_vedic_chart_svg("D-1 RASI (NATAL)", session_data['asc_sign'], d1_signs)
+
+    # 2. Prepare D-9 Data
+    d9_signs = {sign: [] for sign in ZODIAC_SIGNS}
+    d9_asc = session_data.get('vargas', {}).get("Ascendant / Lagna", {}).get("D9", "Aries")
+    for p, d in session_data.get('vargas', {}).items():
+        if p != "Ascendant / Lagna": d9_signs[d["D9"]].append(p)
+    navamsha_svg = generate_vedic_chart_svg("D-9 NAVAMSHA (RELATIONAL)", d9_asc, d9_signs)
+
+    # 3. Prepare D-10 Data
+    d10_signs = {sign: [] for sign in ZODIAC_SIGNS}
+    d10_asc = session_data.get('vargas', {}).get("Ascendant / Lagna", {}).get("D10", "Aries")
+    for p, d in session_data.get('vargas', {}).items():
+        if p != "Ascendant / Lagna": d10_signs[d["D10"]].append(p)
+    dashamsha_svg = generate_vedic_chart_svg("D-10 DASHAMSHA (CAREER)", d10_asc, d10_signs)
+
     sav_svg = generate_sav_heatmap_svg(session_data['sav'])
-    
-    sacred_header = f'<div class="sacred-header"><svg height="40" width="120" viewBox="0 0 160 40">{get_sacred_svg_symbols()}</svg></div>'
 
     eph_rows = ""
     for p_name, data in session_data['planet_data'].items():
         deg = f"{int(data['lon'] % 30)}° {int((data['lon'] % 1) * 60)}'"
         dignity_str = data['dignity']
         is_retro = "[Retrograde]" in dignity_str
-        
-        if is_retro:
-            dignity_str = dignity_str.replace(" [Retrograde]", "")
-            
-        if dignity_str == "Neutral":
-            cond = []
-        elif "/" in dignity_str:
-            cond = [dignity_str.split('/')[0].strip()]
-        else:
-            cond = [dignity_str]
-            
+        if is_retro: dignity_str = dignity_str.replace(" [Retrograde]", "")
+        cond = [dignity_str.split('/')[0].strip()] if "/" in dignity_str else ([dignity_str] if dignity_str != "Neutral" else [])
         if is_retro: cond.append("Retrograde")
         if data.get('combust'): cond.append("Combust")
-        
         eph_rows += f"<tr><td><strong>{p_name}</strong></td><td>{data['sign']}</td><td>{deg}</td><td>{data['nak']}</td><td>{','.join(cond) or 'Neutral'}</td></tr>"
     
     dasha_rows = "".join([f"<tr><td><strong>{r[0]}</strong></td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td></tr>" for r in timeline_data])
@@ -978,91 +999,116 @@ def build_and_render_pdf(session_data, eng_data, timeline_data, pdf_path):
     
     <div class="content">
         <h2 class="section-title">01 — The Planetary Matrix</h2>
+        <div class="synopsis" style="margin-bottom: 25px;">The D-1 Rasi chart is the fundamental geometric blueprint of the heavens at the moment of birth, dictating physical manifestation and core identity.</div>
+        
         <div class="grid-2col">
-            <div class="chart-box" style="margin-top: 10px;">{rasi_svg}</div>
-            <div class="chart-box" style="margin-top: 10px;">
-                <table class="data-table" style="margin-top:0;"><tr><th>Planet / Graha</th><th>Sign</th><th>Degree</th><th>Nakshatra</th><th>Condition</th></tr>{eph_rows}</table>
+            <div class="chart-box">{rasi_svg}</div>
+            <div class="chart-box">
+                <table class="data-table" style="margin-top:0;"><tr><th>Planet</th><th>Sign</th><th>Degree</th><th>Nakshatra</th><th>Condition</th></tr>{eph_rows}</table>
             </div>
         </div>
-        <div class="synopsis"><strong>Curator's Note:</strong> The D-1 chart (left) is the geometric snapshot of the heavens. Numbers represent Zodiac Signs (1=Aries).</div>
 
         <div class="page-break"></div>
         <h2 class="section-title">02 — Inner Operating System</h2>
+        <div class="synopsis" style="margin-bottom: 25px;">A cognitive teardown of psychological drivers, inherent assets, and subconscious friction points based on Ascendant and Moon geometries.</div>
         {build_infographic_module(eng_data.get('psychology', {}))}
 
         <div class="page-break"></div>
         <h2 class="section-title">03 — Career & Wealth Canvas</h2>
-        {build_infographic_module(eng_data.get('career_wealth', {}))}
+        <div class="synopsis" style="margin-bottom: 25px;">Analysis driven by the D-10 Dashamsha (Career Apex) chart and the Ashtakavarga Karmic Heatmap to identify wealth generation and structural limits.</div>
+        
+        <div class="grid-2col">
+            <div>{build_infographic_module(eng_data.get('career_wealth', {}))}</div>
+            <div class="chart-box">{dashamsha_svg}</div>
+        </div>
         
         <h3 class="sub-title" style="margin-top: 30px;">Sarvashtakavarga (SAV) Karmic Heatmap</h3>
         <div class="sav-box">{sav_svg}</div>
-        <div class="synopsis"><strong>Curator's Note:</strong> Houses scoring above 28 can absorb and manifest positive transit energies. Below 28 indicates structural reinforcement is required.</div>
 
         <div class="page-break"></div>
         <h2 class="section-title">04 — Relational Dynamics</h2>
-        {build_infographic_module(eng_data.get('relational_karma', {}))}
+        <div class="synopsis" style="margin-bottom: 25px;">Insights derived from the D-9 Navamsha chart, mapping the soul's trajectory in partnerships, marriage, and deep emotional contracts.</div>
+        
+        <div class="grid-2col">
+            <div class="chart-box">{navamsha_svg}</div>
+            <div>{build_infographic_module(eng_data.get('relational_karma', {}))}</div>
+        </div>
 
         <div class="page-break"></div>
         <h2 class="section-title">05 — Tactical Forecast</h2>
+        <div class="synopsis" style="margin-bottom: 25px;">A 24-month forward-looking radar plotting Vimshottari planetary periods against slow-moving macro transits to identify strategic action windows.</div>
+        
         <h3 class="sub-title">Vimshottari Timeline</h3>
         <table class="data-table"><tr><th>Phase</th><th>Ruling Lords</th><th>Start Date</th><th>End Date</th></tr>{dasha_rows}</table>
         <div style="margin-top:20px;">{build_infographic_module(eng_data.get('forecast', {}), is_forecast=True)}</div>
 
         <div class="page-break"></div>
         <h2 class="section-title">06 — Ayurvedic & Vitality Reflection</h2>
+        <div class="synopsis" style="margin-bottom: 25px;">An audit of physiological tendencies and energy management requirements to sustain high-level execution without burnout.</div>
         <div style="margin-top:20px;">{build_infographic_module(eng_data.get('ayurvedic_audit', {}))}</div>
 
         <div class="page-break"></div>
         <h2 class="section-title">07 — Holistic Remediation Planner</h2>
+        <div class="synopsis" style="margin-bottom: 25px;">A synthesis of traditional spiritual technologies (Mantras) and behavioral protocols (Lal Kitab) designed to neutralize structural vulnerabilities.</div>
+        
         <h3 class="sub-title">I. Vedic Mantras & Spiritual Upayas</h3>
-        <table class="data-table"><tr><th>Afflicted / Key Planet</th><th>Vedic Beej Mantra (Chant 108x)</th><th>Traditional Spiritual Upaya</th></tr>{mantra_rows}</table>
+        <table class="data-table"><tr><th>Target Energy</th><th>Vedic Beej Mantra (Chant 108x)</th><th>Traditional Protocol</th></tr>{mantra_rows}</table>
         
         <h3 class="sub-title" style="margin-top: 30px;">II. Lal Kitab Behavioral Protocols</h3>
-        <table class="data-table"><tr><th>Karmic Friction</th><th>Lal Kitab Behavioral Protocol</th><th style="width: 50px; text-align:center;">Done</th></tr>{lk_rows}</table>
+        <table class="data-table"><tr><th>Karmic Friction</th><th>Actionable Behavioral Protocol</th><th style="width: 50px; text-align:center;">Done</th></tr>{lk_rows}</table>
     </div>
     """
 
     css = """
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Montserrat:wght@300;400;600&display=swap');
+    
     @page { 
         size: letter; 
-        margin: 2.54cm; 
+        margin: 2cm; 
         margin-top: 3.5cm;
         @top-center { content: element(sacred-header); }
-        @bottom-right { content: counter(page); font-family: 'Helvetica', sans-serif; font-size: 9pt; color: #71866B; }
+        @bottom-right { content: counter(page); font-family: 'Montserrat', sans-serif; font-size: 8pt; color: #B68A3A; font-weight: bold; }
     }
     
-    body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 10pt; line-height: 1.5; color: #101827; margin: 0; padding: 0; }
+    body { font-family: 'Montserrat', sans-serif; font-size: 9.5pt; line-height: 1.7; color: #101827; background-color: #F9F8F6; margin: 0; padding: 0; }
     
-    .cover-page { height: 100vh; margin-top: -3.5cm; }
+    .cover-page { height: 100vh; margin-top: -3.5cm; margin-left: -2cm; margin-right: -2cm; background-color: #0b111a; }
     
-    .sacred-header { position: running(sacred-header); text-align: center; }
+    .sacred-header { position: running(sacred-header); text-align: center; margin-top: 0.5cm; }
     
     .page-break { page-break-before: always; }
     
-    h1, h2.section-title { font-family: 'Georgia', serif; color: #101827; font-size: 18pt; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #B68A3A; padding-bottom: 5px; margin-bottom: 20px; }
-    h3.sub-title { font-family: 'Georgia', serif; color: #B68A3A; font-size: 13pt; text-transform: uppercase; letter-spacing: 1px; margin-top: 15px; margin-bottom: 10px; }
+    h1, h2.section-title { font-family: 'Cinzel', serif; color: #0b111a; font-size: 16pt; font-weight: 700; letter-spacing: 2px; border-bottom: 1px solid #B68A3A; padding-bottom: 8px; margin-bottom: 15px; }
+    h3.sub-title { font-family: 'Cinzel', serif; color: #B68A3A; font-size: 12pt; font-weight: 700; letter-spacing: 1.5px; margin-top: 20px; margin-bottom: 12px; }
     
     .grid-2col { display: block; width: 100%; clear: both; overflow: hidden; margin-bottom: 20px; }
     .grid-2col > div { float: left; width: 48%; box-sizing: border-box; }
     .grid-2col > div:last-child { float: right; }
     
-    .infographic-module { display: block; margin-bottom: 20px; page-break-inside: avoid; }
-    .info-content { display: block; background: #ffffff; padding: 15px; border-left: 3px solid #101827; border-bottom: 1px solid #f0f0f0; margin-bottom: 10px; }
-    .info-pivot { display: block; background: #0b111a; color: #F5F0E6; padding: 15px; border-left: 3px solid #B68A3A; }
-    .info-content h4, .info-pivot h4 { margin: 0 0 10px 0; font-family: 'Helvetica', sans-serif; font-size: 10pt; letter-spacing: 1px; }
-    .info-content ul, .info-pivot ul { margin: 0; padding-left: 20px; }
-    .info-content li, .info-pivot li { margin-bottom: 6px; }
+    .info-content { margin-bottom: 15px; }
+    .info-content h4 { margin: 0 0 8px 0; font-family: 'Montserrat', sans-serif; font-size: 9pt; font-weight: 600; letter-spacing: 1.5px; }
+    .green-heading { color: #71866B; }
+    .red-heading { color: #A95D45; }
+    .gold-heading { color: #B68A3A; }
     
-    .synopsis { font-size: 9pt; color: #58708C; background: #fdfbf7; padding: 10px; border-left: 3px solid #B68A3A; margin-top: 15px; margin-bottom: 20px; font-style: italic; clear: both; }
+    .info-content ul { margin: 0; padding-left: 20px; list-style-type: none; }
+    .info-content li { margin-bottom: 8px; position: relative; }
+    .info-content li::before { content: "◆"; color: #B68A3A; font-size: 8pt; position: absolute; left: -15px; top: 2px; }
     
-    table.data-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 9pt; }
-    table.data-table th { background-color: #0b111a; color: #B68A3A; padding: 8px; text-align: left; text-transform: uppercase; letter-spacing: 1px; }
-    table.data-table td { padding: 8px; border-bottom: 1px solid #e0e0e0; vertical-align: middle; }
-    table.data-table tr:nth-child(even) { background-color: #fdfbf7; }
-    .checkbox { width:12px; height:12px; border:1px solid #101827; margin:auto;}
+    .pivot-quote { background-color: #ffffff; border-left: 4px solid #B68A3A; padding: 15px 20px; margin: 20px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
+    .pivot-quote ul { padding-left: 20px; margin: 0; }
+    .pivot-quote li { margin-bottom: 8px; }
+    
+    .synopsis { font-size: 9pt; color: #58708C; font-style: italic; border-left: 2px solid #58708C; padding-left: 12px; line-height: 1.5; }
+    
+    table.data-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 8.5pt; font-family: 'Montserrat', sans-serif; }
+    table.data-table th { color: #58708C; font-weight: 600; padding: 8px 5px; text-align: left; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #B68A3A; }
+    table.data-table td { padding: 10px 5px; border-bottom: 1px solid #e0e0e0; vertical-align: middle; }
+    
+    .checkbox { width:14px; height:14px; border:1.5px solid #101827; margin:auto; border-radius: 2px; }
     
     .chart-box { text-align: center; }
-    .sav-box { text-align: center; margin-bottom: 10px; }
+    .sav-box { text-align: center; margin-bottom: 15px; }
     """
     try:
         HTML(string=f"<html><head><style>{css}</style></head><body>{html_body}</body></html>").write_pdf(pdf_path)
@@ -1070,7 +1116,7 @@ def build_and_render_pdf(session_data, eng_data, timeline_data, pdf_path):
     except Exception as e:
         print(f"PDF ERROR: {e}")
         return False
-
+        
 # ==========================================
 # PART 5: THE ORCHESTRATOR (Flask, Webhook, Threads)
 # (I will provide this final block after Part 4)
